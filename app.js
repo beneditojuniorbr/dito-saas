@@ -1,98 +1,121 @@
 (function() {
     const app = {
         currentUser: null,
-        currentView: 'login',
+        currentView: 'dashboard',
         products: [],
-        societies: [
-            { id: 1, name: "Elite High Ticket", contribution: 0, members: 0, volume: "0", verified: true },
-            { id: 2, name: "Drop de Ouro", contribution: 0, members: 0, volume: "0", verified: true },
-            { id: 3, name: "Copy Lab Pro", contribution: 0, members: 0, volume: "0", verified: false }
-        ],
-        rankings: [
-            { pos: 1, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 2, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 3, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 4, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 5, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 6, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 7, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 8, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 9, name: "Aguardando...", sales: 0.00, avatar: "" },
-            { pos: 10, name: "Aguardando...", sales: 0.00, avatar: "" }
-        ],
-
+        balance: 12450.00,
         showBalance: true,
 
         init() {
-            this.render('login');
-            lucide.createIcons();
-        },
+            try {
+                console.log("Iniciando Dito App...");
+                
+                // Força o reinício dos posts para zerar conforme solicitado
+                localStorage.removeItem('dito_profile_posts');
+                
+                // Carrega dados
+                this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                const savedUser = localStorage.getItem('current_user_vanilla');
+                
+                if (savedUser) {
+                    this.currentUser = JSON.parse(savedUser);
+                } else {
+                    this.currentUser = {
+                        username: "benedito_pro",
+                        name: "Benedito Santos",
+                        bio: "Infoprodutor de Elite | Especialista em SaaS 🚀",
+                        avatar: ""
+                    };
+                }
 
-        login() {
-            this.currentUser = { name: 'Benedito' };
-            this.navigate('dashboard');
-        },
-
-        logout() {
-            this.currentUser = null;
-            this.navigate('login');
+                // Força exibição do dashboard
+                this.navigate('dashboard');
+                
+                // Ativa ícones
+                if (window.lucide) lucide.createIcons();
+                
+                console.log("App carregado com sucesso!");
+            } catch (err) {
+                console.error("Erro no INIT:", err);
+                document.getElementById('app').innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">Erro ao iniciar: ${err.message}</div>`;
+            }
         },
 
         navigate(view) {
-            this.currentView = view;
-            this.render(view);
-            
-            // Gerenciamento da Nav Global
-            const nav = document.getElementById('global-nav');
-            if (nav) {
-                if (view === 'login') {
-                    nav.style.display = 'none';
-                } else {
-                    nav.style.display = 'flex';
-                    // Marcar item ativo
+            try {
+                this.currentView = view;
+                this.render(view);
+                
+                const nav = document.getElementById('global-nav');
+                if (nav) {
+                    nav.style.display = (view === 'login' || view === 'cadastro') ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
-                        if (item.getAttribute('data-view') === view) {
-                            item.style.color = '#000';
-                        } else {
-                            item.style.color = '#ccc';
-                        }
+                        item.style.color = (item.getAttribute('data-view') === view) ? '#000' : '#ccc';
                     });
                 }
-            }
 
-            if (view === 'dashboard') {
-                this.renderProducts();
-                this.updateBalanceUI();
+                // Chamadas específicas de tela
+                if (view === 'perfil') this.renderProfile();
+                if (view === 'dashboard') this.updateBalanceUI();
+                if (view === 'mercado') this.renderStore();
+                if (view === 'produtos') this.renderMyProducts();
+                if (view === 'sacar') this.updateWithdrawUI();
+                if (view === 'admin-contas') this.renderAdminUsers();
+                if (view === 'editar-perfil') this.initEditProfile();
+                
+                if (window.lucide) lucide.createIcons();
+            } catch (err) {
+                console.error("Erro ao navegar:", err);
             }
-            if (view === 'mercado' || view === 'store') {
-                this.renderStore();
-            }
-            if (view === 'sociedade') {
-                this.renderSociedade();
-            }
-            if (view === 'hall') {
-                this.renderHall();
-            }
-            if (view === 'criar-produto') {
-                this.initCreateProduct();
-            }
-            lucide.createIcons();
         },
 
-        toggleBalance() {
-            this.showBalance = !this.showBalance;
-            this.updateBalanceUI();
+        initEditProfile() {
+            if (!this.currentUser) return;
+            const userInp = document.getElementById('edit-username');
+            const bioInp = document.getElementById('edit-bio');
+            const linkInp = document.getElementById('edit-link');
+            const counter = document.getElementById('bio-counter');
+
+            if (userInp) userInp.value = this.currentUser.username;
+            if (bioInp) {
+                bioInp.value = this.currentUser.bio || '';
+                if (counter) counter.innerText = `${bioInp.value.length} / 300`;
+                bioInp.oninput = () => {
+                    if (counter) counter.innerText = `${bioInp.value.length} / 300`;
+                };
+            }
+            if (linkInp) linkInp.value = this.currentUser.link || '';
         },
 
-        updateBalanceUI() {
-            const el = document.getElementById('balance-value');
-            const icon = document.getElementById('toggle-balance');
-            if (el) {
-                el.innerText = this.showBalance ? 'R$ 0,00' : '••••••••';
+        saveProfile() {
+            const newUsername = document.getElementById('edit-username').value.trim();
+            const newBio = document.getElementById('edit-bio').value.trim();
+            const newLink = document.getElementById('edit-link').value.trim();
+
+            if (!newUsername) {
+                this.showNotification('O nome de usuário não pode ficar vazio.', 'error');
+                return;
             }
-            if (icon) {
-                icon.setAttribute('data-lucide', this.showBalance ? 'eye' : 'eye-off');
-                lucide.createIcons();
+
+            if (this.currentUser) {
+                this.currentUser.username = newUsername;
+                this.currentUser.name = newUsername; // Mantendo o nome sincronizado para simplicidade
+                this.currentUser.bio = newBio;
+                this.currentUser.link = newLink;
+
+                // Salva no localStorage principal de usuários
+                const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                const idx = usuarios.findIndex(u => u.id === this.currentUser.id);
+                if (idx !== -1) {
+                    usuarios[idx] = this.currentUser;
+                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
+                }
+                
+                // Salva na sessão atual
+                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                
+                this.showNotification('Perfil atualizado com sucesso!');
+                this.navigate('perfil');
             }
         },
 
@@ -101,237 +124,153 @@
             const template = document.getElementById(`template-${view}`);
             if (template) {
                 container.innerHTML = template.innerHTML;
-                container.className = 'app-container view-container';
-                // Reiniciar animação removendo e recolocando a classe
-                container.style.animation = 'none';
-                container.offsetHeight; /* trigger reflow */
-                container.style.animation = null;
+            } else {
+                container.innerHTML = `<div style="padding: 20px; color: #999;">Caminho não encontrado: template-${view}</div>`;
             }
         },
 
-        renderProducts() {
-            // Lógica para o dashboard
-        },
+        renderAdminUsers() {
+            const list = document.getElementById('admin-users-list');
+            if (!list) return;
 
-        renderSociedade() {
-            const list = document.getElementById('society-list');
-            if (list) {
-                list.innerHTML = this.societies.map(s => `
-                    <div class="clickable" style="background: #fff; border: 2px solid #f5f5f5; border-radius: 30px; padding: 24px; display: flex; flex-direction: column; gap: 24px; position: relative;">
-                        <!-- Top Section -->
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 44px; height: 44px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                                    <i data-lucide="users" style="width: 22px;"></i>
-                                </div>
-                                <h4 style="font-weight: 900; font-size: 16px;">${s.name} ${s.verified ? '✔️' : ''}</h4>
-                            </div>
-                            <div style="text-align: right;">
-                                <p style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #ccc; margin-bottom: 2px;">Membros</p>
-                                <p style="font-size: 14px; font-weight: 900; color: #000;">${s.members}</p>
-                            </div>
-                        </div>
-
-                        <!-- Bottom Section -->
-                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                            <div>
-                                <p style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #ccc; margin-bottom: 2px;">Contribuição</p>
-                                <p style="font-size: 14px; font-weight: 900;">R$ ${s.contribution}</p>
-                            </div>
-                            <button class="btn btn-primary clickable" style="height: 42px; width: auto; padding: 0 20px; border-radius: 14px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Solicitar</button>
-                        </div>
-                    </div>
-                `).join('');
-                if (window.lucide) {
-                    lucide.createIcons();
-                }
-            }
-        },
-
-        renderHall() {
-            const first = this.rankings[0];
-            const avatarEl = document.getElementById('hall-1st-avatar');
-            const nameEl = document.getElementById('hall-1st-name');
-            const salesEl = document.getElementById('hall-1st-sales');
+            const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
             
-            if (avatarEl) {
-                avatarEl.innerHTML = first.avatar ? `<img src="${first.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : '<div style="width: 100%; height: 100%; background: #f0f0f0; border-radius: 50%;"></div>';
-                avatarEl.style.fontSize = '0';
-            }
-            if (nameEl) nameEl.innerText = first.name;
-            if (salesEl) salesEl.innerText = `R$ ${first.sales.toLocaleString('pt-BR')}`;
-
-            const othersSide = document.getElementById('hall-top-others');
-            if (othersSide) {
-                othersSide.innerHTML = this.rankings.slice(1, 10).map(u => `
-                    <div class="clickable" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #fcfcfc;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 10px; font-weight: 900; color: #ccc; italic; width: 22px;">${u.pos}º</span>
-                            <div style="width: 28px; height: 28px; border-radius: 50%; background: #f0f0f0; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
-                                ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
-                            </div>
-                            <span style="font-size: 11px; font-weight: 800; color: #000;">${u.name.split(' ')[0]}</span>
-                        </div>
-                        <span style="font-size: 10px; font-weight: 900; color: #ccc;">${(u.sales/1000).toFixed(0)}k</span>
-                    </div>
-                `).join('');
-            }
-            if (window.lucide) lucide.createIcons();
-        },
-
-        renderStore() {
-            const list = document.getElementById('store-list');
-            if (list) {
-                list.innerHTML = this.products.map(p => `
-                    <div style="background: #fafafa; border-radius: 20px; padding: 20px; border: 1px solid #eee;">
-                        <h4 style="font-weight: 800; margin-bottom: 4px;">${p.name}</h4>
-                        <p style="font-size: 18px; font-weight: 900;">R$ ${p.price.toFixed(2)}</p>
-                        <button class="btn btn-primary" style="height: 48px; width: 100%; border-radius: 12px; margin-top: 12px; font-size: 14px;">Comprar</button>
-                    </div>
-                `).join('');
-            }
-        },
-
-        togglePassword() {
-            const input = document.getElementById('password');
-            if (input) {
-                input.type = input.type === 'password' ? 'text' : 'password';
-            }
-        },
-
-        showModal(id) {
-            const container = document.getElementById('modal-container');
-            const body = document.getElementById('modal-body');
-            const template = document.getElementById(id);
-            if (template) {
-                body.innerHTML = template.innerHTML;
-                container.classList.add('active');
-                lucide.createIcons();
-            }
-        },
-
-        closeModal(e) {
-            const container = document.getElementById('modal-container');
-            container.classList.remove('active');
-        },
-
-        // Lógica de Criação de Produto
-        productToCreate: { type: null, name: '', description: '', price: 0, date: '' },
-
-        initCreateProduct() {
-            this.productToCreate = { type: null, name: '', description: '', price: 0, date: '' };
-        },
-
-        selectProductType(type, btn) {
-            this.productToCreate.type = type;
-            
-            // UI Feedback
-            const container = document.getElementById('product-type-selection');
-            container.querySelectorAll('button').forEach(b => {
-                b.style.borderColor = 'transparent';
-                b.style.background = '#f5f5f5';
-                b.style.color = '#000';
-                b.style.transform = 'scale(1)';
-            });
-            
-            btn.style.borderColor = '#000';
-            btn.style.background = '#000';
-            btn.style.color = '#fff';
-            btn.style.transform = 'scale(1.1)';
-            
-            // Show Form
-            const form = document.getElementById('create-product-form');
-            form.style.display = 'flex';
-            form.scrollIntoView({ behavior: 'smooth' });
-            
-            // Conditional Fields
-            const ebookUpload = document.getElementById('ebook-upload');
-            const cursoUpload = document.getElementById('curso-upload');
-            const mentoriaLink = document.getElementById('mentoria-link');
-            const mentoriaFields = document.getElementById('mentoria-fields');
-
-            ebookUpload.style.display = type === 'Ebook' ? 'block' : 'none';
-            cursoUpload.style.display = type === 'Curso' ? 'block' : 'none';
-            mentoriaLink.style.display = type === 'Mentoria' ? 'block' : 'none';
-            mentoriaFields.style.display = type === 'Mentoria' ? 'block' : 'none';
-            
-            lucide.createIcons();
-        },
-
-        saveProduct() {
-            const name = document.getElementById('prod-name').value;
-            const desc = document.getElementById('prod-desc').value;
-            const price = document.getElementById('prod-price').value;
-            const date = document.getElementById('prod-date').value;
-
-            if (!this.productToCreate.type || !name || !price) {
-                alert('Por favor, preencha todos os campos obrigatórios.');
+            if (usuarios.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #999; font-weight: 800; padding: 40px;">Nenhum usuário cadastrado além de você.</p>`;
                 return;
             }
 
-            const newProduct = {
-                id: Date.now(),
-                name,
-                price: parseFloat(price),
-                category: this.productToCreate.type,
-                description: desc,
-                date: date,
-                rating: 5
-            };
+            list.innerHTML = usuarios.map(user => `
+                <div style="background: #fafafa; border: 1px solid #eee; border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900;">${user.username[0].toUpperCase()}</div>
+                        <div>
+                            <h4 style="font-weight: 900; font-size: 14px; lowercase">${user.username}</h4>
+                            <p style="font-size: 10px; font-weight: 700; color: #ccc;">ID: ${user.id}</p>
+                        </div>
+                    </div>
+                    <button onclick="app.deleteUser(${user.id})" style="width: 32px; height: 32px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <i data-lucide="trash-2" style="width: 16px;"></i>
+                    </button>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        },
 
-            this.products.unshift(newProduct);
-            alert(`Produto "${name}" criado com sucesso!`);
-            this.closeModal();
-            if (this.currentView === 'mercado' || this.currentView === 'store') {
-                this.renderStore();
+        deleteUser(id) {
+            if (confirm('Tem certeza que deseja EXCLUIR este usuário?')) {
+                let usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                usuarios = usuarios.filter(u => u.id !== id);
+                localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
+                this.renderAdminUsers();
+                this.showNotification('Usuário removido da elite.');
             }
         },
 
-        // Busca com expansão para a ESQUERDA
-        toggleSearch(active, e) {
-            if (e) e.stopPropagation();
-            const container = document.getElementById('search-container');
-            const input = document.getElementById('search-input');
-            const close = document.getElementById('search-close');
-            const logo = document.getElementById('nav-logo');
-            const createBtn = document.getElementById('nav-create-btn');
-            const logout = document.getElementById('nav-logout');
+        renderProfile() {
+            try {
+                const usernameEl = document.getElementById('profile-username-header');
+                const nameEl = document.getElementById('profile-name');
+                const bioEl = document.getElementById('profile-bio');
+                const adminSection = document.getElementById('admin-only-section');
+                
+                if (usernameEl && this.currentUser) usernameEl.innerText = this.currentUser.username;
+                if (nameEl && this.currentUser) nameEl.innerText = this.currentUser.name;
+                if (bioEl && this.currentUser) bioEl.innerText = this.currentUser.bio;
+                
+                // Só mostra o botão de gerenciar se for o Benedito
+                if (adminSection && this.currentUser && (this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'admin')) {
+                    adminSection.style.display = 'block';
+                } else if (adminSection) {
+                    adminSection.style.display = 'none';
+                }
 
-            if (active) {
-                // Expande para a esquerda usando flex-growth do container ou posicionamento
-                container.style.flex = '1';
-                container.style.width = '100%';
-                container.style.padding = '0 16px';
-                container.style.background = '#fff';
-                container.style.border = '1px solid #eee';
-                input.style.width = '100%';
-                input.style.opacity = '1';
-                close.style.display = 'block';
+                this.renderProfileFeed();
+            } catch (e) { console.warn(e); }
+        },
+
+        renderProfileFeed() {
+            try {
+                const grid = document.getElementById('profile-posts-grid');
+                if (!grid) return;
                 
-                // Esconde os outros para dar espaço
-                logo.style.opacity = '0';
-                createBtn.style.opacity = '0';
-                logout.style.display = 'none';
-                
-                input.focus();
-            } else {
-                container.style.flex = 'none';
-                container.style.width = '40px';
-                container.style.padding = '0';
-                container.style.background = '#f5f5f5';
-                container.style.border = 'none';
-                input.style.width = '0';
-                input.style.opacity = '0';
-                close.style.display = 'none';
-                
-                logo.style.opacity = '1';
-                createBtn.style.opacity = '1';
-                logout.style.display = 'flex';
-                input.value = '';
+                const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                const postCountEl = document.getElementById('count-posts');
+                if (postCountEl) postCountEl.innerText = posts.length;
+
+                if (posts.length === 0) {
+                    grid.innerHTML = `<div style="grid-column: span 3; padding: 60px 0; text-align: center; color: #ccc;">
+                        <i data-lucide="camera" style="width: 48px; margin-bottom: 16px;"></i>
+                        <p style="font-weight: 800; font-size: 12px;">Ainda não há fotos.</p>
+                    </div>`;
+                } else {
+                    grid.innerHTML = posts.map(p => `
+                        <div style="aspect-ratio: 1; background: #eee; overflow: hidden; position: relative;">
+                            <img src="${p.url}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { console.warn(e); }
+        },
+
+        handleNewPost(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                    posts.unshift({ id: Date.now(), url: event.target.result });
+                    localStorage.setItem('dito_profile_posts', JSON.stringify(posts));
+                    this.renderProfileFeed();
+                    if (window.lucide) lucide.createIcons();
+                };
+                reader.readAsDataURL(file);
             }
-        }
+        },
+
+        handleAvatarUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const cont = document.getElementById('profile-avatar-container');
+                    if (cont) cont.innerHTML = `<img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    if (this.currentUser) {
+                        this.currentUser.avatar = event.target.result;
+                        localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+
+        updateBalanceUI() {
+            const el = document.getElementById('balance-value');
+            if (el) el.innerText = this.showBalance ? `R$ ${this.balance.toFixed(2)}` : '••••••••';
+        },
+
+        toggleBalance() {
+            this.showBalance = !this.showBalance;
+            this.updateBalanceUI();
+        },
+
+        renderStore() {
+            // Em desenvolvimento
+        },
+
+        renderMyProducts() {
+            // Em desenvolvimento
+        },
+
+        updateWithdrawUI() {
+            // Em desenvolvimento
+        },
+
+        login() { this.navigate('dashboard'); },
+        logout() { this.navigate('login'); }
     };
 
     window.app = app;
+    // Inicia o app imediatamente
     app.init();
 })();
