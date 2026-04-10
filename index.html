@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dito | Micro SaaS Infoprodutos</title>
+    <meta name="description" content="Venda seus cursos, ebooks e micro SaaS na plataforma mais rápida do Brasil.">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Renderização Dinâmica via JS -->
+    </div>
+
+    <!-- Templates Section -->
+    <template id="template-login">
+        <div class="login-screen animate-fade">
+            <div class="login-header">
+                <h1>Dito</h1>
+                <p>O futuro dos seus infoprodutos começa aqui.</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" placeholder="seu@email.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            
+            <button class="btn btn-primary" onclick="app.login()">Entrar</button>
+            <button class="btn btn-secondary">Criar conta gratuita</button>
+            
+            <div class="social-login">
+                <p>ou continue com</p>
+                <button class="btn btn-secondary">
+                    <i data-lucide="chrome"></i> Google
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-dashboard">
+        <div class="dashboard animate-fade">
+            <div class="header-section">
+                <div class="user-info">
+                    <p class="card-label">Olá,</p>
+                    <h2 id="user-name">Benedito 👋</h2>
+                </div>
+                <button class="icon-button" onclick="app.showModal('profile-modal')">
+                    <i data-lucide="user"></i>
+                </button>
+            </div>
+
+            <!-- Horizontal Scroll Cards -->
+            <div class="horizontal-scroll">
+                <div class="card">
+                    <div>
+                        <p class="card-label">Saldo disponível</p>
+                        <div class="card-value">R$ 12.450,00</div>
+                    </div>
+                    <div class="card-footer text-success">
+                        <i data-lucide="trending-up"></i> +12% este mês
+                    </div>
+                </div>
+                <div class="card">
+                    <div>
+                        <p class="card-label">Vendas do mês</p>
+                        <div class="card-value">142</div>
+                    </div>
+                    <div class="card-footer">
+                        <i data-lucide="shopping-bag"></i> Ticket médio: R$ 87,00
+                    </div>
+                </div>
+                <div class="card">
+                    <div>
+                        <p class="card-label">Conversão</p>
+                        <div class="card-value">4.2%</div>
+                    </div>
+                    <div class="card-footer text-success">
+                        <i data-lucide="check-circle"></i> Meta batida!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hall of Fame -->
+            <div class="hall-of-fame-btn" onclick="app.showModal('hall-of-fame')">
+                <span class="trophy-icon">🏆</span>
+                <div>
+                    <h4 style="font-size: 14px; font-weight: 600;">Hall da Fama</h4>
+                    <p style="font-size: 12px; opacity: 0.8;">Veja quem são os maiores vendedores</p>
+                </div>
+                <i data-lucide="chevron-right" style="margin-left: auto;"></i>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <div class="action-item" onclick="app.showModal('create-product')">
+                    <div class="action-circle"><i data-lucide="plus"></i></div>
+                    <span>Criar</span>
+                </div>
+                <div class="action-item">
+                    <div class="action-circle"><i data-lucide="bar-chart-3"></i></div>
+                    <span>Vendas</span>
+                </div>
+                <div class="action-item">
+                    <div class="action-circle"><i data-lucide="wallet"></i></div>
+                    <span>Sacar</span>
+                </div>
+                <div class="action-item">
+                    <div class="action-circle"><i data-lucide="message-circle"></i></div>
+                    <span>WhatsApp</span>
+                </div>
+                <div class="action-item">
+                    <div class="action-circle"><i data-lucide="share-2"></i></div>
+                    <span>Links</span>
+                </div>
+            </div>
+
+            <!-- Products List -->
+            <div class="section-title">
+                Seus Produtos
+                <span style="font-size: 12px; color: var(--accent); cursor: pointer;">Ver todos</span>
+            </div>
+            <div class="product-list" id="dashboard-products">
+                <!-- Injetado via JS -->
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <div class="nav-item active">
+                <i data-lucide="home"></i>
+                <span>Início</span>
+            </div>
+            <div class="nav-item">
+                <i data-lucide="package"></i>
+                <span>Produtos</span>
+            </div>
+            <div class="nav-item">
+                <i data-lucide="globe"></i>
+                <span>Mercado</span>
+            </div>
+            <div class="nav-item">
+                <i data-lucide="settings"></i>
+                <span>Ajustes</span>
+            </div>
+        </nav>
+    </template>
+
+    <!-- Modals -->
+    <div id="modal-container" class="modal-overlay" onclick="app.closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
