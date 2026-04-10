@@ -33,9 +33,28 @@
         navigate(view) {
             this.currentView = view;
             this.render(view);
+            
+            // Gerenciamento da Nav Global
+            const nav = document.getElementById('global-nav');
+            if (nav) {
+                if (view === 'login') {
+                    nav.style.display = 'none';
+                } else {
+                    nav.style.display = 'flex';
+                    // Marcar item ativo
+                    nav.querySelectorAll('.nav-item').forEach(item => {
+                        if (item.getAttribute('data-view') === view) {
+                            item.style.color = '#000';
+                        } else {
+                            item.style.color = '#ccc';
+                        }
+                    });
+                }
+            }
+
             if (view === 'dashboard') {
                 this.renderProducts();
-                this.updateBalanceUI(); // Garante que o estado do olho seja aplicado ao voltar
+                this.updateBalanceUI();
             }
             if (view === 'mercado' || view === 'store') {
                 this.renderStore();
@@ -66,11 +85,16 @@
             }
         },
 
-        render(templateId) {
+        render(view) {
             const container = document.getElementById('app');
-            const template = document.getElementById(`template-${templateId}`);
+            const template = document.getElementById(`template-${view}`);
             if (template) {
                 container.innerHTML = template.innerHTML;
+                container.className = 'app-container view-container';
+                // Reiniciar animação removendo e recolocando a classe
+                container.style.animation = 'none';
+                container.offsetHeight; /* trigger reflow */
+                container.style.animation = null;
             }
         },
 
@@ -82,29 +106,34 @@
             const list = document.getElementById('society-list');
             if (list) {
                 list.innerHTML = this.societies.map(s => `
-                    <div style="background: #fff; border: 2px solid #f5f5f5; border-radius: 30px; padding: 24px; transition: 0.3s;" onmouseover="this.style.borderColor='#000'" onmouseout="this.style.borderColor='#f5f5f5'">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-                            <div style="display: flex; gap: 16px; align-items: center;">
-                                <div style="width: 50px; height: 50px; background: #f5f5f5; border-radius: 15px; display: flex; align-items: center; justify-content: center;">
-                                    <i data-lucide="users" style="width: 24px;"></i>
+                    <div class="clickable" style="background: #fff; border: 2px solid #f5f5f5; border-radius: 30px; padding: 24px; display: flex; flex-direction: column; gap: 24px; position: relative;">
+                        <!-- Top Section -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 44px; height: 44px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="users" style="width: 22px;"></i>
                                 </div>
-                                <div>
-                                    <h4 style="font-weight: 900; font-size: 16px;">${s.name} ${s.verified ? '✔️' : ''}</h4>
-                                    <p style="font-size: 11px; color: #999; font-weight: 700;">${s.members} membros ativos</p>
-                                </div>
+                                <h4 style="font-weight: 900; font-size: 16px;">${s.name} ${s.verified ? '✔️' : ''}</h4>
                             </div>
-                            <div style="background: #000; color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 10px; font-weight: 900;">
-                                VOL: ${s.volume}
+                            <div style="text-align: right;">
+                                <p style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #ccc; margin-bottom: 2px;">Membros</p>
+                                <p style="font-size: 14px; font-weight: 900; color: #000;">${s.members}</p>
                             </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid #f5f5f5;">
-                            <div style="font-size: 12px; font-weight: 800; color: #999;">
-                                Contribuição: <span style="color: #000;">R$ ${s.contribution}</span>
+
+                        <!-- Bottom Section -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div>
+                                <p style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #ccc; margin-bottom: 2px;">Contribuição</p>
+                                <p style="font-size: 14px; font-weight: 900;">R$ ${s.contribution}</p>
                             </div>
-                            <button class="btn btn-primary" style="height: 40px; padding: 0 15px; font-size: 11px; border-radius: 10px;">Solicitar</button>
+                            <button class="btn btn-primary clickable" style="height: 42px; width: auto; padding: 0 20px; border-radius: 14px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Solicitar</button>
                         </div>
                     </div>
                 `).join('');
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
             }
         },
 

@@ -39,8 +39,31 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-.animate-fade { animation: fadeIn 0.4s ease-out forwards; }
-.animate-slide { animation: slideInRight 0.4s ease-out forwards; }
+.animate-fade { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.animate-slide { animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+.clickable {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.clickable:hover {
+    transform: scale(1.05);
+}
+
+.clickable:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+}
+
+.view-container {
+    animation: viewEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes viewEnter {
+    from { opacity: 0; transform: scale(0.98) translateY(5px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
 
 /* Utilities */
 .hidden { display: none !important; }
