@@ -18,6 +18,19 @@ const app = {
         lucide.createIcons();
     },
 
+    togglePassword() {
+        const input = document.getElementById('password');
+        const icon = document.getElementById('toggle-password');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-lucide', 'eye');
+        }
+        lucide.createIcons();
+    },
+
     login() {
         this.user = { name: 'Benedito' };
         this.render('dashboard');
@@ -34,20 +47,32 @@ const app = {
 
     renderProducts() {
         const list = document.getElementById('dashboard-products');
-        if (!list) return;
+        if (list) {
+            list.innerHTML = this.products.map(p => `
+                <div class="product-item animate-slide">
+                    <div class="product-icon">
+                        <i data-lucide="${this.getIconForType(p.type)}"></i>
+                    </div>
+                    <div class="product-info">
+                        <div class="product-name">${p.name}</div>
+                        <div class="product-type">${p.type}</div>
+                    </div>
+                    <div class="product-price">R$ ${p.price.toFixed(2)}</div>
+                </div>
+            `).join('');
+        }
 
-        list.innerHTML = this.products.map(p => `
-            <div class="product-item animate-slide">
-                <div class="product-icon">
-                    <i data-lucide="${this.getIconForType(p.type)}"></i>
+        const rankingList = document.getElementById('ranking-list');
+        if (rankingList) {
+            rankingList.innerHTML = this.ranking.map((user, index) => `
+                <div style="min-width: 180px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 24px; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                    <span style="font-size: 24px; margin-bottom: 12px;">${user.medal || (index + 1)}</span>
+                    <div style="font-weight: 800; font-size: 13px; text-transform: lowercase; margin-bottom: 4px;">${user.name}</div>
+                    <div style="font-size: 9px; color: #999; font-weight: 800; text-transform: uppercase; margin-bottom: 12px;">${user.sales} vendas</div>
+                    <div style="font-weight: 900; color: #000; font-size: 15px;">${user.revenue}</div>
                 </div>
-                <div class="product-info">
-                    <div class="product-name">${p.name}</div>
-                    <div class="product-type">${p.type}</div>
-                </div>
-                <div class="product-price">R$ ${p.price.toFixed(2)}</div>
-            </div>
-        `).join('');
+            `).join('');
+        }
         lucide.createIcons();
     },
 
@@ -159,6 +184,26 @@ const app = {
 
     closeModal(e) {
         document.getElementById('modal-container').classList.remove('active');
+    },
+
+    navigate(view) {
+        this.render(view);
+        if (view === 'dashboard') {
+            this.renderProducts();
+        }
+        if (view === 'store') {
+            const list = document.getElementById('store-list');
+            if (list) {
+                list.innerHTML = this.products.map(p => `
+                    <div style="background: #fafafa; border-radius: 20px; padding: 20px; border: 1px solid #eee;">
+                        <h4 style="font-weight: 800; margin-bottom: 4px;">${p.name}</h4>
+                        <p style="font-size: 18px; font-weight: 900;">R$ ${p.price.toFixed(2)}</p>
+                        <button class="btn btn-primary" style="height: 48px; width: 100%; border-radius: 12px; margin-top: 12px; font-size: 14px;">Comprar</button>
+                    </div>
+                `).join('');
+            }
+        }
+        lucide.createIcons();
     },
 
     logout() {
