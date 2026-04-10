@@ -191,6 +191,35 @@
         </div>
     </template>
     
+    <template id="template-hall">
+        <div style="padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div onclick="app.navigate('dashboard')" class="clickable">
+                    <i data-lucide="arrow-left" style="width: 32px;"></i>
+                </div>
+                <div style="background: #000; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">
+                    Hall da Fama
+                </div>
+            </div>
+
+            <!-- Podium -->
+            <div style="display: flex; gap: 32px; margin-bottom: 60px; align-items: stretch; justify-content: center;">
+                <!-- 1st Place (Naked) -->
+                <div style="flex: 1.2; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
+                    <span style="font-size: 11px; font-weight: 900; color: #ccac00; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 20px;">1º Lugar</span>
+                    <div id="hall-1st-avatar" style="width: 140px; height: 140px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 4px solid #f5f5f5; box-shadow: 0 20px 40px rgba(0,0,0,0.05);"></div>
+                    <h3 id="hall-1st-name" style="font-size: 24px; font-weight: 900; italic; margin-bottom: 4px; color: #000;"></h3>
+                    <p id="hall-1st-sales" style="font-size: 28px; font-weight: 900; color: #000; letter-spacing: -1px;"></p>
+                </div>
+
+                <!-- 2nd-10th List (Naked Side) -->
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center;" id="hall-top-others">
+                    <!-- Injetado via JS -->
+                </div>
+            </div>
+        </div>
+    </template>
+
     <template id="template-produtos">
         <div style="padding: 24px;">
             <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 24px; transition: 0.3s;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">

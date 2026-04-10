@@ -2,15 +2,23 @@
     const app = {
         currentUser: null,
         currentView: 'login',
-        products: [
-            { id: 1, name: "Ebook: O Futuro da Inteligência Artificial", price: 47.90, category: "Ebook", rating: 5 },
-            { id: 2, name: "Mentoria Elite SaaS", price: 997.00, category: "Mentoria", rating: 5 },
-            { id: 3, name: "Dito CRM", price: 29.90, category: "SaaS", rating: 4 }
-        ],
+        products: [],
         societies: [
-            { id: 1, name: "Elite High Ticket", contribution: 450, members: 12, volume: "850k", verified: true },
-            { id: 2, name: "Drop de Ouro", contribution: 150, members: 45, volume: "1.2M", verified: true },
-            { id: 3, name: "Copy Lab Pro", contribution: 300, members: 5, volume: "320k", verified: false }
+            { id: 1, name: "Elite High Ticket", contribution: 0, members: 0, volume: "0", verified: true },
+            { id: 2, name: "Drop de Ouro", contribution: 0, members: 0, volume: "0", verified: true },
+            { id: 3, name: "Copy Lab Pro", contribution: 0, members: 0, volume: "0", verified: false }
+        ],
+        rankings: [
+            { pos: 1, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 2, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 3, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 4, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 5, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 6, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 7, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 8, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 9, name: "Aguardando...", sales: 0.00, avatar: "" },
+            { pos: 10, name: "Aguardando...", sales: 0.00, avatar: "" }
         ],
 
         showBalance: true,
@@ -62,6 +70,9 @@
             if (view === 'sociedade') {
                 this.renderSociedade();
             }
+            if (view === 'hall') {
+                this.renderHall();
+            }
             if (view === 'criar-produto') {
                 this.initCreateProduct();
             }
@@ -77,7 +88,7 @@
             const el = document.getElementById('balance-value');
             const icon = document.getElementById('toggle-balance');
             if (el) {
-                el.innerText = this.showBalance ? 'R$ 12.450,00' : '••••••••';
+                el.innerText = this.showBalance ? 'R$ 0,00' : '••••••••';
             }
             if (icon) {
                 icon.setAttribute('data-lucide', this.showBalance ? 'eye' : 'eye-off');
@@ -135,6 +146,37 @@
                     lucide.createIcons();
                 }
             }
+        },
+
+        renderHall() {
+            const first = this.rankings[0];
+            const avatarEl = document.getElementById('hall-1st-avatar');
+            const nameEl = document.getElementById('hall-1st-name');
+            const salesEl = document.getElementById('hall-1st-sales');
+            
+            if (avatarEl) {
+                avatarEl.innerHTML = first.avatar ? `<img src="${first.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : '<div style="width: 100%; height: 100%; background: #f0f0f0; border-radius: 50%;"></div>';
+                avatarEl.style.fontSize = '0';
+            }
+            if (nameEl) nameEl.innerText = first.name;
+            if (salesEl) salesEl.innerText = `R$ ${first.sales.toLocaleString('pt-BR')}`;
+
+            const othersSide = document.getElementById('hall-top-others');
+            if (othersSide) {
+                othersSide.innerHTML = this.rankings.slice(1, 10).map(u => `
+                    <div class="clickable" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #fcfcfc;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 10px; font-weight: 900; color: #ccc; italic; width: 22px;">${u.pos}º</span>
+                            <div style="width: 28px; height: 28px; border-radius: 50%; background: #f0f0f0; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
+                                ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
+                            </div>
+                            <span style="font-size: 11px; font-weight: 800; color: #000;">${u.name.split(' ')[0]}</span>
+                        </div>
+                        <span style="font-size: 10px; font-weight: 900; color: #ccc;">${(u.sales/1000).toFixed(0)}k</span>
+                    </div>
+                `).join('');
+            }
+            if (window.lucide) lucide.createIcons();
         },
 
         renderStore() {
