@@ -8,6 +8,16 @@
         products: [],
         balance: 0.00,
         showBalance: true,
+        purchasedProducts: JSON.parse(localStorage.getItem('dito_purchased_products') || '[]'),
+        currentLessonId: 1, // Default lesson
+        courseComments: JSON.parse(localStorage.getItem('dito_course_comments') || '{}'),
+        courseRatings: JSON.parse(localStorage.getItem('dito_course_ratings') || '{}'),
+        globalRatings: JSON.parse(localStorage.getItem('dito_global_ratings') || '{}'),
+        
+        toSentenceCase(str) {
+            if (!str) return "";
+            return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        },
 
         init() {
             // Splash Screen Logic
@@ -71,6 +81,7 @@
             if (this.marketView === 'home') this.renderMarketHome(container);
             if (this.marketView === 'product') this.renderMarketProduct(container);
             if (this.marketView === 'cart') this.renderMarketCart(container);
+            if (this.marketView === 'checkout') this.renderMarketCheckout(container);
             
             if (window.lucide) lucide.createIcons();
         },
@@ -88,17 +99,18 @@
 
 
 
-            // Render Main Feed (Shopee Style 2 columns)
+            // Render Main Feed (Shopee Style 2 columns) - Ordenado por vendas
             const feed = document.getElementById('main-market-feed');
             if (feed) {
-                feed.innerHTML = marketProducts.map(p => `
+                const sortedProducts = [...marketProducts].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                
+                feed.innerHTML = sortedProducts.map(p => `
                     <div onclick="app.viewProduct('${p.id}')" style="cursor: pointer; background: #fff; border-radius: 12px; border: 1px solid #f0f0f0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                         <div style="aspect-ratio: 1; background: #f8f8f8; display: flex; align-items: center; justify-content: center; position: relative;">
                             <i data-lucide="shopping-bag" style="color: #eee; width: 40px; height: 40px;"></i>
-                            ${p.oldPrice ? `<span style="position: absolute; top: 8px; right: 8px; background: #ee4d2d; color: #fff; font-size: 8px; font-weight: 900; padding: 4px 8px; border-radius: 4px;">OFF</span>` : ''}
                         </div>
                         <div style="padding: 10px;">
-                            <h4 style="font-size: 12px; font-weight: 500; color: #333; height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; line-height: 1.3;">${p.name}</h4>
+                            <h4 style="font-size: 12px; font-weight: 500; color: #333; height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; line-height: 1.3;">${this.toSentenceCase(p.name)}</h4>
                             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
                                 <i data-lucide="star" style="width: 10px; color: #facc15; fill: #facc15;"></i>
                                 <span style="font-size: 9px; font-weight: 700; color: #999;">${p.rating || '5.0'} | ${p.sales || '0'} vendidos</span>
@@ -152,7 +164,7 @@
                             <p style="font-size: 10px; color: #ccc; font-weight: 700;">Loja Oficial</p>
                         </div>
                     </div>
-                    <button style="font-size: 10px; font-weight: 900; text-transform: uppercase; background: transparent; border: 1px solid #ddd; padding: 8px 12px; border-radius: 10px;">Ver Loja</button>
+                    <button onclick="app.navigate('perfil')" style="font-size: 10px; font-weight: 900; text-transform: uppercase; background: transparent; border: 1px solid #ddd; padding: 10px 16px; border-radius: 30px; cursor: pointer;">Ver perfil</button>
                 </div>
             `;
         },
@@ -193,7 +205,290 @@
                 const total = this.cart.reduce((acc, i) => acc + i.price, 0);
                 document.getElementById('cart-total-label').innerText = 'R$ ' + total.toFixed(2);
                 document.getElementById('cart-footer').style.display = 'block';
+                document.getElementById('cart-footer').querySelector('button').onclick = () => this.setMarketView('checkout');
             }
+        },
+
+        renderMarketCheckout(container) {
+            const temp = document.getElementById('template-checkout');
+            container.innerHTML = temp.innerHTML;
+            
+            const list = document.getElementById('checkout-items-list');
+            list.innerHTML = this.cart.map(item => `
+                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                    <span style="color: #666; font-weight: 500;">${item.name}</span>
+                    <span style="font-weight: 800;">R$ ${item.price.toFixed(2)}</span>
+                </div>
+            `).join('');
+            
+            const total = this.cart.reduce((acc, i) => acc + i.price, 0);
+            document.getElementById('checkout-total-value').innerText = 'R$ ' + total.toFixed(2);
+            if (window.lucide) lucide.createIcons();
+        },
+
+        selectPayment(method, btn) {
+            this.selectedPaymentMethod = method;
+            document.querySelectorAll('.payment-opt').forEach(opt => {
+                opt.style.borderColor = '#eee';
+                opt.style.background = '#fff';
+            });
+            btn.style.borderColor = '#ee4d2d';
+            
+            document.getElementById('pix-details').style.display = (method === 'pix') ? 'block' : 'none';
+            document.getElementById('card-details').style.display = (method === 'card') ? 'flex' : 'none';
+        },
+
+        copyPix() {
+            this.showNotification("Código Pix copiado!", "success");
+        },
+
+        processPayment() {
+            const itemsToBuy = [...this.cart];
+            this.showNotification("Processando pagamento...", "centered");
+            setTimeout(() => {
+                this.showNotification("Pagamento aprovado com sucesso!", "success");
+                
+                // Salva produtos comprados
+                const purchased = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
+                itemsToBuy.forEach(item => {
+                    if (!purchased.find(p => p.id === item.id)) {
+                        purchased.unshift({ ...item, buyDate: new Date().toLocaleDateString() });
+                    }
+                });
+                localStorage.setItem('dito_purchased_products', JSON.stringify(purchased));
+                this.purchasedProducts = purchased;
+
+                this.cart = [];
+                localStorage.setItem('dito_cart', '[]');
+                this.navigate('dashboard');
+            }, 3000);
+        },
+
+        renderPurchasedProducts() {
+            const list = document.getElementById('purchased-products-list');
+            if (!list) return;
+
+            if (this.purchasedProducts.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ccc;">
+                        <i data-lucide="play-circle" style="width: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p style="font-weight: 800; font-size: 14px;">Você ainda não comprou nenhum curso.</p>
+                        <button onclick="app.navigate('mercado')" style="margin-top: 20px; background: #ee4d2d; color: #fff; border: none; padding: 14px 32px; border-radius: 40px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">Ir para o Mercado</button>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            list.innerHTML = this.purchasedProducts.map(p => `
+                <div style="background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 20px; display: flex; gap: 16px; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="width: 64px; height: 64px; background: #f8f8f8; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #ee4d2d;">
+                        <i data-lucide="play-circle" style="width: 32px;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="font-size: 14px; font-weight: 900; margin-bottom: 4px;">${p.name.toLowerCase()}</h4>
+                        <p style="font-size: 11px; color: #999; font-weight: 700;">Comprado em: ${p.buyDate || 'Recente'}</p>
+                    </div>
+                    <button onclick="app.openCourse('${p.id}')" style="width: 44px; height: 44px; background: #000; color: #fff; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <i data-lucide="chevron-right" style="width: 20px;"></i>
+                    </button>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        },
+
+        openCourse(id) {
+            this.activeCourse = this.purchasedProducts.find(p => p.id === id);
+            if (this.activeCourse) {
+                this.navigate('curso-player');
+            }
+        },
+
+        renderCoursePlayer() {
+            if (!this.activeCourse) return;
+            const course = this.activeCourse;
+            
+            document.getElementById('player-course-name').innerText = course.name;
+            const contentArea = document.getElementById('player-content');
+            const controls = document.getElementById('video-controls');
+            
+            // Lógica baseada no Tipo
+            if (course.type === 'Ebook') {
+                contentArea.innerHTML = `<div style="text-align: center;"><i data-lucide="book-open" style="width: 60px; margin-bottom: 12px;"></i><p style="font-weight: 900; font-size: 14px;">LEITURA DISPONÍVEL</p><button style="margin-top: 16px; background: #fff; color: #000; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase;">Baixar PDF</button></div>`;
+                controls.style.display = 'none';
+            } else if (course.type === 'Mentoria') {
+                contentArea.innerHTML = `<div style="text-align: center;"><i data-lucide="users" style="width: 60px; margin-bottom: 12px;"></i><p style="font-weight: 900; font-size: 14px;">MENTORIA AO VIVO</p><button style="margin-top: 16px; background: #ee4d2d; color: #fff; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase;">Entrar na Sala</button></div>`;
+                controls.style.display = 'none';
+            } else {
+                // Course (Video)
+                contentArea.innerHTML = `<div style="position: relative; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center;"><i data-lucide="play" style="width: 40px; color: #fff; opacity: 0.3;"></i></div>`;
+                controls.style.display = 'flex';
+                this.setupVideoControls();
+            }
+
+            // Aulas Fake
+            const lessonsList = document.getElementById('lessons-list');
+            const lessons = [
+                { id: 1, title: 'Introdução e Boas Vindas', duration: '05:20' },
+                { id: 2, title: 'Mentalidade de Sucesso', duration: '12:45' },
+                { id: 3, title: 'Primeiros Passos no Mercado', duration: '15:10' },
+                { id: 4, title: 'Estratégia de Escala PRO', duration: '22:30' }
+            ];
+
+            lessonsList.innerHTML = lessons.map(l => `
+                <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: ${this.currentLessonId === l.id ? '#f0f0f0' : '#fdfdfd'}; border: 1px solid ${this.currentLessonId === l.id ? '#ddd' : '#f5f5f5'}; border-radius: 16px; cursor: pointer;" onclick="app.switchLesson(${l.id}, '${l.title}')">
+                    <div style="width: 32px; height: 32px; background: ${this.currentLessonId === l.id ? '#000' : '#eee'}; color: ${this.currentLessonId === l.id ? '#fff' : '#000'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;">${l.id}</div>
+                    <div style="flex: 1;">
+                        <p style="font-size: 12px; font-weight: 900;">${l.title}</p>
+                        <p style="font-size: 10px; color: #ccc; font-weight: 700;">${l.duration}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            this.renderLessonInteractive();
+            if (window.lucide) lucide.createIcons();
+        },
+
+        switchLesson(id, title) {
+            this.currentLessonId = id;
+            document.getElementById('player-lesson-name').innerText = `Aula ${id}: ${title}`;
+            this.renderCoursePlayer(); // Re-render to update highlights and interactive parts
+        },
+
+        renderLessonInteractive() {
+            // Render Comments
+            const commentsList = document.getElementById('comments-list');
+            const lessonKey = `${this.activeCourse.id}_${this.currentLessonId}`;
+            const comments = this.courseComments[lessonKey] || [];
+
+            if (comments.length === 0) {
+                commentsList.innerHTML = `<p style="text-align: center; color: #ccc; font-size: 12px; padding: 20px;">Nenhum comentário ainda. Seja o primeiro!</p>`;
+            } else {
+                commentsList.innerHTML = comments.map(c => `
+                    <div style="display: flex; gap: 12px;">
+                        <div style="width: 32px; height: 32px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900;">${this.currentUser?.username[0].toUpperCase()}</div>
+                        <div style="flex: 1; background: #f8f8f8; padding: 12px; border-radius: 0 16px 16px 16px;">
+                            <p style="font-size: 10px; font-weight: 900; margin-bottom: 4px;">${this.currentUser?.username} <span style="font-weight: 400; color: #999; margin-left: 6px;">${c.date}</span></p>
+                            <p style="font-size: 12px; color: #444; font-weight: 500;">${c.text}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Render Stars (Individual)
+            const rating = this.courseRatings[lessonKey] || 0;
+            this.drawStars(rating);
+            
+            const status = document.getElementById('rating-status');
+            const userRatingLabel = document.getElementById('user-last-rating');
+            if (status) status.style.display = rating > 0 ? 'block' : 'none';
+            if (userRatingLabel) userRatingLabel.innerText = rating;
+
+            // Render Global Average
+            const globalData = this.globalRatings[lessonKey] || { total: 0, sum: 0 };
+            const avg = globalData.total > 0 ? (globalData.sum / globalData.total).toFixed(1) : "5.0";
+            
+            const avgLabel = document.getElementById('lesson-avg-score');
+            const totalLabel = document.getElementById('lesson-total-ratings');
+            if (avgLabel) avgLabel.innerText = avg;
+            if (totalLabel) totalLabel.innerText = `${globalData.total} Avaliações`;
+        },
+
+        drawStars(count) {
+            const stars = document.querySelectorAll('#lesson-stars i');
+            stars.forEach((star, idx) => {
+                if (idx < count) {
+                    star.style.color = '#facc15';
+                    star.style.fill = '#facc15';
+                } else {
+                    star.style.color = '#ddd';
+                    star.style.fill = 'transparent';
+                }
+            });
+        },
+
+        hoverStars(count) {
+            this.drawStars(count);
+        },
+
+        addComment() {
+            const input = document.getElementById('comment-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const lessonKey = `${this.activeCourse.id}_${this.currentLessonId}`;
+            if (!this.courseComments[lessonKey]) this.courseComments[lessonKey] = [];
+            
+            // Unshift para ficar no topo (mais recente)
+            this.courseComments[lessonKey].unshift({
+                text: text,
+                date: 'Agora mesmo',
+                user: this.currentUser?.username
+            });
+
+            localStorage.setItem('dito_course_comments', JSON.stringify(this.courseComments));
+            input.value = '';
+            this.renderLessonInteractive();
+        },
+
+        setLessonRating(rating) {
+            const lessonKey = `${this.activeCourse.id}_${this.currentLessonId}`;
+            
+            // Verifica se o usuário já avaliou antes para não duplicar no global (ou atualiza)
+            const oldRating = this.courseRatings[lessonKey] || 0;
+            
+            // Update individual
+            this.courseRatings[lessonKey] = rating;
+            localStorage.setItem('dito_course_ratings', JSON.stringify(this.courseRatings));
+
+            // Update global pool (simulated)
+            if (!this.globalRatings[lessonKey]) this.globalRatings[lessonKey] = { total: 0, sum: 0 };
+            
+            if (oldRating === 0) {
+                this.globalRatings[lessonKey].total += 1;
+                this.globalRatings[lessonKey].sum += rating;
+            } else {
+                this.globalRatings[lessonKey].sum = (this.globalRatings[lessonKey].sum - oldRating) + rating;
+            }
+
+            localStorage.setItem('dito_global_ratings', JSON.stringify(this.globalRatings));
+            
+            this.renderLessonInteractive();
+            this.showNotification("Sua avaliação foi registrada!", "success");
+        },
+
+        setupVideoControls() {
+            let isPlaying = false;
+            let speed = 1.0;
+            const btnPlay = document.getElementById('btn-play');
+            const btnSpeed = document.getElementById('btn-speed');
+
+            if (btnPlay) {
+                btnPlay.onclick = () => {
+                    isPlaying = !isPlaying;
+                    btnPlay.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+                    if (window.lucide) lucide.createIcons();
+                };
+            }
+
+            if (btnSpeed) {
+                btnSpeed.onclick = () => {
+                    speed = (speed === 2.0) ? 1.0 : speed + 0.5;
+                    btnSpeed.innerText = speed.toFixed(1) + 'x';
+                };
+            }
+        },
+
+        setPlayerTab(tab, btn) {
+            document.querySelectorAll('.player-tab').forEach(t => {
+                t.style.color = '#ccc';
+                t.style.borderBottom = 'none';
+            });
+            btn.style.color = '#000';
+            btn.style.borderBottom = '2px solid #000';
+
+            document.querySelectorAll('.player-tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(`tab-content-${tab}`).style.display = 'block';
         },
 
         renderSales() {
@@ -307,6 +602,8 @@
                     case 'vendas': this.renderSales(); break;
                     case 'sacar': this.updateWithdrawUI(); break;
                     case 'admin-contas': this.renderAdminUsers(); break;
+                    case 'meus-cursos': this.renderPurchasedProducts(); break;
+                    case 'curso-player': this.renderCoursePlayer(); break;
                 }
                 
                 // Atualiza Barra de Navegação Global
@@ -663,9 +960,16 @@
         selectProductType(type, btn) {
             this.selectedProductType = type;
             
-            // Visual logic for selection - Red highlight
-            document.querySelectorAll('.product-type-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            // Visual logic for selection - Gradient Border highlight
+            document.querySelectorAll('.product-type-btn').forEach(b => {
+                b.style.background = '#f5f5f5';
+                b.style.border = '2px solid transparent';
+            });
+            
+            // Apply Premium Gradient Border
+            btn.style.background = 'linear-gradient(#f5f5f5, #f5f5f5) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
+            btn.style.border = '2px solid transparent';
+            btn.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.08)';
 
             // Show form and conditional fields
             const form = document.getElementById('create-product-form');
@@ -690,6 +994,7 @@
 
         saveProduct() {
             const name = document.getElementById('prod-name').value.trim();
+            const desc = document.getElementById('prod-desc')?.value.trim() || "";
             const price = parseFloat(document.getElementById('prod-price').value) || 0;
             const visible = document.getElementById('prod-visible').checked;
 
@@ -706,6 +1011,7 @@
             const newProd = {
                 id: 'p-' + Date.now(),
                 name: name,
+                description: desc,
                 price: price,
                 oldPrice: price * 1.4,
                 type: this.selectedProductType,
