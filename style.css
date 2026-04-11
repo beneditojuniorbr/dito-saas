@@ -685,15 +685,8 @@ input:checked + .slider:before {
     fill: none; /* Removed fill as requested for the dot style */
 }
 
-.nav-item.active-nav::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    width: 6px;
-    height: 6px;
-    background: #000;
-    border-radius: 50%;
-    animation: dotZoom 0.3s ease-out;
+.nav-item.active-nav {
+    color: #000 !important;
 }
 
 @keyframes dotZoom {

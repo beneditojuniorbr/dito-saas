@@ -79,51 +79,42 @@
             const temp = document.getElementById('template-mercado-home');
             container.innerHTML = temp.innerHTML;
             
-            // Mock de produtos se não houver no local
+            // Garantir que carregamos os produtos reais criados
             const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
             const marketProducts = saved.length > 0 ? saved : [
                 { id: 'm1', name: "Método Escala Rápida", price: 97.00, oldPrice: 197.00, rating: 4.8, sales: 1240, seller: "Benedito" },
                 { id: 'm2', name: "Template Notion PRO", price: 47.00, oldPrice: 87.00, rating: 4.9, sales: 850, seller: "Ana" }
             ];
 
-            // Render Flash Deals
-            const flashList = document.getElementById('flash-deals-list');
-            flashList.innerHTML = marketProducts.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="width: 140px; shrink-0; cursor: pointer;">
-                    <div style="width: 140px; height: 140px; background: #f5f5f5; border-radius: 20px; margin-bottom: 8px; position: relative; display: flex; align-items: center; justify-content: center;">
-                        <i data-lucide="shopping-bag" style="color: #ddd;"></i>
-                         ${p.oldPrice ? `<span style="position: absolute; top: 10px; right: 10px; background: #ee4d2d; color: #fff; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 10px;">-${Math.round((p.oldPrice-p.price)/p.oldPrice*100)}%</span>` : ''}
-                    </div>
-                    <p style="font-size: 11px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name}</p>
-                    <div style="display: flex; align-items: baseline; gap: 5px;">
-                        <span style="font-size: 13px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
-                    </div>
-                </div>
-            `).join('');
 
-            // Render Main Feed
+
+            // Render Main Feed (Shopee Style 2 columns)
             const feed = document.getElementById('main-market-feed');
-            feed.innerHTML = marketProducts.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="cursor: pointer;">
-                    <div style="aspect-ratio: 1; background: #f8f8f8; border-radius: 20px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center;">
-                        <i data-lucide="shopping-bag" style="color: #eee; width: 40px;"></i>
-                    </div>
-                    <h4 style="font-size: 12px; font-weight: 900; margin-bottom: 4px;">${p.name.toLowerCase()}</h4>
-                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
-                        <i data-lucide="star" style="width: 10px; color: #facc15; fill: #facc15;"></i>
-                        <span style="font-size: 10px; font-weight: 700; color: #ccc;">${p.rating} | ${p.sales} vendidos</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 15px; font-weight: 900;">R$ ${p.price.toFixed(2)}</span>
-                        <div style="width: 32px; height: 32px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff;">
-                             <i data-lucide="plus" style="width: 16px;"></i>
+            if (feed) {
+                feed.innerHTML = marketProducts.map(p => `
+                    <div onclick="app.viewProduct('${p.id}')" style="cursor: pointer; background: #fff; border-radius: 12px; border: 1px solid #f0f0f0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <div style="aspect-ratio: 1; background: #f8f8f8; display: flex; align-items: center; justify-content: center; position: relative;">
+                            <i data-lucide="shopping-bag" style="color: #eee; width: 40px; height: 40px;"></i>
+                            ${p.oldPrice ? `<span style="position: absolute; top: 8px; right: 8px; background: #ee4d2d; color: #fff; font-size: 8px; font-weight: 900; padding: 4px 8px; border-radius: 4px;">OFF</span>` : ''}
+                        </div>
+                        <div style="padding: 10px;">
+                            <h4 style="font-size: 12px; font-weight: 500; color: #333; height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; line-height: 1.3;">${p.name}</h4>
+                            <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
+                                <i data-lucide="star" style="width: 10px; color: #facc15; fill: #facc15;"></i>
+                                <span style="font-size: 9px; font-weight: 700; color: #999;">${p.rating || '5.0'} | ${p.sales || '0'} vendidos</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 16px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
+                                <div style="font-size: 10px; color: #999; font-weight: 700;">Brasil</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
 
             // Contador do carrinho
-            document.getElementById('market-cart-count').innerText = this.cart.length;
+            const cartCount = document.getElementById('market-cart-count');
+            if (cartCount) cartCount.innerText = this.cart.length;
         },
 
         viewProduct(id) {
@@ -244,13 +235,7 @@
             `).join('');
         },
 
-        updateBalanceUI() {
-            const label = document.getElementById('label-balance');
-            if (label) {
-                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
-                label.innerText = 'R$ ' + balance.toFixed(2);
-            }
-        },
+
 
         updateWithdrawUI() {
             const label = document.getElementById('label-balance-withdraw');
@@ -326,8 +311,11 @@
                 
                 // Atualiza Barra de Navegação Global
                 const nav = document.getElementById('global-nav');
+                const downloadLink = document.getElementById('download-app-link');
+                const isAuthPage = view === 'login' || view === 'cadastro';
+                
                 if (nav) {
-                    nav.style.display = (view === 'login' || view === 'cadastro') ? 'none' : 'flex';
+                    nav.style.display = isAuthPage ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
                         const targetView = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
                         if (targetView === view) {
@@ -336,6 +324,10 @@
                             item.classList.remove('active-nav');
                         }
                     });
+                }
+
+                if (downloadLink) {
+                    downloadLink.style.display = isAuthPage ? 'none' : 'block';
                 }
 
                 if (window.lucide) lucide.createIcons();
@@ -630,8 +622,11 @@
         },
 
         updateBalanceUI() {
-            const el = document.getElementById('balance-value');
-            if (el) el.innerText = this.showBalance ? `R$ ${this.balance.toFixed(2)}` : '••••••••';
+            const el = document.getElementById('label-balance');
+            if (el) {
+                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
+                el.innerText = this.showBalance ? `R$ ${balance.toFixed(2)}` : '••••••••';
+            }
             
             // Atualiza o nome da saudação
             const nameEl = document.getElementById('user-greeting-name');
@@ -642,6 +637,12 @@
 
         toggleBalance() {
             this.showBalance = !this.showBalance;
+            const toggleIcon = document.getElementById('toggle-balance');
+            if (toggleIcon) {
+                toggleIcon.setAttribute('data-lucide', this.showBalance ? 'eye' : 'eye-off');
+                toggleIcon.style.color = '#000';
+                if (window.lucide) lucide.createIcons();
+            }
             this.updateBalanceUI();
         },
 
@@ -703,19 +704,29 @@
             }
 
             const newProd = {
-                id: Date.now(),
+                id: 'p-' + Date.now(),
                 name: name,
                 price: price,
+                oldPrice: price * 1.4,
                 type: this.selectedProductType,
                 visible: visible,
-                author: this.currentUser?.username || "Você"
+                rating: 5.0,
+                sales: 0,
+                author: this.currentUser?.username || "Você",
+                seller: this.currentUser?.username || "Você"
             };
 
-            const products = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
-            products.unshift(newProd);
-            localStorage.setItem('dito_my_products', JSON.stringify(products));
+            // Salva na lista do mercado global se estiver visível
+            const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            marketProducts.unshift(newProd);
+            localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
 
-            this.showNotification(`Produto "${name}" (${this.selectedProductType}) criado com sucesso!`, "success");
+            // Salva nos meus produtos
+            const myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
+            myProducts.unshift(newProd);
+            localStorage.setItem('dito_my_products', JSON.stringify(myProducts));
+
+            this.showNotification(`Produto "${name}" criado com sucesso!`, "success");
             this.navigate('dashboard');
         },
 
@@ -854,6 +865,21 @@
                 return false;
             }
             return true;
+        },
+
+        togglePassword() {
+            const passInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggle-password');
+            if (passInput && toggleIcon) {
+                if (passInput.type === 'password') {
+                    passInput.type = 'text';
+                    toggleIcon.setAttribute('data-lucide', 'eye');
+                } else {
+                    passInput.type = 'password';
+                    toggleIcon.setAttribute('data-lucide', 'eye-off');
+                }
+                if (window.lucide) lucide.createIcons();
+            }
         }
     };
 
