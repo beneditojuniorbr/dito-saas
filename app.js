@@ -10,6 +10,16 @@
         showBalance: true,
 
         init() {
+            // Splash Screen Logic
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.pointerEvents = 'none';
+                    setTimeout(() => splash.remove(), 800);
+                }
+            }, 1500);
+
             try {
                 console.log("Iniciando o Dito app...");
                 
@@ -320,7 +330,11 @@
                     nav.style.display = (view === 'login' || view === 'cadastro') ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
                         const targetView = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
-                        item.style.color = (targetView === view) ? '#000' : '#ccc';
+                        if (targetView === view) {
+                            item.classList.add('active-nav');
+                        } else {
+                            item.classList.remove('active-nav');
+                        }
                     });
                 }
 
@@ -631,12 +645,78 @@
             this.updateBalanceUI();
         },
 
-        renderStore() {
-            // Em desenvolvimento
+        initCreateProduct() {
+            this.selectedProductType = null;
+            const form = document.getElementById('create-product-form');
+            if (form) form.style.display = 'none';
+            const selection = document.getElementById('product-type-selection');
+            if (selection) selection.style.display = 'flex';
+            
+            // Reset fields
+            document.querySelectorAll('#product-type-selection button').forEach(btn => {
+                btn.style.borderColor = 'transparent';
+                btn.style.background = '#f5f5f5';
+            });
         },
 
-        renderMyProducts() {
-            // Em desenvolvimento
+        selectProductType(type, btn) {
+            this.selectedProductType = type;
+            
+            // Visual logic for selection - Red highlight
+            document.querySelectorAll('.product-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Show form and conditional fields
+            const form = document.getElementById('create-product-form');
+            if (form) form.style.display = 'flex';
+
+            document.getElementById('ebook-upload').style.display = (type === 'Ebook') ? 'block' : 'none';
+            document.getElementById('curso-upload').style.display = (type === 'Curso') ? 'block' : 'none';
+            document.getElementById('mentoria-link').style.display = (type === 'Mentoria') ? 'block' : 'none';
+            document.getElementById('mentoria-fields').style.display = (type === 'Mentoria') ? 'block' : 'none';
+            
+            // Reset filenames
+            document.querySelectorAll('.file-name-display').forEach(el => el.innerText = '');
+        },
+
+        handleFileUpload(input, targetId) {
+            const file = input.files[0];
+            const display = document.getElementById(targetId);
+            if (file && display) {
+                display.innerText = `Arquivo realizado upload : ${file.name}`;
+            }
+        },
+
+        saveProduct() {
+            const name = document.getElementById('prod-name').value.trim();
+            const price = parseFloat(document.getElementById('prod-price').value) || 0;
+            const visible = document.getElementById('prod-visible').checked;
+
+            if (!this.selectedProductType) {
+                this.showNotification("Selecione um tipo de produto.", "error");
+                return;
+            }
+
+            if (!name || price <= 0) {
+                this.showNotification("Preencha o nome e o preço corretamente.", "error");
+                return;
+            }
+
+            const newProd = {
+                id: Date.now(),
+                name: name,
+                price: price,
+                type: this.selectedProductType,
+                visible: visible,
+                author: this.currentUser?.username || "Você"
+            };
+
+            const products = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
+            products.unshift(newProd);
+            localStorage.setItem('dito_my_products', JSON.stringify(products));
+
+            this.showNotification(`Produto "${name}" (${this.selectedProductType}) criado com sucesso!`, "success");
+            this.navigate('dashboard');
         },
 
         updateWithdrawUI() {
@@ -674,33 +754,37 @@
         },
 
         login(isGuest = false) { 
-            if (isGuest) {
-                localStorage.setItem('is_logged_in_vanilla', 'true');
-                localStorage.setItem('is_guest_vanilla', 'true');
-                this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
-                this.navigate('dashboard');
-                this.showNotification('Bem-vindo! Crie uma conta para realizar vendas e saques.');
-                return;
-            }
+            this.showNotification(isGuest ? 'Entrando como convidado...' : 'Entrando...', 'centered');
+            
+            setTimeout(() => {
+                if (isGuest) {
+                    localStorage.setItem('is_logged_in_vanilla', 'true');
+                    localStorage.setItem('is_guest_vanilla', 'true');
+                    this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
+                    this.navigate('dashboard');
+                    this.showNotification('Bem-vindo! Crie uma conta para realizar vendas e saques.');
+                    return;
+                }
 
-            const userInp = document.getElementById('username').value.trim();
-            const passInp = document.getElementById('password').value.trim();
+                const userInp = document.getElementById('username').value.trim();
+                const passInp = document.getElementById('password').value.trim();
 
-            let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
-            const user = users.find(u => u.username === userInp && u.password === passInp);
+                let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                const user = users.find(u => u.username === userInp && u.password === passInp);
 
-            // Permitir o usuário 'admin' padrão para testes se o banco estiver vazio
-            if (user || (userInp === 'admin' && passInp === 'admin')) {
-                const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador' };
-                localStorage.setItem('is_logged_in_vanilla', 'true');
-                localStorage.setItem('is_guest_vanilla', 'false');
-                localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
-                this.currentUser = loggedUser;
-                this.navigate('dashboard');
-                this.showNotification(`Bem-vindo, ${this.currentUser.username}!`);
-            } else {
-                this.showNotification('Usuário ou senha incorretos.', 'error');
-            }
+                // Permitir o usuário 'admin' padrão para testes se o banco estiver vazio
+                if (user || (userInp === 'admin' && passInp === 'admin')) {
+                    const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador' };
+                    localStorage.setItem('is_logged_in_vanilla', 'true');
+                    localStorage.setItem('is_guest_vanilla', 'false');
+                    localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
+                    this.currentUser = loggedUser;
+                    this.navigate('dashboard');
+                    this.showNotification(`Bem-vindo, ${this.currentUser.username}!`);
+                } else {
+                    this.showNotification('Usuário ou senha incorretos.', 'error');
+                }
+            }, 2400);
         },
 
         logout() { 
