@@ -80,11 +80,10 @@ body {
 
 /* Login Screen */
 .login-screen {
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 40px 24px;
+    padding: 80px 24px 40px;
     background: var(--background);
 }
 
@@ -265,9 +264,20 @@ body {
     padding: 0 24px 24px;
     gap: 16px;
     scrollbar-width: none; /* Firefox */
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .horizontal-scroll::-webkit-scrollbar { display: none; } /* Safari/Chrome */
+
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+.hide-scrollbar::-webkit-scrollbar { display: none; }
 
 .card {
     min-width: 280px;
@@ -543,5 +553,37 @@ body {
 
     .modal-overlay.active .modal-content {
         transform: scale(1);
+    }
+}
+/* Societies */
+.societies-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.society-card {
+    padding: 24px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 40px;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.society-card [data-lucide] {
+    transition: var(--transition);
+}
+
+.society-card:hover {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 480px) {
+    .society-card {
+        padding: 20px;
+        border-radius: 30px;
     }
 }

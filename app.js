@@ -195,6 +195,73 @@
             }
         },
 
+        renderSales() {
+            const list = document.getElementById('sales-list');
+            if (!list) return;
+            const sales = JSON.parse(localStorage.getItem('dito_sales_vanilla') || '[]');
+            if (sales.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #ccc; padding: 40px;">Nenhuma venda realizada ainda.</p>`;
+                return;
+            }
+            list.innerHTML = sales.map(s => `
+                <div style="background: var(--surface); padding: 16px; border-radius: 20px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="font-weight: 900; font-size: 13px;">${s.productName}</h4>
+                        <p style="font-size: 10px; color: #ccc;">${s.date}</p>
+                    </div>
+                    <span style="font-weight: 900; color: #16a34a;">+ R$ ${s.amount.toFixed(2)}</span>
+                </div>
+            `).join('');
+        },
+
+        renderHallOfFame() {
+            const list = document.getElementById('hall-list');
+            if (!list) return;
+            // Mock de usuários para o Hall se estiver vazio
+            const users = [
+                { name: "Benedito Santos", sales: 15400, rank: 1 },
+                { name: "Ana Silva", sales: 12800, rank: 2 },
+                { name: "Carlos Dev", sales: 9500, rank: 3 }
+            ];
+            list.innerHTML = users.map(u => `
+                <div style="background: var(--surface); padding: 20px; border-radius: 24px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <span style="font-weight: 900; color: #ccc; font-size: 18px;">#${u.rank}</span>
+                        <h4 style="font-weight: 900; font-size: 14px;">${u.name}</h4>
+                    </div>
+                    <span style="font-weight: 900;">R$ ${u.sales.toLocaleString()}</span>
+                </div>
+            `).join('');
+        },
+
+        updateBalanceUI() {
+            const label = document.getElementById('label-balance');
+            if (label) {
+                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
+                label.innerText = 'R$ ' + balance.toFixed(2);
+            }
+        },
+
+        updateWithdrawUI() {
+            const label = document.getElementById('label-balance-withdraw');
+            if (label) {
+                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
+                label.innerText = 'R$ ' + balance.toFixed(2);
+            }
+        },
+
+        showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        },
+
         removeFromCart(index) {
             this.cart.splice(index, 1);
             localStorage.setItem('dito_cart', JSON.stringify(this.cart));
@@ -215,66 +282,51 @@
 
         navigate(view) { 
             try {
+                console.log("Navegando para:", view);
                 this.currentView = view;
 
-                // Limpa notificações ao entrar nas telas
-                if (view === 'sociedade') {
-                    const current = JSON.parse(localStorage.getItem('dito_societies') || '[]').length;
-                    localStorage.setItem('last_seen_soc_vanilla', current.toString());
-                    this.showSocDot = false;
-                }
-                if (view === 'hall') {
-                    const current = JSON.parse(localStorage.getItem('dito_users_db') || '[]').length;
-                    localStorage.setItem('last_seen_hall_vanilla', current.toString());
-                    this.showHallDot = false;
-                }
-
-                // Se for para a tela de login, limpa a sessão para garantir que ela apareça primeiro
-                if (view === 'login') {
-                    localStorage.removeItem('is_logged_in_vanilla');
-                }
-
-                // Proteção de rota: se não estiver logado e tentar sair do login/cadastro, volta pra lá
+                // Proteção de rota
                 const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
                 if (!isLoggedIn && view !== 'login' && view !== 'cadastro') {
                     view = 'login';
                     this.currentView = 'login';
                 }
 
-                this.render(view);
+                // Renderiza o template básico
+                const container = document.getElementById('app');
+                const template = document.getElementById(`template-${view}`);
+                if (template) {
+                    container.innerHTML = template.innerHTML;
+                } else {
+                    console.error("Template não encontrado:", view);
+                    return;
+                }
+
+                // Chamadas lógicas específicas de cada tela
+                switch(view) {
+                    case 'dashboard': this.updateBalanceUI(); break;
+                    case 'mercado': setTimeout(() => this.renderStore(), 10); break;
+                    case 'sociedade': this.renderSocieties(); break;
+                    case 'hall': this.renderHallOfFame(); break;
+                    case 'perfil': this.renderProfile(); break;
+                    case 'vendas': this.renderSales(); break;
+                    case 'sacar': this.updateWithdrawUI(); break;
+                    case 'admin-contas': this.renderAdminUsers(); break;
+                }
                 
+                // Atualiza Barra de Navegação Global
                 const nav = document.getElementById('global-nav');
                 if (nav) {
                     nav.style.display = (view === 'login' || view === 'cadastro') ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
-                        item.style.color = (item.getAttribute('data-view') === view) ? '#000' : '#ccc';
+                        const targetView = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+                        item.style.color = (targetView === view) ? '#000' : '#ccc';
                     });
-                }
-
-                // Chamadas específicas de tela
-                if (view === 'perfil') this.renderProfile();
-                if (view === 'dashboard') this.updateBalanceUI();
-                if (view === 'mercado') {
-                    // Pequeno atraso para garantir que o template-mercado foi injetado
-                    setTimeout(() => this.renderStore(), 0);
-                }
-                if (view === 'produtos') this.renderMyProducts();
-                if (view === 'sacar') this.updateWithdrawUI();
-                if (view === 'admin-contas') this.renderAdminUsers();
-                if (view === 'editar-perfil') this.initEditProfile();
-                if (view === 'sociedade') this.renderSocieties();
-                
-                // Exibe as bolinhas se houver notificações
-                if (view === 'dashboard') {
-                    const dotSoc = document.getElementById('dot-sociedade');
-                    const dotHall = document.getElementById('dot-hall');
-                    if (dotSoc) dotSoc.style.display = this.showSocDot ? 'block' : 'none';
-                    if (dotHall) dotHall.style.display = this.showHallDot ? 'block' : 'none';
                 }
 
                 if (window.lucide) lucide.createIcons();
             } catch (err) {
-                console.error("Erro ao navegar:", err);
+                console.error("Erro Crítico na Navegação:", err);
             }
         },
 
@@ -295,7 +347,7 @@
             }
 
             list.innerHTML = saved.map(s => `
-                <div class="society-card" style="padding: 24px; background: #fff; border: 1px solid #f0f0f0; border-radius: 40px; transition: 0.3s; position: relative; overflow: hidden;">
+                <div class="society-card">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
                         <div>
                             <h3 style="font-size: 19px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;">
@@ -316,10 +368,6 @@
                                 <span style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase; display: block; margin-bottom: 2px;">Membros</span>
                                 <span style="font-size: 14px; font-weight: 900; color: #333;">${s.membersCount}</span>
                             </div>
-                            <div>
-                                <span style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase; display: block; margin-bottom: 2px;">Contribuições</span>
-                                <span style="font-size: 14px; font-weight: 900; color: #16a34a;">R$ ${s.totalContributions ? s.totalContributions.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '0,00'}</span>
-                            </div>
                         </div>
 
                         <button onclick="app.requestEntry('${s.name}')" style="height: 48px; padding: 0 20px; background: var(--surface); border: none; border-radius: 16px; font-size: 11px; font-weight: 900; text-transform: uppercase; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#000'; this.style.color='#fff';" onmouseout="this.style.background='var(--surface)'; this.style.color='#000';">
@@ -329,25 +377,7 @@
                 </div>
             `).join('');
 
-            // Atualiza o banner de contribuição do usuário
-            const contribution = parseFloat(localStorage.getItem('user_society_contribution') || '0');
-            const label = document.getElementById('label-user-contribution');
-            if (label) label.innerText = 'R$ ' + contribution.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-            
             if (window.lucide) lucide.createIcons();
-        },
-
-        handleContribute() {
-            const amountStr = prompt("Quanto deseja contribuir para o seu fundo de sociedade?");
-            const amount = parseFloat(amountStr || '0');
-            
-            if (amount > 0) {
-                const current = parseFloat(localStorage.getItem('user_society_contribution') || '0');
-                const newTotal = current + amount;
-                localStorage.setItem('user_society_contribution', newTotal.toString());
-                this.renderSocieties();
-                this.showNotification(`Contribuição de R$ ${amount.toFixed(2)} realizada com sucesso!`, "success");
-            }
         },
 
         toggleCreateSocietyModal(show) {
@@ -358,16 +388,51 @@
         },
 
         createSociety() {
-            const name = document.getElementById('new-soc-name').value;
-            const stripeLink = "https://buy.stripe.com/seu_link_aqui"; // COLE SEU LINK AQUI
+            const nameEl = document.getElementById('new-soc-name');
+            const feeEl = document.getElementById('new-soc-fee');
             
+            const name = nameEl.value.trim();
+            const fee = parseFloat(feeEl.value) || 0;
+            const cost = 15.00;
+
             if (!name) {
                 this.showNotification("Dê um nome para sua sociedade.", "error");
                 return;
             }
 
-            if (confirm("Você será redirecionado para o Stripe para pagar a taxa de R$ 15,00. Continuar?")) {
-                window.location.href = stripeLink;
+            if (this.balance < cost) {
+                this.showNotification("Saldo insuficiente para pagar a taxa de R$ 15,00.", "error");
+                return;
+            }
+
+            if (confirm(`Deseja criar a sociedade "${name}"? Uma taxa de R$ 15,00 será descontada do seu saldo.`)) {
+                // Descontar do saldo
+                this.balance -= cost;
+                this.totalVendas -= cost; // Mantendo sincronizado se necessário
+                localStorage.setItem('dito_balance', this.balance);
+                
+                // Criar nova sociedade
+                const saved = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+                const newSociety = {
+                    id: Date.now().toString(),
+                    name: name,
+                    description: "Nova sociedade criada pelo usuário.",
+                    admin: this.currentUser?.username || "Você",
+                    entryFee: fee,
+                    membersCount: 1
+                };
+                
+                saved.push(newSociety);
+                localStorage.setItem('dito_societies', JSON.stringify(saved));
+                
+                this.showNotification("Sociedade criada com sucesso!", "success");
+                
+                // Limpar e fechar
+                nameEl.value = '';
+                feeEl.value = '';
+                this.toggleCreateSocietyModal(false);
+                this.renderSocieties();
+                this.updateBalanceUI();
             }
         },
 
@@ -566,91 +631,16 @@
             this.updateBalanceUI();
         },
 
-        navigate(view) { 
-            try {
-                this.currentView = view;
-                this.render(view);
-                
-                const nav = document.getElementById('global-nav');
-                if (nav) {
-                    nav.style.display = (view === 'login' || view === 'cadastro') ? 'none' : 'flex';
-                    nav.querySelectorAll('.nav-item').forEach(item => {
-                        const itemView = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
-                        item.style.color = (itemView === view) ? '#000' : '#ccc';
-                    });
-                }
-
-                if (view === 'perfil') this.renderProfile();
-                if (view === 'dashboard') this.updateBalanceUI();
-                if (view === 'mercado') setTimeout(() => this.renderStore(), 0);
-                if (view === 'produtos') this.renderMyProducts();
-                if (view === 'sacar') this.updateWithdrawUI();
-                if (view === 'admin-contas') this.renderAdminUsers();
-                if (view === 'sociedade') this.renderSocieties();
-                if (view === 'hall') this.renderHall();
-                
-                if (window.lucide) lucide.createIcons();
-            } catch (err) {
-                console.error("Erro ao navegar:", err);
-            }
-        },
-
         renderStore() {
-            const container = document.getElementById('market-view-container');
-            if (!container) {
-                setTimeout(() => this.renderStore(), 50);
-                return;
-            }
-            if (this.marketView === 'home') this.renderMarketHome(container);
-            if (this.marketView === 'product') this.renderMarketProduct(container);
-            if (this.marketView === 'cart') this.renderMarketCart(container);
-            if (window.lucide) lucide.createIcons();
+            // Em desenvolvimento
         },
 
         renderMyProducts() {
-            const list = document.getElementById('my-products-list');
-            if (!list) return;
-            const prods = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            if (prods.length === 0) {
-                list.innerHTML = `<div style="text-align:center; padding:100px 0; color:#ccc;">Você ainda não criou produtos.</div>`;
-            } else {
-                list.innerHTML = prods.map(p => `
-                    <div style="background:#f9f9f9; padding:20px; border-radius:24px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <h4 style="font-weight:900;">${p.name}</h4>
-                            <p style="font-size:12px; font-weight:700; color:#16a34a;">R$ ${p.price.toFixed(2)}</p>
-                        </div>
-                        <i data-lucide="chevron-right" style="color:#ddd;"></i>
-                    </div>
-                `).join('');
-            }
-            if (window.lucide) lucide.createIcons();
+            // Em desenvolvimento
         },
 
         updateWithdrawUI() {
-            const bal = document.getElementById('withdraw-balance');
-            if (bal) bal.innerText = `R$ ${this.balance.toFixed(2)}`;
-        },
-
-        renderHall() {
-            const list = document.getElementById('hall-list');
-            if (!list) return;
-            // Mock de ranking
-            const users = [
-                { name: "Benedito Santos", sales: 45200 },
-                { name: "Ana Silva", sales: 38200 },
-                { name: "Elite Digital", sales: 12500 }
-            ];
-            list.innerHTML = users.map((u, i) => `
-                <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
-                    <div style="width:40px; height:40px; background:#000; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">${i+1}</div>
-                    <div style="flex:1;">
-                        <h4 style="font-weight:900; font-size:14px;">${u.name}</h4>
-                        <p style="font-size:11px; color:#aaa; font-weight:700;">Vendas: R$ ${u.sales.toLocaleString()}</p>
-                    </div>
-                </div>
-            `).join('');
-            if (window.lucide) lucide.createIcons();
+            // Em desenvolvimento
         },
 
         registerUser() {
@@ -763,6 +753,12 @@
                 notification.style.transform = 'translateY(-20px)';
                 setTimeout(() => notification.remove(), 500);
             }, 3000);
+        },
+
+        removeFromCart(index) {
+            this.cart.splice(index, 1);
+            localStorage.setItem('dito_cart', JSON.stringify(this.cart));
+            this.renderMarketCart(document.getElementById('market-view-container'));
         },
 
         checkAccess(view) {
