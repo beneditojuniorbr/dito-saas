@@ -20,15 +20,24 @@
 
         async function installPWA() {
             if (deferredPrompt) {
+                console.log('Disparando instalação...');
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
             } else {
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+                if (isStandalone) {
+                    alert('O Dito já está instalado em seu dispositivo!');
+                    return;
+                }
+
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
                 if (isIOS) {
-                    alert('No iPhone: Toque em Compartilhar e depois em "Adicionar à Tela de Início".');
+                    alert('No iPhone: Toque no ícone de Compartilhar (quadrado com seta) e escolha "Adicionar à Tela de Início".');
                 } else {
-                    alert('Para baixar: Use o menu do navegador (3 pontinhos) e escolha "Instalar Aplicativo".');
+                    if (confirm('Deseja instalar o Dito agora? Clique em OK para ver como fazer manualmente caso a janela não abra.')) {
+                        alert('Para baixar: Use o menu do navegador (3 pontinhos ou seta no topo) e escolha "Instalar Aplicativo" ou "Adicionar à tela inicial".');
+                    }
                 }
             }
         }
