@@ -1,20 +1,20 @@
-const CACHE_NAME = 'dito-vanilla-v1';
+const CACHE_NAME = 'dito-v3-refresh';
 const ASSETS_TO_CACHE = [
   'index.html',
   'style.css',
   'app.js',
-  'manifest.json',
-  'logo5.png',
-  'logo3.png'
+  'D.png',
+  'D2.png',
+  'manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -35,13 +35,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('index.html'))
-    );
-    return;
-  }
   event.respondWith(
-    caches.match(event.request).then((response) => response || fetch(event.request))
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
   );
 });

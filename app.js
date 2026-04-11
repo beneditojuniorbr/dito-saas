@@ -511,23 +511,69 @@
         },
 
         renderHallOfFame() {
-            const list = document.getElementById('hall-list');
-            if (!list) return;
-            // Mock de usuários para o Hall se estiver vazio
-            const users = [
-                { name: "Benedito Santos", sales: 15400, rank: 1 },
-                { name: "Ana Silva", sales: 12800, rank: 2 },
-                { name: "Carlos Dev", sales: 9500, rank: 3 }
-            ];
-            list.innerHTML = users.map(u => `
-                <div style="background: var(--surface); padding: 20px; border-radius: 24px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <span style="font-weight: 900; color: #ccc; font-size: 18px;">#${u.rank}</span>
-                        <h4 style="font-weight: 900; font-size: 14px;">${u.name}</h4>
+            const listTop = document.getElementById('hall-top-others');
+            const firstAvatar = document.getElementById('hall-1st-avatar');
+            const firstName = document.getElementById('hall-1st-name');
+            const firstSales = document.getElementById('hall-1st-sales');
+            
+            if (!listTop) return;
+
+            // Carrega usuários reais ou gera lista de espera
+            const users = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+            
+            if (users.length === 0) {
+                if (firstName) firstName.innerText = "Aguardando competidores...";
+                listTop.innerHTML = `<p style="text-align: center; color: #ccc; padding: 20px; font-weight: 800; font-size: 11px; text-transform: uppercase;">A elite ainda está se preparando.</p>`;
+                return;
+            }
+
+            // Ordena por vendas REAIS (começando em 0)
+            const sortedRank = users.map(u => ({
+                ...u,
+                sales: u.sales || 0
+            })).sort((a,b) => b.sales - a.sales);
+
+            const winner = sortedRank[0];
+            const others = sortedRank.slice(1, 10);
+
+            // Renderiza o 1º Lugar
+            if (winner) {
+                if (firstAvatar) firstAvatar.innerHTML = winner.avatar ? `<img src="${winner.avatar}" style="width: 100%; height: 100%; object-cover">` : `<i data-lucide="star" style="width: 60px; color: #eee;"></i>`;
+                if (firstName) firstName.innerText = winner.name;
+                if (firstSales) firstSales.innerHTML = `<span style="font-size: 20px; opacity: 0.3;">R$</span> ${winner.sales.toLocaleString()}`;
+            }
+
+            // Renderiza o Ranking (2º ao 10º)
+            listTop.innerHTML = others.map((u, i) => {
+                const pos = i + 2;
+                const isSilver = pos === 2;
+                const isBronze = pos === 3;
+                const bg = isSilver ? '#f9f9f9' : (isBronze ? '#fffaf5' : '#fff');
+                const border = isSilver ? '#eee' : (isBronze ? '#ffe8d1' : '#f9f9f9');
+                const rankColor = isSilver ? '#999' : (isBronze ? '#d97706' : '#ddd');
+                const title = isSilver ? 'Vice-Líder' : (isBronze ? 'Terceiro Lugar' : 'Elite');
+
+                return `
+                <div onclick="window.location.href='/perfil/${u.name.toLowerCase().replace(/\s+/g, '-')}'" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: ${bg}; border-radius: 28px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <span style="font-weight: 900; color: ${rankColor}; font-size: 14px; font-style: italic; width: 30px; text-align: center;">${pos}º</span>
+                        <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid ${border}; display: flex; align-items: center; justify-content: center;">
+                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`}
+                        </div>
+                        <div>
+                            <p style="font-weight: 900; font-size: 13px; color: #000; margin-bottom: 2px; text-decoration: underline;">${u.name}</p>
+                            <p style="font-size: 8px; font-weight: 800; color: ${rankColor}; text-transform: uppercase; letter-spacing: 1px;">${title}</p>
+                        </div>
                     </div>
-                    <span style="font-weight: 900;">R$ ${u.sales.toLocaleString()}</span>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 900; font-size: 13px; color: #000;">R$ ${u.sales.toLocaleString()}</span>
+                        <span style="display: block; font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase;">Faturamento</span>
+                    </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
+
+            if (window.lucide) lucide.createIcons();
         },
 
 
@@ -575,18 +621,27 @@
                 console.log("Navegando para:", view);
                 this.currentView = view;
 
-                // Proteção de rota
                 const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
                 if (!isLoggedIn && view !== 'login' && view !== 'cadastro') {
                     view = 'login';
                     this.currentView = 'login';
                 }
 
+                // Force background for Market
+                const rootContainer = document.querySelector('.app-container');
+                if (rootContainer) {
+                    if (view === 'mercado') {
+                        rootContainer.classList.add('bg-mercado-premium');
+                    } else {
+                        rootContainer.classList.remove('bg-mercado-premium');
+                    }
+                }
+
                 // Renderiza o template básico
-                const container = document.getElementById('app');
+                const appContainer = document.getElementById('app');
                 const template = document.getElementById(`template-${view}`);
                 if (template) {
-                    container.innerHTML = template.innerHTML;
+                    appContainer.innerHTML = template.innerHTML;
                 } else {
                     console.error("Template não encontrado:", view);
                     return;
@@ -1186,6 +1241,76 @@
                 }
                 if (window.lucide) lucide.createIcons();
             }
+        },
+
+        renderStore() {
+            const container = document.getElementById('main-market-feed');
+            const hContainer = document.getElementById('ebooks-horizontal-list');
+            const hWrapper = document.getElementById('ebooks-carousel-container');
+            if (!container) return;
+
+            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            let allProducts = [...p1, ...p2];
+            
+            if (allProducts.length === 0) {
+                allProducts = [
+                    { id: 'elite-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420 },
+                    { id: 'elite-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843 },
+                    { id: 'elite-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105 },
+                    { id: 'elite-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22 }
+                ];
+                localStorage.setItem('dito_products', JSON.stringify(allProducts));
+            }
+
+            // Filtrar Ebooks para o Carrossel
+            const ebooks = allProducts.filter(p => p.type === 'Ebook');
+            const others = allProducts.filter(p => p.type !== 'Ebook');
+
+            if (ebooks.length > 0 && hContainer && hWrapper) {
+                hWrapper.style.display = 'block';
+                hContainer.innerHTML = ebooks.map(p => `
+                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 130px; max-width: 130px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 12px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s;">
+                        <div style="aspect-ratio: 1; background: #fff; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
+                            <i data-lucide="book-open" style="width: 20px; color: #ff005c;"></i>
+                        </div>
+                        <h4 style="font-weight: 900; font-size: 9px; color: #fff; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 900; font-size: 13px; color: #fff;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <div style="width: 22px; height: 22px; background: #fff; color: #ff005c; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="plus" style="width: 10px;"></i>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (hWrapper) {
+                hWrapper.style.display = 'none';
+            }
+
+            // Renderizar outros produtos no Grid Vertical
+            if (others.length === 0 && ebooks.length === 0) {
+                 container.innerHTML = `<div style="grid-column: 1/-1; padding: 40px; text-align: center; color: rgba(255,255,255,0.4); font-weight: 800;">Nenhum produto encontrado.</div>`;
+            } else {
+                const listToShow = others.length > 0 ? others : []; // Se não houver outros, mostra vazio no grid para não repetir ebooks
+                container.innerHTML = listToShow.map(p => `
+                    <div onclick="app.viewProduct('${p.id}')" style="background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); padding: 16px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: 0.3s;">
+                        <div style="aspect-ratio: 1; background: #fff; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
+                            <i data-lucide="package" style="width: 28px; color: #ff005c;"></i>
+                            <div style="position: absolute; top: 10px; right: 10px; background: linear-gradient(90deg, #ff005c, #0487ff); color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
+                        </div>
+                        <h4 style="font-weight: 900; font-size: 11px; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                        <p style="font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 900; font-size: 15px; color: #fff;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <div style="width: 32px; height: 32px; background: #fff; color: #0487ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+                                <i data-lucide="plus" style="width: 16px;"></i>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            if (window.lucide) lucide.createIcons();
         }
     };
 

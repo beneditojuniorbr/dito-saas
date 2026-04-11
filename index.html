@@ -6,8 +6,9 @@
     <title>Dito</title>
     <meta name="description" content="Venda seus cursos, ebooks e micro SaaS na plataforma mais rápida do Brasil.">
     <meta name="theme-color" content="#ff005c">
-    <link rel="manifest" href="manifest.json?v=2">
-    <link rel="apple-touch-icon" href="D2.png?v=2">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="D2.png">
+    <link rel="apple-touch-icon" href="D2.png">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
@@ -296,31 +297,8 @@
         </div>
     </template>
 
-    <template id="template-mercado">
-        <div id="market-view-container"></div>
-    </template>
-
-    <template id="template-mercado-home">
-        <div style="background: #fff; min-height: 100vh; padding-bottom: 120px;">
-            <header style="padding: 20px 24px; border-bottom: 1px solid #f5f5f5; display: flex; gap: 12px; align-items: center; position: sticky; top: 0; background: #fff; z-index: 10;">
-                <div style="position: relative; flex: 1;">
-                    <i data-lucide="search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #ccc; width: 16px;"></i>
-                    <input type="text" placeholder="Buscar no Mercado" style="width: 100%; height: 48px; background: #f8f8f8; border: none; border-radius: 12px; padding-left: 42px; font-weight: 700; outline: none;">
-                </div>
-                <div onclick="app.setMarketView('cart')" style="position: relative; cursor: pointer;">
-                    <i data-lucide="shopping-cart" style="width: 24px;"></i>
-                    <span id="market-cart-count" style="position: absolute; top: -5px; right: -8px; background: #ee4d2d; color: #fff; font-size: 9px; font-weight: 900; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #fff;">0</span>
-                </div>
-            </header>
-            <div style="padding: 24px;">
-                <div style="width: 100%; height: 140px; background: #ee4d2d; border-radius: 30px; margin-bottom: 32px; display: flex; align-items: center; padding: 24px; color: #fff; position: relative; overflow: hidden;">
-                    <h2 style="font-size: 20px; font-weight: 900; z-index: 2;">Ofertas Relâmpago</h2>
-                    <i data-lucide="zap" style="position: absolute; right: 20px; bottom: -10px; width: 80px; height: 80px; opacity: 0.2;"></i>
-                </div>
-                <div id="main-market-feed" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"></div>
-            </div>
-        </div>
-    </template>
+    <!-- Removido template vazio fantasma -->
+    <!-- Removido duplicata antiga para evitar conflito -->
 
     <template id="template-mercado-produto">
         <div style="background: #fff; padding-bottom: 120px;">
@@ -349,30 +327,8 @@
                 </div>
                 <button style="width: 100%; height: 60px; background: #ee4d2d; color: #fff; border: none; border-radius: 30px; font-weight: 900;">Finalizar compra</button>
             </div>
-        </div>
-    </template>
-
-    <template id="template-mercado-home">
-        <div style="background: #f5f5f5; min-height: 100vh; padding-bottom: 200px;">
-            <header style="position: sticky; top: 0; background: #ee4d2d; padding: 20px 24px; z-index: 100; display: flex; gap: 12px; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                <div style="position: relative; flex: 1;">
-                    <i data-lucide="search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #ee4d2d; width: 16px;"></i>
-                    <input type="text" placeholder="Buscar no Dito" style="width: 100%; height: 42px; background: #fff; border: none; border-radius: 4px; padding-left: 42px; font-size: 13px; font-weight: 500; outline: none; color: #333;">
-                </div>
-                <div onclick="app.setMarketView('cart')" style="position: relative; cursor: pointer; color: #fff;">
-                    <i data-lucide="shopping-cart" style="width: 24px;"></i>
-                    <span id="market-cart-count" style="position: absolute; top: -5px; right: -8px; background: #fff; color: #ee4d2d; font-size: 9px; font-weight: 900; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #ee4d2d;">0</span>
-                </div>
-            </header>
-
-            <div style="padding: 16px;">
-                <!-- Daily Discover -->
-                <h3 style="font-size: 14px; font-weight: 900; margin-bottom: 12px; color: #333;">Descobertas do dia</h3>
-                <div id="main-market-feed" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <!-- Injetado via JS -->
-                </div>
-            </div>
-        </div>
+        <!-- Removido duplicata secundaria -->
+     </div>
     </template>
 
     <template id="template-mercado-produto">
@@ -452,52 +408,89 @@
     </template>
 
     <template id="template-mercado">
-        <div style="padding: 24px; padding-bottom: 120px;">
-            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 24px;">
-                <i data-lucide="arrow-left" style="width: 24px;"></i>
+        <div class="bg-mercado-premium" style="padding: 24px; padding-bottom: 120px; min-height: 100vh;">
+            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #fff; cursor: pointer; margin-bottom: 24px;">
+                <i data-lucide="arrow-left" style="width: 20px;"></i>
             </div>
             <header style="margin-bottom: 32px; text-align: center;">
-               <h2 style="font-size: 32px; font-weight: 900; letter-spacing: -1.5px;">Mercado Dito 🛍️</h2>
-               <p style="font-size: 12px; font-weight: 800; color: #ccc; letter-spacing: 1px;">Encontre os melhores conteúdos</p>
+               <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -2px; color: #fff; italic;">Mercado Elite</h2>
+               <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase;">Produtos da Comunidade Dito</p>
             </header>
             
             <div style="margin-bottom: 32px; display: flex; gap: 12px;">
                 <div style="position: relative; flex: 1;">
-                    <i data-lucide="search" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 18px; color: #ccc;"></i>
-                    <input type="text" id="market-search" placeholder="Pesquisar..." oninput="app.filterMarket()" style="width: 100%; padding: 16px 16px 16px 48px; background: #f5f5f5; border: none; border-radius: 20px; font-weight: 800; font-size: 13px;">
+                    <i data-lucide="search" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 18px; color: #000;"></i>
+                    <input type="text" id="market-search" placeholder="Pesquisar..." oninput="app.filterMarket()" style="width: 100%; padding: 16px 16px 16px 48px; background: #fff; border: none; border-radius: 20px; font-weight: 900; font-size: 13px; color: #000; outline: none; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
                 </div>
-                <button class="clickable" style="width: 50px; height: 50px; background: #000; color: #fff; border-radius: 18px; display: flex; align-items: center; justify-content: center;">
-                    <i data-lucide="sliders-horizontal" style="width: 20px;"></i>
-                </button>
             </div>
 
-            <div id="store-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <!-- Ebooks Section -->
+            <div id="ebooks-carousel-container" style="display: none; margin-bottom: 40px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px;">
+                    <h3 style="font-size: 11px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px;">Ebooks em Destaque</h3>
+                    <span style="font-size: 8px; font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; italic;">Deslize →</span>
+                </div>
+                <div id="ebooks-horizontal-list" class="horizontal-scroll" style="padding: 4px; gap: 16px;">
+                    <!-- Injetado via JS -->
+                </div>
+            </div>
+
+            <h3 id="market-main-title" style="font-size: 11px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; padding-left: 4px;">Todos os Produtos</h3>
+
+            <div id="main-market-feed" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <!-- Produtos Injetados via JS -->
             </div>
         </div>
     </template>
     
     <template id="template-hall">
-        <div style="padding: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                <div onclick="app.navigate('dashboard')" class="clickable">
-                    <i data-lucide="arrow-left" style="width: 32px;"></i>
+        <div style="padding: 12px; padding-bottom: 80px; background: #fff; min-height: 100vh; overflow-x: hidden;">
+            <!-- Simple Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div onclick="app.navigate('dashboard')" class="clickable" style="width: 36px; height: 36px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="arrow-left" style="width: 16px;"></i>
                 </div>
-                <div style="background: #000; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; letter-spacing: 1px;">
-                    Hall da fama
+                <div style="background: #000; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 8px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">
+                    Hall da Fama
                 </div>
             </div>
 
-            <!-- Podium -->
-            <div style="display: flex; gap: 32px; margin-bottom: 60px; align-items: stretch; justify-content: center;">
-                <div style="flex: 1.2; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;">
-                    <span style="font-size: 11px; font-weight: 900; color: #ccac00; letter-spacing: 3px; margin-bottom: 20px;">1º lugar</span>
-                    <div id="hall-1st-avatar" style="width: 140px; height: 140px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 4px solid #f5f5f5; box-shadow: 0 20px 40px rgba(0,0,0,0.05);"></div>
-                    <h3 id="hall-1st-name" style="font-size: 24px; font-weight: 900; italic; margin-bottom: 4px; color: #000;"></h3>
-                    <p id="hall-1st-sales" style="font-size: 28px; font-weight: 900; color: #000; letter-spacing: -1px;"></p>
+            <!-- Forced Side-by-Side Flex Container -->
+            <div style="display: flex; flex-direction: row; gap: 8px; align-items: flex-start; width: 100%; max-width: 1000px; margin: 0 auto;">
+                
+                <!-- LEFT COLUMN: Winner (Very Compact) -->
+                <div style="width: 35%; min-width: 130px; text-align: center; position: relative; padding: 10px; background: #fff; border-radius: 30px; display: flex; flex-direction: column; align-items: center;">
+                    <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: rgba(250, 204, 21, 0.08); filter: blur(30px); border-radius: 50%; z-index: 1;"></div>
+                    
+                    <div style="position: relative; z-index: 2; width: 100%;">
+                        <i data-lucide="crown" style="width: 32px; height: 32px; color: #facc15; fill: #facc15; margin: 0 auto 8px; display: block;"></i>
+                        <div id="hall-1st-avatar" style="width: 90px; height: 90px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin: 0 auto 12px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="star" style="width: 30px; color: #eee;"></i>
+                        </div>
+                        <span style="display: block; font-size: 7px; font-weight: 900; color: #facc15; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">Líder do Mês</span>
+                        <h3 id="hall-1st-name" style="font-size: 16px; font-weight: 900; italic; margin-bottom: 4px; color: #000; letter-spacing: -1px; line-height: 1;">...</h3>
+                        <p id="hall-1st-sales" style="font-size: 20px; font-weight: 900; color: #000; letter-spacing: -1px;"></p>
+                    </div>
                 </div>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center;" id="hall-top-others">
-                    <!-- Injetado via JS -->
+
+                <!-- RIGHT COLUMN: The Elite List (Micro) -->
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <div id="hall-top-others" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- JS Injection -->
+                    </div>
+
+                    <!-- User Position -->
+                    <div style="margin-top: 12px; background: #000; border-radius: 20px; padding: 12px; color: #fff; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="star" style="width: 12px; color: #fff;"></i>
+                                </div>
+                                <h4 style="font-size: 10px; font-weight: 900; margin: 0; italic;">Você é o 42º</h4>
+                            </div>
+                            <span style="font-size: 10px; font-weight: 900; color: #4ade80;">↑ 4</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -565,83 +558,87 @@
                 </div>
             </div>
 
-            <div id="create-product-form" style="display: none; flex-direction: column; gap: 20px; max-width: 450px; margin: 0 auto;">
-                <div>
-                <div>
-                    <label id="label-prod-name" style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Nome do produto</label>
-                    <input type="text" id="prod-name" placeholder="" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s;">
-                </div>
-
-                <div>
-                    <label id="label-prod-desc" style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Descrição do produto (máx 300 caracteres)</label>
-                    <textarea id="prod-desc" maxlength="300" placeholder="" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none; height: 100px; resize: none;"></textarea>
-                </div>
-
-                <div style="display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 20px; border-radius: 20px; border: 1px solid #eee;">
+            <div id="create-product-form" style="display: none; flex-direction: column; gap: 32px; max-width: 450px; margin: 0 auto;">
+                <div style="display: flex; flex-direction: column; gap: 24px;">
                     <div>
-                        <p style="font-weight: 900; font-size: 13px;">Mostrar no mercado</p>
-                        <p style="font-size: 10px; color: #999; font-weight: 700;">Seu produto será visível para todos</p>
+                        <label id="label-prod-name" style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Nome do produto:</label>
+                        <input type="text" id="prod-name" placeholder=" " style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; text-align: center;">
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="prod-visible" checked>
-                        <span class="slider round"></span>
-                    </label>
+
+                    <div>
+                        <label id="label-prod-desc" style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Descrição do produto: (máx 300 caracteres)</label>
+                        <textarea id="prod-desc" maxlength="300" placeholder=" " oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'" style="width: 100%; padding: 20px 28px; background: #fafafa; border: 1px solid #eee; border-radius: 28px; font-weight: 800; font-size: 14px; outline: none; height: 60px; min-height: 60px; resize: none; overflow: hidden; transition: height 0.2s; text-align: center;"></textarea>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Preço sugerido:</label>
+                        <input type="number" id="prod-price" placeholder="R$ 0,00" style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 16px; outline: none; text-align: center;">
+                    </div>
+                </div>
+
+                <div style="background: #fafafa; padding: 20px 24px; border-radius: 24px; border: 1px solid #eee; margin-top: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <p style="font-weight: 900; font-size: 13px;">Mostrar no mercado</p>
+                            <p style="font-size: 10px; color: #999; font-weight: 700;">Seu produto será visível para todos</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="prod-visible" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
                 </div>
                 
-                <!-- Campos Condicionais de Upload/Link -->
-                <div id="ebook-upload" style="display: none;">
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Upload do Ebook (PDF)</label>
-                    <div style="position: relative; width: 100%; padding: 32px; border: 2px solid #000; border-radius: 24px; text-align: center; background: #fff;">
-                        <div style="width: 54px; height: 54px; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                            <i data-lucide="upload-cloud" style="width: 24px; color: #000;"></i>
+                <div id="ebook-upload" style="display: none; padding-bottom: 16px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Conteúdo do ebook: (PDF)</label>
+                    <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff; transition: 0.3s;" onmouseover="this.style.borderColor='#000'">
+                        <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; transition: 0.3s;">
+                            <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
                         </div>
-                        <p style="font-size: 11px; font-weight: 800; color: #000;">Clique para carregar o arquivo</p>
+                        <p style="font-size: 11px; font-weight: 900; color: #000;">Toque para selecionar o PDF</p>
+                        <p style="font-size: 9px; color: #999; margin-top: 4px;">Tamanho máximo: 50MB</p>
                         <input type="file" id="ebook-file" accept=".pdf" onchange="app.handleFileUpload(this, 'ebook-filename')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                     </div>
-                    <span id="ebook-filename" class="file-name-display"></span>
+                    <span id="ebook-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
                 </div>
 
-                <div id="curso-upload" style="display: none;">
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Upload das Aulas (Vídeos)</label>
-                    <div style="position: relative; width: 100%; padding: 32px; border: 2px solid #000; border-radius: 24px; text-align: center; background: #fff;">
-                        <div style="width: 54px; height: 54px; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                            <i data-lucide="upload-cloud" style="width: 24px; color: #000;"></i>
+                <div id="curso-upload" style="display: none; padding-bottom: 16px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Aulas da formação: (Vídeos)</label>
+                    <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff; transition: 0.3s;" onmouseover="this.style.borderColor='#000'">
+                        <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                            <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
                         </div>
-                        <p style="font-size: 11px; font-weight: 800; color: #000;">Clique para carregar as aulas</p>
+                        <p style="font-size: 11px; font-weight: 900; color: #000;">Selecionar arquivos de vídeo</p>
+                        <p style="font-size: 9px; color: #999; margin-top: 4px;">Pode selecionar vários arquivos</p>
                         <input type="file" id="curso-file" multiple accept="video/*" onchange="app.handleFileUpload(this, 'curso-filename')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                     </div>
-                    <span id="curso-filename" class="file-name-display"></span>
+                    <span id="curso-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
                 </div>
 
-                <div id="mentoria-fields" style="display: none;">
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Link ou Material da Mentoria</label>
-                    <div style="position: relative; width: 100%; padding: 32px; border: 2px solid #000; border-radius: 24px; text-align: center; background: #fff; margin-bottom: 20px;">
-                        <div style="width: 54px; height: 54px; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                            <i data-lucide="upload-cloud" style="width: 24px; color: #000;"></i>
+                <div id="mentoria-fields" style="display: none; display: flex; flex-direction: column; gap: 24px;">
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Material de apoio: (Opcional)</label>
+                        <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff;">
+                            <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                                <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
+                            </div>
+                            <p style="font-size: 11px; font-weight: 900; color: #000;">Carregar material de boas-vindas</p>
+                            <input type="file" id="mentoria-file" onchange="app.handleFileUpload(this, 'mentoria-filename')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                         </div>
-                        <p style="font-size: 11px; font-weight: 800; color: #000;">Clique para carregar material</p>
-                        <input type="file" id="mentoria-file" onchange="app.handleFileUpload(this, 'mentoria-filename')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                        <span id="mentoria-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
                     </div>
-                    <span id="mentoria-filename" class="file-name-display"></span>
                     
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px; margin-top: 20px;">Data de Início da Mentoria</label>
-                    <input type="date" id="prod-date" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
-                </div>
-                <div id="mentoria-link" style="display: none;">
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Link da Mentoria (Zoom, Meet, etc)</label>
-                    <input type="url" id="prod-link" placeholder="https://..." style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
-                </div>
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Data de início da mentoria:</label>
+                        <input type="date" id="prod-date" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
+                    </div>
 
-                <div>
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Preço Sugerido</label>
-                    <input type="number" id="prod-price" placeholder="0.00" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 16px; outline: none;">
-                </div>
-                <div id="mentoria-fields" style="display: none;">
-                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 10px; margin-left: 12px;">Data de Início da Mentoria</label>
-                    <input type="date" id="prod-date" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
+                    <div id="mentoria-link">
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Link das sessões: (Zoom, Meet, etc)</label>
+                        <input type="url" id="prod-link" placeholder="https://..." style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
+                    </div>
                 </div>
                 <div style="display: flex; gap: 16px; margin-top: 40px;">
-                    <button onclick="app.navigate('dashboard')" style="flex: 1; height: 60px; background: #fff; border: 1px solid #eee; border-radius: 30px; font-weight: 900; font-size: 12px; text-transform: uppercase; cursor: pointer;">Cancelar</button>
                     <button onclick="app.saveProduct()" style="flex: 2; height: 60px; background: #000; color: #fff; border: none; border-radius: 30px; font-weight: 900; font-size: 12px; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">Adicionar</button>
                 </div>
             </div>
