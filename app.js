@@ -119,7 +119,8 @@
 
                     localStorage.setItem('dito_users_db', JSON.stringify(localUsers));
                     localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(localProfiles));
-                    localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles)); // Sincroniza Hall
+                    localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles));
+                    localStorage.setItem('dito_profile_link', data[0]?.link || ''); // Sincroniza link se for o próprio
                     
                     console.log("🌐 Usuários da Rede Sincronizados:", data.length);
                 }
@@ -141,6 +142,7 @@
                         password: user.password, // Cuidado em produção!
                         name: user.name || user.username,
                         bio: user.bio || "Novo membro da Elite",
+                        link: user.link || "",
                         avatar: user.avatar || "",
                         sales: user.sales || 0
                     }
@@ -1007,6 +1009,8 @@
                 
                 // Salva na sessão atual
                 localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                
+                this.syncUserToNetwork(this.currentUser); // Sincroniza com a rede ao salvar perfil!
                 
                 this.showNotification('Perfil atualizado com sucesso!');
                 this.navigate('perfil');
