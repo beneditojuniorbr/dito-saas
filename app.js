@@ -31,6 +31,7 @@
         courseComments: JSON.parse(localStorage.getItem('dito_course_comments') || '{}'),
         courseRatings: JSON.parse(localStorage.getItem('dito_course_ratings') || '{}'),
         globalRatings: JSON.parse(localStorage.getItem('dito_global_ratings') || '{}'),
+        hasSeenCreateProd: false,
         
         toSentenceCase(str) {
             if (!str) return "";
@@ -639,6 +640,7 @@
 
         renderHallOfFame() {
             const listTop = document.getElementById('hall-top-others');
+            const pod1 = document.getElementById('hall-1st-podium'); // Preciso garantir que o container do 1º seja clicável
             const firstAvatar = document.getElementById('hall-1st-avatar');
             const firstName = document.getElementById('hall-1st-name');
             const firstSales = document.getElementById('hall-1st-sales');
@@ -654,10 +656,11 @@
                 return;
             }
 
-            // Ordena por vendas REAIS (começando em 0)
+            // Ordena por vendas REAIS
             const sortedRank = users.map(u => ({
                 ...u,
-                sales: u.sales || 0
+                sales: u.sales || 0,
+                username: u.username || u.name.toLowerCase().replace(/\s+/g, '_')
             })).sort((a,b) => b.sales - a.sales);
 
             const winner = sortedRank[0];
@@ -666,8 +669,15 @@
             // Renderiza o 1º Lugar
             if (winner) {
                 if (firstAvatar) firstAvatar.innerHTML = winner.avatar ? `<img src="${winner.avatar}" style="width: 100%; height: 100%; object-cover">` : `<i data-lucide="star" style="width: 60px; color: #eee;"></i>`;
-                if (firstName) firstName.innerText = winner.name;
+                if (firstName) firstName.innerText = winner.username;
                 if (firstSales) firstSales.innerHTML = `<span style="font-size: 20px; opacity: 0.3;">R$</span> ${winner.sales.toLocaleString()}`;
+                
+                // Faz o pódio do 1º lugar ser clicável
+                const pod = document.querySelector('.podium-1st');
+                if (pod) {
+                    pod.style.cursor = 'pointer';
+                    pod.onclick = () => this.viewPublicProfile(winner.username);
+                }
             }
 
             // Renderiza o Ranking (2º ao 10º)
@@ -681,14 +691,14 @@
                 const title = isSilver ? 'Vice-Líder' : (isBronze ? 'Terceiro Lugar' : 'Elite');
 
                 return `
-                <div onclick="window.location.href='/perfil/${u.name.toLowerCase().replace(/\s+/g, '-')}'" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: ${bg}; border-radius: 28px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
+                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: ${bg}; border-radius: 28px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
                     <div style="display: flex; align-items: center; gap: 16px;">
                         <span style="font-weight: 900; color: ${rankColor}; font-size: 14px; font-style: italic; width: 30px; text-align: center;">${pos}º</span>
                         <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid ${border}; display: flex; align-items: center; justify-content: center;">
                             ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`}
                         </div>
                         <div>
-                            <p style="font-weight: 900; font-size: 13px; color: #000; margin-bottom: 2px; text-decoration: underline;">${u.name}</p>
+                            <p style="font-weight: 900; font-size: 13px; color: #000; margin-bottom: 2px;">${u.username}</p>
                             <p style="font-size: 8px; font-weight: 800; color: ${rankColor}; text-transform: uppercase; letter-spacing: 1px;">${title}</p>
                         </div>
                     </div>
@@ -813,31 +823,45 @@
                     const isMercado = view === 'mercado';
                     header.style.display = isAuthPage ? 'none' : 'flex';
                     header.style.background = isMercado ? 'transparent' : '#fff';
-                    header.style.borderBottomColor = isMercado ? 'transparent' : '#f0f0f0';
-                    
                     const logo = document.getElementById('header-logo');
                     const cartIcon = document.getElementById('cart-icon-header');
                     const searchIcon = document.getElementById('search-icon-header');
+                    const logoutBtn = document.getElementById('header-logout-btn');
+                    const logoutIcon = logoutBtn ? logoutBtn.querySelector('i') : null;
                     const cartBtn = document.getElementById('header-cart-btn');
                     const coinPod = document.getElementById('coin-pod');
                     const searchContainer = document.getElementById('search-container');
+                    const createIcon = document.getElementById('header-create-btn') ? document.getElementById('header-create-btn').querySelector('i') : null;
 
-                    if (logo) logo.style.color = isMercado ? '#fff' : '#000';
-                    if (cartIcon) cartIcon.style.color = isMercado ? '#fff' : '#000';
-                    if (searchIcon) searchIcon.style.color = isMercado ? '#fff' : '#000';
+                    if (logo) logo.style.color = isMercado ? '#000' : '#000';
+                    if (cartIcon) cartIcon.style.color = isMercado ? '#000' : '#000';
+                    if (searchIcon) searchIcon.style.color = isMercado ? '#000' : '#000';
+                    if (createIcon) createIcon.style.color = isMercado ? '#000' : '#000';
+                    
+                    if (logoutBtn) {
+                        logoutBtn.style.background = isMercado ? '#fff' : 'rgba(0,0,0,0.05)';
+                        logoutBtn.style.border = 'none';
+                        if (logoutIcon) logoutIcon.style.color = '#000';
+                    }
                     
                     if (cartBtn) {
                         cartBtn.style.display = isMercado ? 'flex' : 'none';
-                        cartBtn.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                        cartBtn.style.background = isMercado ? '#fff' : 'rgba(0,0,0,0.05)';
+                        cartBtn.style.border = 'none';
                     }
                     
                     if (coinPod) {
                         coinPod.style.display = isMercado ? 'flex' : 'none';
-                        coinPod.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(255,214,0,0.1)';
-                        coinPod.querySelectorAll('span').forEach(s => s.style.color = isMercado ? '#fff' : '#000');
+                        coinPod.style.background = isMercado ? '#fff' : 'rgba(255,214,0,0.1)';
+                        coinPod.style.border = isMercado ? 'none' : '1px solid rgba(255, 214, 0, 0.2)';
+                        coinPod.querySelectorAll('span').forEach(s => s.style.color = '#000');
                     }
                     
-                    if (searchContainer) searchContainer.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                    if (searchContainer) {
+                        searchContainer.style.background = isMercado ? '#fff' : 'rgba(0,0,0,0.05)';
+                        searchContainer.style.border = 'none';
+                    }
+
 
                     // Fecha a busca se estiver aberta ao trocar de tela
                     this.toggleSocialSearch(false);
@@ -1065,18 +1089,93 @@
             }
         },
 
+        toggleProfileEdit(isEditing) {
+            const displayDiv = document.getElementById('profile-info-display');
+            const editDiv = document.getElementById('profile-info-edit');
+            const btnEdit = document.getElementById('btn-edit-toggle');
+            const btnSave = document.getElementById('btn-save-inline');
+            const btnCancel = document.getElementById('btn-cancel-inline');
+
+            if (isEditing) {
+                displayDiv.style.display = 'none';
+                editDiv.style.display = 'block';
+                btnEdit.style.display = 'none';
+                btnSave.style.display = 'block';
+                btnCancel.style.display = 'block';
+
+                // Preenche os campos com os valores atuais
+                document.getElementById('edit-profile-name').value = this.currentUser.name || '';
+                document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
+                document.getElementById('edit-profile-link').value = this.currentUser.link || '';
+            } else {
+                displayDiv.style.display = 'block';
+                editDiv.style.display = 'none';
+                btnEdit.style.display = 'block';
+                btnSave.style.display = 'none';
+                btnCancel.style.display = 'none';
+            }
+        },
+
+        async saveProfileInline() {
+            const newName = document.getElementById('edit-profile-name').value.trim();
+            const newBio = document.getElementById('edit-profile-bio').value.trim();
+            const newLink = document.getElementById('edit-profile-link').value.trim();
+
+            if (!newName) {
+                this.showNotification('O nome não pode estar vazio.', 'error');
+                return;
+            }
+
+            // Atualiza o objeto do usuário
+            this.currentUser.name = newName;
+            this.currentUser.bio = newBio;
+            this.currentUser.link = newLink;
+
+            // Salva Localmente
+            localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+            
+            // Atualiza DB de usuários local
+            const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+            const idx = usuarios.findIndex(u => u.username === this.currentUser.username);
+            if (idx !== -1) {
+                usuarios[idx] = { ...usuarios[idx], ...this.currentUser };
+                localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
+                localStorage.setItem('dito_usuarios', JSON.stringify(usuarios));
+            }
+
+            // Sincroniza com o Supabase
+            await this.syncUserToNetwork(this.currentUser);
+
+            // Volta para o modo de exibição e atualiza a UI
+            this.toggleProfileEdit(false);
+            this.renderProfile();
+            this.showNotification('Perfil atualizado!', 'success');
+        },
+
         renderProfile() {
             try {
                 const usernameEl = document.getElementById('profile-username-header');
                 const nameEl = document.getElementById('profile-name');
                 const bioEl = document.getElementById('profile-bio');
+                const linkTextEl = document.getElementById('profile-link-text');
+                const linkEl = document.getElementById('profile-link');
                 const adminSection = document.getElementById('admin-only-section');
                 
-                if (usernameEl && this.currentUser) usernameEl.innerText = this.currentUser.username;
-                if (nameEl && this.currentUser) nameEl.innerText = this.currentUser.name;
-                if (bioEl && this.currentUser) bioEl.innerText = this.currentUser.bio;
+                // Zera contadores de Fãs e Amigos (já que começamos do zero)
+                const fansEl = document.getElementById('count-fans');
+                const friendsEl = document.getElementById('count-friends');
+                if (fansEl) fansEl.innerText = "0";
+                if (friendsEl) friendsEl.innerText = "0";
+
+                if (this.currentUser) {
+                    if (usernameEl) usernameEl.innerText = this.currentUser.username;
+                    if (nameEl) nameEl.innerText = this.currentUser.name || this.currentUser.username;
+                    if (bioEl) bioEl.innerText = this.currentUser.bio || "Bio vazia...";
+                    if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "dito.app/" + this.currentUser.username;
+                    if (linkEl) linkEl.href = this.currentUser.link && this.currentUser.link.startsWith('http') ? this.currentUser.link : 'https://' + this.currentUser.link;
+                }
                 
-                // Só mostra o botão de gerenciar se for o Benedito
+                // Só mostra o botão de gerenciar se for o Benedito ou Admin
                 if (adminSection && this.currentUser && (this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'admin')) {
                     adminSection.style.display = 'block';
                 } else if (adminSection) {
@@ -1084,7 +1183,7 @@
                 }
 
                 this.renderProfileFeed();
-            } catch (e) { console.warn(e); }
+            } catch (e) { console.warn("Erro ao renderizar perfil:", e); }
         },
 
         renderProfileFeed() {
@@ -1092,23 +1191,44 @@
                 const grid = document.getElementById('profile-posts-grid');
                 if (!grid) return;
                 
+                // Zera contagem de posts
                 const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
                 const postCountEl = document.getElementById('count-posts');
                 if (postCountEl) postCountEl.innerText = posts.length;
 
                 if (posts.length === 0) {
                     grid.innerHTML = `<div style="grid-column: span 3; padding: 60px 0; text-align: center; color: #ccc;">
-                        <i data-lucide="camera" style="width: 48px; margin-bottom: 16px;"></i>
-                        <p style="font-weight: 800; font-size: 12px;">Ainda não há fotos.</p>
+                        <i data-lucide="camera" style="width: 48px; margin-bottom: 12px; opacity: 0.3;"></i>
+                        <p style="font-weight: 800; font-size: 13px;">Nenhum post ainda.</p>
                     </div>`;
+                    if (window.lucide) lucide.createIcons();
+                    return;
                 } else {
-                    grid.innerHTML = posts.map(p => `
-                        <div style="aspect-ratio: 1; background: #eee; overflow: hidden; position: relative;">
+                    grid.innerHTML = posts.map((p, index) => `
+                        <div style="aspect-ratio: 1; background: #eee; overflow: hidden; position: relative; cursor: pointer;" onmouseover="this.querySelector('.post-overlay').style.opacity='1'" onmouseout="this.querySelector('.post-overlay').style.opacity='0'">
                             <img src="${p.url}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <!-- Overlay de Exclusão -->
+                            <div class="post-overlay" onclick="app.deletePost(${index}, event)" style="position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; z-index: 10;">
+                                <div style="width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ff005c; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+                                    <i data-lucide="trash-2" style="width: 14px;"></i>
+                                </div>
+                            </div>
                         </div>
                     `).join('');
                 }
-            } catch (e) { console.warn(e); }
+                if (window.lucide) lucide.createIcons();
+            } catch (e) { console.warn("Erro no feed:", e); }
+        },
+
+        deletePost(index, event) {
+            if (event) event.stopPropagation();
+            if (confirm('Deseja excluir este post?')) {
+                const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                posts.splice(index, 1);
+                localStorage.setItem('dito_profile_posts', JSON.stringify(posts));
+                this.renderProfileFeed();
+                this.showNotification('Post removido!', 'success');
+            }
         },
 
         handleNewPost(e) {
@@ -1154,6 +1274,12 @@
             if (nameEl && this.currentUser) {
                 nameEl.innerText = this.currentUser.name || this.currentUser.username;
             }
+
+            // Exibe as bolinhas de notificação se ainda não viu
+            const dotDash = document.getElementById('create-product-dot');
+            const dotHeader = document.getElementById('header-create-dot');
+            if (dotDash) dotDash.style.display = this.hasSeenCreateProd ? 'none' : 'block';
+            if (dotHeader) dotHeader.style.display = this.hasSeenCreateProd ? 'none' : 'block';
         },
 
         toggleBalance() {
@@ -1168,6 +1294,12 @@
         },
 
         initCreateProduct() {
+            this.hasSeenCreateProd = true;
+            const dotDash = document.getElementById('create-product-dot');
+            const dotHeader = document.getElementById('header-create-dot');
+            if (dotDash) dotDash.style.display = 'none';
+            if (dotHeader) dotHeader.style.display = 'none';
+
             this.selectedProductType = null;
             const form = document.getElementById('create-product-form');
             if (form) form.style.display = 'none';

@@ -64,6 +64,9 @@
         <img src="D.png" style="width: 180px; height: 180px; object-fit: contain;">
     </div>
 
+    <!-- Container de Notificações Global -->
+    <div id="notification-container" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; align-items: center; pointer-events: none;"></div>
+
 
     <div id="app" class="app-container" style="padding-top: 70px;">
         <!-- Renderização Dinâmica via JS -->
@@ -71,30 +74,39 @@
 
     <!-- Header Global com Busca Social -->
     <header id="global-header" style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; height: 70px; background: #fff; display: none; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 1001; transition: all 0.3s ease;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div id="header-logo" style="font-size: 24px; font-weight: 900; letter-spacing: -1.5px; transition: color 0.3s ease;">Dito</div>
-            <div id="coin-pod" onclick="app.navigate('recompensas')" style="background: rgba(255, 214, 0, 0.1); padding: 4px 14px; border-radius: 50px; display: none; align-items: center; gap: 8px; cursor: pointer; border: 1px solid rgba(255, 214, 0, 0.2); transition: all 0.3s ease;">
-                <i data-lucide="circle-dollar-sign" style="width: 14px; color: #ffd600;"></i>
-                <span style="font-size: 10px; font-weight: 900; color: #000; letter-spacing: -0.2px;">Dito Moedas</span>
+        <!-- Lado Esquerdo: Criar + Moedas -->
+        <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
+            <div id="header-create-btn" onclick="app.navigate('criar-produto'); app.initCreateProduct();" style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i data-lucide="plus" style="width: 22px; color: #000;"></i>
+                <div id="header-create-dot" style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background: #ffd600; border-radius: 50%; border: 1.5px solid #fff; z-index: 10; display: none;"></div>
+            </div>
+            <div id="coin-pod" onclick="app.navigate('recompensas')" style="background: rgba(255, 214, 0, 0.1); padding: 4px 12px; border-radius: 50px; display: none; align-items: center; gap: 6px; cursor: pointer; border: 1px solid rgba(255, 214, 0, 0.2); transition: all 0.3s ease;">
+                <i data-lucide="circle-dollar-sign" style="width: 12px; color: #ffd600;"></i>
                 <span id="global-coin-balance" style="font-size: 11px; font-weight: 900; color: #b8860b;">0</span>
             </div>
         </div>
-        <div style="display: flex; gap: 16px; align-items: center;">
-            <!-- Ícone de Sacola (Sacolinha de mão/boutique) -->
-            <div id="header-cart-btn" onclick="app.navigate('mercado'); setTimeout(() => app.setMarketView('cart'), 50);" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%; transition: background 0.3s ease;">
-                <i id="cart-icon-header" data-lucide="shopping-bag" style="width: 20px; color: #000; transition: color 0.3s ease;"></i>
+
+        <!-- Centro: Logo -->
+        <div style="flex: 1; display: flex; justify-content: center;">
+            <div id="header-logo" style="font-size: 20px; font-weight: 900; letter-spacing: -1px; transition: color 0.3s ease; cursor: pointer;" onclick="app.navigate('dashboard')">Dito</div>
+        </div>
+
+        <!-- Lado Direito: Ações -->
+        <div style="flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+            <div id="header-cart-btn" onclick="app.navigate('mercado'); setTimeout(() => app.setMarketView('cart'), 50);" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%;">
+                <i id="cart-icon-header" data-lucide="shopping-bag" style="width: 18px; color: #000;"></i>
                 <span id="cart-badge-global" style="position: absolute; top: -5px; right: -5px; background: #ffd600; color: #000; font-size: 9px; font-weight: 900; min-width: 18px; height: 18px; border-radius: 50%; display: none; align-items: center; justify-content: center; border: 2px solid #fff;">0</span>
             </div>
 
-            <div id="search-container" style="display: flex; align-items: center; background: rgba(0,0,0,0.05); border-radius: 50px; width: 40px; height: 40px; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); overflow: visible; position: relative;">
-                <i data-lucide="search" id="search-icon-header" onclick="app.toggleSocialSearch(true)" style="width: 20px; color: #000; margin-left: 10px; flex-shrink: 0; cursor: pointer; transition: color 0.3s ease;"></i>
-                <input type="text" id="social-search-input" placeholder="Buscar perfis..." oninput="app.searchUsers(this.value)" style="border: none; background: transparent; outline: none; padding: 0; width: 0; opacity: 0; font-weight: 800; font-size: 13px; transition: all 0.5s ease;">
-                <i data-lucide="x" id="search-close" style="width: 16px; color: #999; margin-right: 12px; display: none; cursor: pointer;" onclick="app.toggleSocialSearch(false, event)"></i>
-                
-                <!-- Dropdown de Resultados Social -->
-                <div id="social-search-results" style="display: none; position: absolute; top: 55px; right: 0; width: 280px; background: #fff; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); border: 1px solid #f0f0f0; overflow: hidden; animation: slideDown 0.3s ease;">
-                    <!-- Injetado via JS -->
-                </div>
+            <div id="search-container" style="display: flex; align-items: center; background: rgba(0,0,0,0.05); border-radius: 50px; width: 40px; height: 40px; transition: all 0.5s ease; position: relative;">
+                <i data-lucide="search" id="search-icon-header" onclick="app.toggleSocialSearch(true)" style="width: 18px; color: #000; margin-left: 11px; cursor: pointer;"></i>
+                <input type="text" id="social-search-input" placeholder="Buscar..." oninput="app.searchUsers(this.value)" style="border: none; background: transparent; outline: none; padding: 0; width: 0; opacity: 0; font-weight: 800; font-size: 13px;">
+                <i data-lucide="x" id="search-close" style="width: 14px; color: #999; margin-right: 12px; display: none; cursor: pointer;" onclick="app.toggleSocialSearch(false, event)"></i>
+                <div id="social-search-results" style="display: none; position: absolute; top: 55px; right: 0; width: 280px; background: #fff; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); border: 1px solid #f0f0f0; overflow: hidden;"></div>
+            </div>
+
+            <div id="header-logout-btn" onclick="app.logout()" style="width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i data-lucide="log-out" style="width: 16px; color: #000;"></i>
             </div>
         </div>
     </header>
@@ -220,7 +232,8 @@
             <!-- Quick Actions Scroll -->
             <section class="hide-scrollbar" style="display: flex; gap: 32px; overflow-x: auto; padding: 10px 24px 30px; margin-bottom: 24px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scroll-padding-left: 24px;">
                 <!-- ... Botões de ação rápida ... -->
-                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('criar-produto'); app.initCreateProduct();">
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center; position: relative;" onclick="app.navigate('criar-produto'); app.initCreateProduct();">
+                    <div id="create-product-dot" style="position: absolute; top: 0; right: 8px; width: 12px; height: 12px; background: #ffd600; border-radius: 50%; border: 2px solid #fff; z-index: 10; display: none;"></div>
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                         <i data-lucide="plus" style="width: 22px;"></i>
                     </div>
@@ -868,20 +881,33 @@
                     </div>
                 </div>
 
-                <!-- Bio -->
-                <div style="margin-bottom: 32px;">
-                    <h4 id="profile-name" style="font-weight: 900; font-size: 16px; margin-bottom: 4px; letter-spacing: -0.5px;">Benedito Santos</h4>
-                    <p id="profile-bio" style="font-size: 13px; font-weight: 700; color: #666; line-height: 1.5; margin-bottom: 8px;">Infoprodutor de Elite | Especialista em SaaS 🚀</p>
+                <!-- Bio e Edição -->
+                <div id="profile-info-display" style="margin-bottom: 32px;">
+                    <h4 id="profile-name" style="font-weight: 900; font-size: 16px; margin-bottom: 4px; letter-spacing: -0.5px;">...</h4>
+                    <p id="profile-bio" style="font-size: 13px; font-weight: 700; color: #666; line-height: 1.5; margin-bottom: 8px;">...</p>
                     <a id="profile-link" href="#" style="color: #000; font-size: 13px; font-weight: 900; text-decoration: none; display: flex; align-items: center; gap: 6px;">
                         <i data-lucide="link" style="width: 14px;"></i>
-                        dito.com/sua-loja
+                        <span id="profile-link-text">...</span>
                     </a>
                 </div>
 
-                <!-- Botões Estilo Cápsula -->
+                <div id="profile-info-edit" style="display: none; margin-bottom: 24px;">
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="edit-profile-name" placeholder="Nome" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 16px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; letter-spacing: -0.5px; font-family: inherit;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <textarea id="edit-profile-bio" placeholder="Sua bio..." style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #666; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 8px 0; resize: none; min-height: 50px; line-height: 1.5; font-family: inherit;"></textarea>
+                    </div>
+                    <div>
+                        <input type="text" id="edit-profile-link" placeholder="Link (ex: dito.app/voce)" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 13px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; color: #000; font-family: inherit;">
+                    </div>
+                </div>
+
+                <!-- Botões -->
                 <div style="display: flex; gap: 12px; margin-bottom: 32px;">
-                    <button onclick="app.navigate('editar-perfil')" class="clickable" style="flex: 1; height: 50px; background: #f5f5f5; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Editar perfil</button>
-                    <button class="clickable" style="flex: 1; height: 50px; background: #f5f5f5; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Compartilhar</button>
+                    <button id="btn-edit-toggle" onclick="app.toggleProfileEdit(true)" class="clickable" style="flex: 1; height: 50px; background: #f5f5f5; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Editar perfil</button>
+                    <button id="btn-save-inline" onclick="app.saveProfileInline()" style="display: none; flex: 1; height: 50px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Salvar alterações</button>
+                    <button id="btn-cancel-inline" onclick="app.toggleProfileEdit(false)" style="display: none; width: 50px; height: 50px; background: #f5f5f5; border: none; border-radius: 50%; font-weight: 900; font-size: 12px;"><i data-lucide="x" style="width: 18px; margin: 0 auto;"></i></button>
                 </div>
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->
@@ -892,20 +918,6 @@
                     </button>
                 </div>
 
-                <!-- REWARDS SYSTEM CARD (ESTILO NUBANK/MODERNO) -->
-                <div class="reward-card" style="margin-bottom: 32px; cursor: pointer; border: 1px solid #ffd600; background: rgba(255, 214, 0, 0.05);" onclick="app.navigate('recompensas')">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <h3 style="font-size: 14px; font-weight: 900; color: #b8860b;">Indicar e Ganhar</h3>
-                        <div style="background: #ffd600; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="gift" style="width: 14px; color: #fff;"></i>
-                        </div>
-                    </div>
-                    <p style="font-size: 12px; color: #666; font-weight: 700; margin-bottom: 12px; line-height: 1.4;">Convide amigos e ganhe 75% OFF + Moedas Dito</p>
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 10px 16px; border-radius: 50px; border: 1px solid #eee;">
-                        <span id="profile-ref-link-display" style="font-size: 11px; font-weight: 900; color: #000; opacity: 0.6;">dito.app/ref/...</span>
-                        <i data-lucide="copy" style="width: 14px; color: #ffd600;"></i>
-                    </div>
-                </div>
 
                 <div style="margin-bottom: 32px;">
                     <button class="btn btn-secondary" style="border-radius: 50px; color: #ff005c; border-color: #ff005c; font-weight: 900;" onclick="app.logout()">
