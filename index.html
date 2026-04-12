@@ -26,13 +26,13 @@
                 const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
             } else {
-                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
                 if (isStandalone) {
                     alert('O Dito já está instalado em seu dispositivo!');
                     return;
                 }
 
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIOS) {
                     alert('No iPhone: Toque no ícone de Compartilhar (quadrado com seta) e escolha "Adicionar à Tela de Início".');
                 } else {
@@ -392,27 +392,29 @@
     </template>
 
     <template id="template-mercado-carrinho">
-        <div style="padding: 24px; min-height: 100vh; background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); color: #fff;" class="animate-fade">
-            <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px;">
+        <div style="min-height: 100vh; background: #fff;" class="animate-fade">
+            <header style="display: flex; align-items: center; justify-content: space-between; padding: 24px; background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); color: #fff; border-radius: 0 0 32px 32px; margin-bottom: 32px;">
                 <div onclick="app.setMarketView('home')" style="width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
-                <h2 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Minha Sacola</h2>
+                <h2 style="font-size: 20px; font-weight: 900; letter-spacing: -1px;">Minha Sacola</h2>
                 <div style="width: 44px;"></div>
             </header>
 
-            <div id="cart-items-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px;">
-                <!-- Itens injetados via JS com glassmorphism -->
-            </div>
-
-            <div id="cart-footer" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(30px); border-radius: 32px; padding: 32px; border: 1px solid rgba(255,255,255,0.2);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                    <p style="font-size: 14px; font-weight: 800; opacity: 0.7;">Total Estimado</p>
-                    <h3 id="cart-total-label" style="font-size: 32px; font-weight: 900;">R$ 0,00</h3>
+            <div style="padding: 0 24px;">
+                <div id="cart-items-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px;">
+                    <!-- Itens injetados via JS estilizados como produtos -->
                 </div>
-                <button onclick="app.setMarketView('checkout')" style="width: 100%; height: 64px; background: #fff; color: #000; border: none; border-radius: 20px; font-size: 15px; font-weight: 900; letter-spacing: 1px; cursor: pointer; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
-                    FINALIZAR PEDIDO
-                </button>
+
+                <div id="cart-footer" style="background: #fdfdfd; border-radius: 32px; padding: 32px; border: 1px solid #f0f0f0; margin-bottom: 100px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <p style="font-size: 14px; font-weight: 800; color: #999; text-transform: uppercase;">Total</p>
+                        <h3 id="cart-total-label" style="font-size: 28px; font-weight: 900; color: #000;">R$ 0,00</h3>
+                    </div>
+                    <button onclick="app.setMarketView('checkout')" style="width: 100%; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 14px; font-weight: 900; letter-spacing: 1px; cursor: pointer; box-shadow: 0 15px 30px rgba(0,0,0,0.1);">
+                        FINALIZAR PEDIDO
+                    </button>
+                </div>
             </div>
         </div>
     </template>
@@ -478,26 +480,29 @@
                 <div onclick="app.navigate('dashboard')" class="clickable" style="width: 36px; height: 36px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                     <i data-lucide="arrow-left" style="width: 16px;"></i>
                 </div>
-                <div style="background: #000; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 8px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">
-                    Hall da Fama
-                </div>
             </div>
 
             <!-- Forced Side-by-Side Flex Container -->
             <div style="display: flex; flex-direction: row; gap: 8px; align-items: flex-start; width: 100%; max-width: 1000px; margin: 0 auto;">
                 
                 <!-- LEFT COLUMN: Winner (Very Compact) -->
-                <div style="width: 35%; min-width: 130px; text-align: center; position: relative; padding: 10px; background: #fff; border-radius: 30px; display: flex; flex-direction: column; align-items: center;">
+                <div class="podium-1st" style="width: 35%; min-width: 130px; text-align: center; position: relative; padding: 10px; background: #fff; border-radius: 30px; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
                     <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: rgba(250, 204, 21, 0.08); filter: blur(30px); border-radius: 50%; z-index: 1;"></div>
                     
                     <div style="position: relative; z-index: 2; width: 100%;">
-                        <i data-lucide="crown" style="width: 32px; height: 32px; color: #facc15; fill: #facc15; margin: 0 auto 8px; display: block;"></i>
-                        <div id="hall-1st-avatar" style="width: 90px; height: 90px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin: 0 auto 12px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+                        <div id="hall-1st-avatar" style="width: 90px; height: 90px; border-radius: 50%; border: 4px solid #fff; margin: 0 auto 12px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
                             <i data-lucide="star" style="width: 30px; color: #eee;"></i>
                         </div>
-                        <span style="display: block; font-size: 7px; font-weight: 900; color: #facc15; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">Líder do Mês</span>
+                        <span style="display: block; font-size: 8px; font-weight: 900; color: #000; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">1º Lugar</span>
                         <h3 id="hall-1st-name" style="font-size: 16px; font-weight: 900; italic; margin-bottom: 4px; color: #000; letter-spacing: -1px; line-height: 1;">...</h3>
                         <p id="hall-1st-sales" style="font-size: 20px; font-weight: 900; color: #000; letter-spacing: -1px;"></p>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 10px; border-top: 1px solid #f9f9f9; width: 100%;">
+                        <p style="font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase; letter-spacing: 1px; line-height: 1.4;">
+                            <i data-lucide="info" style="width: 10px; vertical-align: middle; margin-right: 4px;"></i>
+                            As pontuações atualizam de 30 em 30 dias.
+                        </p>
                     </div>
                 </div>
 
@@ -508,15 +513,15 @@
                     </div>
 
                     <!-- User Position -->
-                    <div style="margin-top: 12px; background: #000; border-radius: 20px; padding: 12px; color: #fff; position: relative;">
+                    <div id="hall-user-position-container" style="margin-top: 12px; background: rgba(0,0,0,0.05); border-radius: 20px; padding: 12px; color: #000; position: relative; border: 1px solid #eee;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: #000; display: flex; align-items: center; justify-content: center;">
                                     <i data-lucide="star" style="width: 12px; color: #fff;"></i>
                                 </div>
-                                <h4 style="font-size: 10px; font-weight: 900; margin: 0; italic;">Você é o 42º</h4>
+                                <h4 id="hall-user-rank-text" style="font-size: 10px; font-weight: 900; margin: 0;">Você é o --º</h4>
                             </div>
-                            <span style="font-size: 10px; font-weight: 900; color: #4ade80;">↑ 4</span>
+                            <span id="hall-user-rank-trend" style="font-size: 10px; font-weight: 900; color: #22c55e;">-</span>
                         </div>
                     </div>
                 </div>
@@ -682,12 +687,17 @@
         <div style="padding: 24px; background: #fff; min-height: 100vh; padding-bottom: 120px;">
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
                 <button onclick="app.setMarketView('cart')" style="width: 44px; height: 44px; background: #f8f8f8; border: none; border-radius: 12px; cursor: pointer;"><i data-lucide="arrow-left" style="width: 20px;"></i></button>
-                <h2 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Checkout</h2>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="shield-check" style="width: 24px; color: #22c55e;"></i>
+                    <h2 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Checkout</h2>
+                </div>
             </div>
 
             <!-- Resumo do Pedido -->
             <div style="background: #fafafa; border-radius: 20px; padding: 24px; margin-bottom: 32px; border: 1px solid #eee;">
-                <h3 style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 16px;">Resumo do Pedido</h3>
+                <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #999; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="shopping-bag" style="width: 14px;"></i> Resumo do Pedido
+                </h3>
                 <div id="checkout-items-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;"></div>
                 <div style="display: flex; justify-content: space-between; padding-top: 16px; border-top: 1px dashed #ddd;">
                     <span style="font-weight: 700;">Total a pagar</span>
@@ -696,21 +706,21 @@
             </div>
 
             <!-- Métodos de Pagamento -->
-            <h3 style="font-size: 14px; font-weight: 900; margin-bottom: 16px; text-transform: uppercase;">Escolha o pagamento</h3>
+            <h3 style="font-size: 13px; font-weight: 900; margin-bottom: 16px; text-transform: uppercase; color: #666;">Escolha o pagamento</h3>
             
             <div id="payment-options" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
                 <div onclick="app.selectPayment('pix', this)" class="payment-opt active" style="padding: 20px; border-radius: 16px; border: 2px solid #ee4d2d; background: #fff; display: flex; align-items: center; gap: 16px; cursor: pointer;">
-                    <div style="width: 40px; height: 40px; background: #e6fcf5; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #0ca678;"><i data-lucide="qr-code"></i></div>
+                    <div style="width: 44px; height: 44px; background: #e6fcf5; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #0ca678;"><i data-lucide="diamond" style="width: 22px;"></i></div>
                     <div>
-                        <p style="font-weight: 900; font-size: 14px;">Pix</p>
+                        <p style="font-weight: 900; font-size: 15px;">Pix</p>
                         <p style="font-size: 10px; color: #999; font-weight: 700;">Aprovação imediata</p>
                     </div>
                 </div>
 
                 <div onclick="app.selectPayment('card', this)" class="payment-opt" style="padding: 20px; border-radius: 16px; border: 2px solid #eee; background: #fff; display: flex; align-items: center; gap: 16px; cursor: pointer;">
-                    <div style="width: 40px; height: 40px; background: #f8f9fa; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #333;"><i data-lucide="credit-card"></i></div>
+                    <div style="width: 44px; height: 44px; background: #f8f9fa; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #333;"><i data-lucide="credit-card" style="width: 22px;"></i></div>
                     <div>
-                        <p style="font-weight: 900; font-size: 14px;">Cartão de Crédito</p>
+                        <p style="font-weight: 900; font-size: 15px;">Cartão de Crédito</p>
                         <p style="font-size: 10px; color: #999; font-weight: 700;">Em até 12x</p>
                     </div>
                 </div>
@@ -858,17 +868,22 @@
                 <div style="display: flex; align-items: center; gap: 32px; margin-bottom: 24px;">
                     <div style="position: relative;">
                         <!-- Foto de Perfil Limpa -->
-                        <div style="width: 86px; height: 86px; border-radius: 50%; background: #f5f5f5; cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #eee;" onclick="document.getElementById('avatar-upload').click()">
+                        <div id="profile-avatar-clickable" style="width: 86px; height: 86px; border-radius: 50%; background: #f5f5f5; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; position: relative;">
                             <div id="profile-avatar-container" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                                 <i data-lucide="user" style="color: #ccc; width: 40px;"></i>
+                            </div>
+                            <!-- Overlay de mudança que só ativa no modo Editar -->
+                            <div id="avatar-edit-overlay" onclick="document.getElementById('avatar-upload').click()" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); flex-direction: column; align-items: center; justify-content: center; color: #fff; cursor: pointer; transition: 0.2s; z-index: 10;">
+                                <i data-lucide="camera" style="width: 20px; margin-bottom: 2px;"></i>
+                                <span style="font-size: 8px; font-weight: 900; text-transform: uppercase;">Mudar</span>
                             </div>
                         </div>
                         <input type="file" id="avatar-upload" style="display: none;" accept="image/*" onchange="app.handleAvatarUpload(event)">
                     </div>
                     <div style="display: flex; flex: 1; justify-content: space-around; text-align: center; gap: 10px;">
                         <div>
-                            <p id="count-posts" style="font-weight: 900; font-size: 16px; letter-spacing: -0.5px;">0</p>
-                            <p style="font-size: 9px; font-weight: 800; color: #ccc; text-transform: uppercase;">Posts</p>
+                            <p id="count-revenue" style="font-weight: 900; font-size: 16px; letter-spacing: -0.5px;">R$ 0</p>
+                            <p style="font-size: 9px; font-weight: 800; color: #ccc; text-transform: uppercase;">Faturamento</p>
                         </div>
                         <div>
                             <p id="count-fans" style="font-weight: 900; font-size: 16px; letter-spacing: -0.5px;">0</p>
@@ -919,11 +934,6 @@
                 </div>
 
 
-                <div style="margin-bottom: 32px;">
-                    <button class="btn btn-secondary" style="border-radius: 50px; color: #ff005c; border-color: #ff005c; font-weight: 900;" onclick="app.logout()">
-                        Sair da conta
-                    </button>
-                </div>
             </div>
 
             <!-- Tabs Feed -->
@@ -1007,8 +1017,8 @@
                             <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Fãs</p>
                         </div>
                         <div>
-                            <p id="public-vendas-count" style="font-weight: 900; font-size: 16px;">0</p>
-                            <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Vendas</p>
+                            <p id="public-friends-count" style="font-weight: 900; font-size: 16px;">0</p>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Amigos</p>
                         </div>
                     </div>
                 </div>
@@ -1053,21 +1063,18 @@
             </header>
 
             <!-- COIN BALANCE CARD -->
-            <div style="background: #000; border-radius: 28px; padding: 32px; color: #fff; margin-bottom: 24px; position: relative; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
-                <div style="position: absolute; top: -20px; right: -20px; opacity: 0.1;">
-                    <i data-lucide="circle-dollar-sign" style="width: 140px; height: 140px;"></i>
-                </div>
+            <div style="background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); border-radius: 28px; padding: 32px; color: #fff; margin-bottom: 24px; position: relative; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                    <i data-lucide="circle-dollar-sign" style="width: 16px; color: #ffd600;"></i>
-                    <p style="font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: #ffd600;">Saldo em Moedas Dito</p>
+                    <i data-lucide="circle-dollar-sign" style="width: 16px; color: #fff;"></i>
+                    <p style="font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.8);">Saldo em Moedas Dito</p>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 12px;">
                     <h2 id="coins-page-balance" style="font-size: 56px; font-weight: 900; letter-spacing: -2px;">0</h2>
-                    <span style="font-size: 14px; font-weight: 800; color: #ffd600; opacity: 0.8;">moedas</span>
+                    <span style="font-size: 14px; font-weight: 800; color: #fff; opacity: 0.8;">moedas</span>
                 </div>
-                <div id="first-purchase-badge" style="margin-top: 20px; background: rgba(255, 214, 0, 0.2); padding: 12px 16px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255, 214, 0, 0.3);">
-                    <i data-lucide="zap" style="width: 16px; color: #ffd600;"></i>
-                    <p style="font-size: 11px; font-weight: 800; color: #fff;">Sua primeira compra tem <span style="color: #ffd600;">75% OFF</span></p>
+                <div id="first-purchase-badge" style="margin-top: 20px; background: rgba(255, 255, 255, 0.2); padding: 12px 16px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px);">
+                    <i data-lucide="gift" style="width: 16px; color: #fff;"></i>
+                    <p style="font-size: 11px; font-weight: 800; color: #fff;">Sua primeira compra tem <span style="font-weight: 900; border-bottom: 2px solid #fff;">75% OFF</span></p>
                 </div>
             </div>
 

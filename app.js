@@ -2,10 +2,10 @@
     // ==========================================
     // 🌐 DITO NETWORK (SUPABASE)
     // ==========================================
-    // ATENÇÃO: Para conectar dispositivos diferentes (ex: o seu e o da sua namorada),
-    // você precisa colocar a URL e a CHAVE do seu Supabase aqui embaixo:
+    // 🚨 ATENÇÃO: A CHAVE ABAIXO ESTAVA INCORRETA (Era uma chave do Stripe).
+    // Substitua pela chave 'anon/public' do seu projeto Supabase (começa com eyJ...).
     const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_tydlr74c4DTrQs0TyjhjZw_MLF4bTyR';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI';
     
     let supabase = null;
     try {
@@ -52,33 +52,38 @@
             try {
                 console.log("Iniciando o Dito app...");
                 
-                // Força o reinício dos posts para zerar conforme solicitado
-                localStorage.removeItem('dito_profile_posts');
-                
                 // Carrega dados
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
+                    // Garante que fotos locais não sumam ao navegar/iniciar
+                    const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                    this.currentUser.posts = localPosts;
                 } else {
                     this.currentUser = {
                         username: "benedito_pro",
                         name: "Benedito Santos",
                         bio: "Infoprodutor de Elite | Especialista em SaaS 🚀",
-                        avatar: ""
+                        avatar: "",
+                        posts: []
                     };
                 }
 
                 // Inicia sempre na tela de login conforme solicitado
                 this.checkNewProducts();
-                this.fetchNetworkUsers(); // Puxa usuários da rede global!
+                this.fetchNetworkUsers(); 
+                
+                // Real-time Polling: Atualiza dados da rede a cada 2 segundos para fluidez total
+                setInterval(() => this.fetchNetworkUsers(), 2000);
+
                 this.navigate('login');
                 
                 // Ativa ícones
                 if (window.lucide) lucide.createIcons();
                 
-                console.log("App carregado com sucesso!");
+                console.log("App carregado em TEMPO REAL!");
             } catch (err) {
                 console.error("Erro no INIT:", err);
                 document.getElementById('app').innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">Erro ao iniciar: ${err.message}</div>`;
@@ -97,62 +102,80 @@
                 const { data, error } = await supabase.from('dito_users').select('*');
                 
                 if (error) {
-                    console.log("Tabela dito_users não encontrada ou erro de permissão. Crie a tabela no Supabase!");
+                    console.warn("⚠️ [Supabase] Erro ao buscar usuários. Verifique se a tabela 'dito_users' existe:", error.message);
                     return;
                 }
 
-                if (data && data.length > 0) {
-                    // Mescla os usuários da rede com os locais, priorizando a rede
+                if (data) {
                     let localUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
                     let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
 
                     data.forEach(netUser => {
-                        // Atualiza BD de Login
+                        // Mescla BD de Login
                         const idx = localUsers.findIndex(u => u.username === netUser.username);
                         if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...netUser };
                         else localUsers.push(netUser);
 
-                        // Atualiza BD de Perfis Públicos (Hall da fama etc)
+                        // Mescla BD de Perfis Públicos
                         const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
                         if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...netUser };
                         else localProfiles.push(netUser);
+
+                        // Se for o próprio usuário logado, atualiza o objeto global dele e os posts locais
+                        if (this.currentUser && netUser.username === this.currentUser.username) {
+                            const netPosts = netUser.posts ? JSON.parse(netUser.posts) : [];
+                            // Só sobrescreve os posts locais se a rede tiver algo novo ou se o local estiver vazio
+                            // Isso evita que a rede (ainda sem o sync) apague o post "otimista" que acabamos de fazer
+                            const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                            
+                            if (netPosts.length >= localPosts.length) {
+                                this.currentUser = { ...this.currentUser, ...netUser, posts: netPosts };
+                                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                                localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
+                            } else {
+                                // Se a rede tem MENOS posts que o local, mantemos o local e apenas atualizamos os outros dados (bio, name, etc)
+                                this.currentUser = { ...this.currentUser, ...netUser, posts: localPosts };
+                                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                            }
+                        }
                     });
 
                     localStorage.setItem('dito_users_db', JSON.stringify(localUsers));
                     localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(localProfiles));
                     localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles));
-                    localStorage.setItem('dito_profile_link', data[0]?.link || ''); // Sincroniza link se for o próprio
                     
-                    console.log("🌐 Usuários da Rede Sincronizados:", data.length);
+                    console.log("✅ [Supabase] Sincronização concluída. Fotos e dados restaurados da rede!");
                 }
             } catch (e) {
-                console.log("Erro ao buscar rede:", e);
+                console.error("❌ [Supabase] Erro crítico na conexão:", e);
             }
         },
 
         async syncUserToNetwork(user) {
-            // Remove a senha antes de mandar pra rede por segurança (se for só atualizar perfil)
-            // Mas no nosso caso, como é um MVP, vamos mandar o objeto básico.
             if (!supabase) return;
 
             try {
-                const { error } = await supabase.from('dito_users').upsert([
-                    {
-                        id: user.id || Date.now(),
-                        username: user.username,
-                        password: user.password, // Cuidado em produção!
-                        name: user.name || user.username,
-                        bio: user.bio || "Novo membro da Elite",
-                        link: user.link || "",
-                        avatar: user.avatar || "",
-                        sales: user.sales || 0
-                    }
-                ], { onConflict: 'username' });
+                const payload = {
+                    id: Number(user.id) || Date.now(),
+                    username: user.username,
+                    password: user.password,
+                    name: user.name || user.username,
+                    bio: user.bio || "Novo membro da Elite",
+                    sales: Number(user.sales || 0),
+                    link: user.link || "",
+                    avatar: user.avatar || "",
+                    posts: JSON.stringify(user.posts || [])
+                };
 
-                if (error) console.log("Erro ao sincronizar usuário com a rede:", error);
-                else console.log(`🌐 Usuário ${user.username} subiu para a rede!`);
+                const { error } = await supabase.from('dito_users').upsert([payload]);
+
+                if (error) {
+                    console.error("❌ [Supabase] Erro ao salvar usuário na rede:", error.message);
+                } else {
+                    console.log("🚀 [Supabase] Dados e fotos enviados para a nuvem!");
+                }
             } catch (e) {
-                console.log("Falha na sincronia:", e);
+                console.error("❌ [Supabase] Falha ao tentar sincronizar:", e);
             }
         },
 
@@ -302,31 +325,33 @@
 
         renderMarketCheckout(container) {
             const temp = document.getElementById('template-checkout');
+            if (!temp) return;
             container.innerHTML = temp.innerHTML;
             
             const list = document.getElementById('checkout-items-list');
+            if (!list) return;
+
             list.innerHTML = this.cart.map(item => `
-                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
                     <span style="color: #666; font-weight: 500;">${item.name}</span>
-                    <span style="font-weight: 800;">R$ ${item.price.toFixed(2)}</span>
+                    <span style="font-weight: 800; color: #000;">R$ ${parseFloat(item.price || 0).toFixed(2)}</span>
                 </div>
             `).join('');
 
             const hasPurchased = localStorage.getItem('dito_purchased_products');
             const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
             
-            // Add Rewards Card to Checkout UI
             const rewardsSection = document.createElement('div');
             rewardsSection.style.marginTop = '24px';
             rewardsSection.innerHTML = `
                 ${isFirstPurchase ? `
-                <div style="background: rgba(255, 0, 92, 0.05); border: 1px dashed #ff005c; padding: 16px; border-radius: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-                    <i data-lucide="zap" style="width: 20px; color: #ff005c;"></i>
-                    <p style="font-size: 11px; font-weight: 900; color: #ff005c;">PRIMEIRA COMPRA: 75% OFF APLICADO!</p>
+                <div style="background: rgba(34, 197, 94, 0.05); border: 1px dashed #22c55e; padding: 16px; border-radius: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                    <i data-lucide="zap" style="width: 20px; color: #22c55e;"></i>
+                    <p style="font-size: 11px; font-weight: 900; color: #22c55e;">PRIMEIRA COMPRA: 75% OFF APLICADO!</p>
                 </div>
                 ` : ''}
 
-                <div class="reward-card" style="padding: 20px; border: 1px solid #ffd600; background: rgba(255, 214, 0, 0.02);">
+                <div class="reward-card" style="padding: 20px; border: 1px solid #ffd600; background: rgba(255, 214, 0, 0.02); border-radius: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i>
@@ -341,7 +366,11 @@
             list.after(rewardsSection);
             
             this.recalculateCheckoutTotal();
-            if (window.lucide) lucide.createIcons();
+            
+            // Timeout para garantir renderização dos ícones Lucide injetados dinamicamente
+            setTimeout(() => {
+                if (window.lucide) lucide.createIcons();
+            }, 50);
         },
 
         selectPayment(method, btn) {
@@ -668,7 +697,12 @@
 
             // Renderiza o 1º Lugar
             if (winner) {
-                if (firstAvatar) firstAvatar.innerHTML = winner.avatar ? `<img src="${winner.avatar}" style="width: 100%; height: 100%; object-cover">` : `<i data-lucide="star" style="width: 60px; color: #eee;"></i>`;
+                // Se o vencedor for o próprio usuário logado, garante que a imagem venha da memória atual se o banco estiver atrasado
+                const avatarUrl = (this.currentUser && winner.username === this.currentUser.username) ? (this.currentUser.avatar || winner.avatar) : winner.avatar;
+                
+                if (firstAvatar) {
+                    firstAvatar.innerHTML = avatarUrl ? `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="star" style="width: 60px; color: #eee;"></i>`;
+                }
                 if (firstName) firstName.innerText = winner.username;
                 if (firstSales) firstSales.innerHTML = `<span style="font-size: 20px; opacity: 0.3;">R$</span> ${winner.sales.toLocaleString()}`;
                 
@@ -683,32 +717,35 @@
             // Renderiza o Ranking (2º ao 10º)
             listTop.innerHTML = others.map((u, i) => {
                 const pos = i + 2;
-                const isSilver = pos === 2;
-                const isBronze = pos === 3;
-                const bg = isSilver ? '#f9f9f9' : (isBronze ? '#fffaf5' : '#fff');
-                const border = isSilver ? '#eee' : (isBronze ? '#ffe8d1' : '#f9f9f9');
-                const rankColor = isSilver ? '#999' : (isBronze ? '#d97706' : '#ddd');
-                const title = isSilver ? 'Vice-Líder' : (isBronze ? 'Terceiro Lugar' : 'Elite');
+                const bg = '#fff';
+                const border = '#f9f9f9';
+                const rankColor = '#ddd';
 
                 return `
-                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: ${bg}; border-radius: 28px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
-                    <div style="display: flex; align-items: center; gap: 16px;">
-                        <span style="font-weight: 900; color: ${rankColor}; font-size: 14px; font-style: italic; width: 30px; text-align: center;">${pos}º</span>
-                        <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid ${border}; display: flex; align-items: center; justify-content: center;">
-                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`}
+                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: ${bg}; border-radius: 24px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-weight: 900; color: #000; font-size: 13px; width: 30px; text-align: center;">${pos}º</span>
+                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #fff; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
+                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 16px; color: #ccc;"></i>`}
                         </div>
                         <div>
-                            <p style="font-weight: 900; font-size: 13px; color: #000; margin-bottom: 2px;">${u.username}</p>
-                            <p style="font-size: 8px; font-weight: 800; color: ${rankColor}; text-transform: uppercase; letter-spacing: 1px;">${title}</p>
+                            <p style="font-weight: 900; font-size: 12px; color: #000; margin-bottom: 2px;">${u.username}</p>
+                            <p style="font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase;">Membro Elite</p>
                         </div>
                     </div>
                     <div style="text-align: right;">
-                        <span style="font-weight: 900; font-size: 13px; color: #000;">R$ ${u.sales.toLocaleString()}</span>
-                        <span style="display: block; font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase;">Faturamento</span>
+                        <span style="font-weight: 900; font-size: 12px; color: #000;">R$ ${parseInt(u.sales || 0).toLocaleString()}</span>
                     </div>
                 </div>
                 `;
             }).join('');
+
+            // Atualiza a posição do usuário logado
+            const myRankPos = sortedRank.findIndex(u => u.username === this.currentUser?.username) + 1;
+            const rankLabel = document.getElementById('hall-user-rank-text');
+            if (rankLabel) {
+                rankLabel.innerText = myRankPos > 0 ? `Você é o ${myRankPos}º` : 'Você não está no ranking';
+            }
 
             if (window.lucide) lucide.createIcons();
         },
@@ -766,11 +803,14 @@
 
                 // Force background for Market
                 const rootContainer = document.querySelector('.app-container');
+                const searchToggle = document.getElementById('search-container');
                 if (rootContainer) {
                     if (view === 'mercado') {
                         rootContainer.classList.add('bg-mercado-premium');
+                        if (searchToggle) searchToggle.style.background = '#fff';
                     } else {
                         rootContainer.classList.remove('bg-mercado-premium');
+                        if (searchToggle) searchToggle.style.background = 'rgba(0,0,0,0.05)';
                     }
                 }
 
@@ -1095,6 +1135,7 @@
             const btnEdit = document.getElementById('btn-edit-toggle');
             const btnSave = document.getElementById('btn-save-inline');
             const btnCancel = document.getElementById('btn-cancel-inline');
+            const avatarOverlay = document.getElementById('avatar-edit-overlay');
 
             if (isEditing) {
                 displayDiv.style.display = 'none';
@@ -1102,24 +1143,33 @@
                 btnEdit.style.display = 'none';
                 btnSave.style.display = 'block';
                 btnCancel.style.display = 'block';
+                if (avatarOverlay) avatarOverlay.style.display = 'flex';
 
                 // Preenche os campos com os valores atuais
                 document.getElementById('edit-profile-name').value = this.currentUser.name || '';
                 document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
                 document.getElementById('edit-profile-link').value = this.currentUser.link || '';
+                
+                const showRevInp = document.getElementById('edit-profile-show-revenue');
+                if (showRevInp) {
+                    showRevInp.checked = this.currentUser.showRevenue !== false; // Padrão true
+                }
             } else {
                 displayDiv.style.display = 'block';
                 editDiv.style.display = 'none';
                 btnEdit.style.display = 'block';
                 btnSave.style.display = 'none';
                 btnCancel.style.display = 'none';
+                if (avatarOverlay) avatarOverlay.style.display = 'none';
             }
+            if (window.lucide) lucide.createIcons();
         },
 
         async saveProfileInline() {
             const newName = document.getElementById('edit-profile-name').value.trim();
             const newBio = document.getElementById('edit-profile-bio').value.trim();
             const newLink = document.getElementById('edit-profile-link').value.trim();
+            const showRev = document.getElementById('edit-profile-show-revenue').checked;
 
             if (!newName) {
                 this.showNotification('O nome não pode estar vazio.', 'error');
@@ -1130,6 +1180,7 @@
             this.currentUser.name = newName;
             this.currentUser.bio = newBio;
             this.currentUser.link = newLink;
+            this.currentUser.showRevenue = showRev;
 
             // Salva Localmente
             localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
@@ -1161,11 +1212,21 @@
                 const linkEl = document.getElementById('profile-link');
                 const adminSection = document.getElementById('admin-only-section');
                 
-                // Zera contadores de Fãs e Amigos (já que começamos do zero)
+                // Exibe contadores Reais
+                const revEl = document.getElementById('count-revenue');
                 const fansEl = document.getElementById('count-fans');
                 const friendsEl = document.getElementById('count-friends');
-                if (fansEl) fansEl.innerText = "0";
-                if (friendsEl) friendsEl.innerText = "0";
+                
+                const balance = localStorage.getItem('user_balance_vanilla') || '0.00';
+                if (revEl) {
+                    if (this.currentUser && this.currentUser.showRevenue === false) {
+                        revEl.innerText = "Privado";
+                    } else {
+                        revEl.innerText = `R$ ${parseFloat(balance).toFixed(2)}`;
+                    }
+                }
+                if (fansEl) fansEl.innerText = this.currentUser?.fans || "0";
+                if (friendsEl) friendsEl.innerText = this.currentUser?.friends || "0";
 
                 if (this.currentUser) {
                     if (usernameEl) usernameEl.innerText = this.currentUser.username;
@@ -1173,6 +1234,17 @@
                     if (bioEl) bioEl.innerText = this.currentUser.bio || "Bio vazia...";
                     if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "dito.app/" + this.currentUser.username;
                     if (linkEl) linkEl.href = this.currentUser.link && this.currentUser.link.startsWith('http') ? this.currentUser.link : 'https://' + this.currentUser.link;
+                    
+                    // Atualiza o Avatar na UI
+                    const avatarCont = document.getElementById('profile-avatar-container');
+                    if (avatarCont) {
+                        if (this.currentUser.avatar) {
+                            avatarCont.innerHTML = `<img src="${this.currentUser.avatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                        } else {
+                            avatarCont.innerHTML = `<i data-lucide="user" style="color: #ccc; width: 40px;"></i>`;
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
                 }
                 
                 // Só mostra o botão de gerenciar se for o Benedito ou Admin
@@ -1193,8 +1265,6 @@
                 
                 // Zera contagem de posts
                 const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                const postCountEl = document.getElementById('count-posts');
-                if (postCountEl) postCountEl.innerText = posts.length;
 
                 if (posts.length === 0) {
                     grid.innerHTML = `<div style="grid-column: span 3; padding: 60px 0; text-align: center; color: #ccc;">
@@ -1220,12 +1290,32 @@
             } catch (e) { console.warn("Erro no feed:", e); }
         },
 
-        deletePost(index, event) {
+        async deletePost(index, event) {
             if (event) event.stopPropagation();
             if (confirm('Deseja excluir este post?')) {
                 const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
                 posts.splice(index, 1);
+                
+                // Salva localmente
                 localStorage.setItem('dito_profile_posts', JSON.stringify(posts));
+                
+                // Sincroniza com o objeto do usuário e nuvem
+                if (this.currentUser) {
+                    this.currentUser.posts = posts;
+                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    
+                    // Atualiza a lista global de usuários localmente para visibilidade imediata
+                    const allUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                    const uIdx = allUsers.findIndex(u => u.username === this.currentUser.username);
+                    if (uIdx !== -1) {
+                        allUsers[uIdx] = this.currentUser;
+                        localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
+                        localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                    }
+
+                    await this.syncUserToNetwork(this.currentUser);
+                }
+
                 this.renderProfileFeed();
                 this.showNotification('Post removido!', 'success');
             }
@@ -1235,12 +1325,34 @@
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = async (event) => {
                     const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                    posts.unshift({ id: Date.now(), url: event.target.result });
+                    const newPost = { id: Date.now(), url: event.target.result };
+                    posts.unshift(newPost);
+                    
+                    // Salva localmente
                     localStorage.setItem('dito_profile_posts', JSON.stringify(posts));
+                    
+                    // Sincroniza com o objeto do usuário e nuvem
+                    if (this.currentUser) {
+                        this.currentUser.posts = posts;
+                        localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+
+                        // Atualiza a lista global de usuários localmente para visibilidade imediata
+                        const allUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                        const uIdx = allUsers.findIndex(u => u.username === this.currentUser.username);
+                        if (uIdx !== -1) {
+                            allUsers[uIdx] = this.currentUser;
+                            localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
+                            localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                        }
+
+                        await this.syncUserToNetwork(this.currentUser);
+                    }
+
                     this.renderProfileFeed();
                     if (window.lucide) lucide.createIcons();
+                    this.showNotification('Foto publicada e salva na rede! ✨', 'success');
                 };
                 reader.readAsDataURL(file);
             }
@@ -1250,12 +1362,27 @@
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = async (event) => {
+                    const avatarData = event.target.result;
                     const cont = document.getElementById('profile-avatar-container');
-                    if (cont) cont.innerHTML = `<img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    if (cont) cont.innerHTML = `<img src="${avatarData}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    
                     if (this.currentUser) {
-                        this.currentUser.avatar = event.target.result;
+                        this.currentUser.avatar = avatarData;
                         localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                        
+                        // Garante que o usuário global também tenha o avatar atualizado
+                        const allUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                        const uIdx = allUsers.findIndex(u => u.username === this.currentUser.username);
+                        if (uIdx !== -1) {
+                            allUsers[uIdx].avatar = avatarData;
+                            localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
+                            localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                        }
+
+                        // Sincroniza com o Supabase
+                        await this.syncUserToNetwork(this.currentUser);
+                        this.showNotification('Avatar atualizado e salvo na nuvem! 💎', 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -1437,7 +1564,7 @@
         },
         login(isGuest = false) { 
             this.showNotification(isGuest ? 'Entrando como convidado...' : 'Entrando...', 'centered');
-            
+            this.fetchNetworkUsers(); // Garante que puxou todo mundo do server antes de entrar
             setTimeout(() => {
                 if (isGuest) {
                     localStorage.setItem('is_logged_in_vanilla', 'true');
@@ -1524,7 +1651,50 @@
         removeFromCart(index) {
             this.cart.splice(index, 1);
             localStorage.setItem('dito_cart', JSON.stringify(this.cart));
-            this.renderMarketCart(document.getElementById('market-view-container'));
+            const container = document.getElementById('market-actual-content') || document.getElementById('market-view-container');
+            if (container) this.renderMarketCart(container);
+        },
+
+        renderMarketCart(container) {
+            const temp = document.getElementById('template-mercado-carrinho');
+            if (!temp) return;
+            container.innerHTML = temp.innerHTML;
+
+            const list = document.getElementById('cart-items-list');
+            const totalLabel = document.getElementById('cart-total-label');
+            if (!list) return;
+
+            if (this.cart.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #ccc;">
+                        <i data-lucide="shopping-bag" style="width: 48px; margin-bottom: 16px; opacity: 0.2;"></i>
+                        <p style="font-weight: 800; font-size: 14px;">Sua sacola está vazia.</p>
+                    </div>
+                `;
+            } else {
+                list.innerHTML = this.cart.map((p, index) => {
+                    const iconName = p.type === 'Ebook' ? 'book-open' : (p.type === 'Curso' ? 'play-circle' : 'package');
+                    return `
+                    <div style="background: #fff; padding: 16px; border-radius: 24px; border: 1px solid #f2f2f2; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                        <div style="width: 70px; height: 70px; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex-shrink: 0;">
+                            <i data-lucide="${iconName}" stroke="url(#dito-gradient)" style="width: 24px;"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                            <p style="font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase;">${p.type || 'Dito'}</p>
+                            <p style="font-weight: 900; font-size: 15px; color: #000; margin-top: 4px;">R$ ${parseFloat(p.price || 0).toFixed(2)}</p>
+                        </div>
+                        <button onclick="app.removeFromCart(${index})" style="width: 36px; height: 36px; background: #fff5f5; color: #ff4d4d; border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <i data-lucide="trash-2" style="width: 16px;"></i>
+                        </button>
+                    </div>`;
+                }).join('');
+            }
+
+            const total = this.cart.reduce((acc, p) => acc + parseFloat(p.price || 0), 0);
+            if (totalLabel) totalLabel.innerText = `R$ ${total.toFixed(2)}`;
+
+            if (window.lucide) lucide.createIcons();
         },
 
         checkAccess(view) {
@@ -1688,16 +1858,6 @@
         }
     };
 
-    // Sobrescreve navigate para incluir cheque de acesso do convidado
-    const originalNavigate = app.navigate;
-    app.navigate = function(view) {
-        if (!this.checkAccess(view)) return;
-        originalNavigate.call(this, view);
-    };
-
-    window.app = app;
-    app.init();
-
     // Funções de Rede Social e Busca
     app.toggleSocialSearch = function(open, event) {
         if (event) event.stopPropagation();
@@ -1707,26 +1867,115 @@
         const results = document.getElementById('social-search-results');
 
         if (open) {
-            container.style.width = '260px';
-            container.style.background = '#fff';
-            container.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
-            input.style.width = '180px';
-            input.style.opacity = '1';
-            input.style.paddingLeft = '8px';
-            input.focus();
-            close.style.display = 'block';
+            this.fetchNetworkUsers();
+            if (container) {
+                container.style.width = '260px';
+                container.style.background = '#fff';
+            }
+            if (input) {
+                input.style.width = '180px';
+                input.style.opacity = '1';
+                input.focus();
+            }
+            if (close) close.style.display = 'block';
         } else {
-            container.style.width = '40px';
-            container.style.background = '#f5f5f5';
-            container.style.boxShadow = 'none';
-            input.style.width = '0';
-            input.style.opacity = '0';
-            input.style.paddingLeft = '0';
-            input.value = '';
-            close.style.display = 'none';
-            results.style.display = 'none';
+            const isMarket = this.currentView === 'mercado';
+            if (container) {
+                container.style.width = '40px';
+                container.style.background = isMarket ? '#fff' : 'rgba(0,0,0,0.05)';
+            }
+            if (input) {
+                input.style.width = '0';
+                input.style.opacity = '0';
+                input.value = '';
+            }
+            if (close) close.style.display = 'none';
+            if (results) results.style.display = 'none';
         }
     };
+
+    app.searchUsers = function(query) {
+        const resultsContainer = document.getElementById('social-search-results');
+        if (!query || query.length < 2) {
+            if (resultsContainer) resultsContainer.style.display = 'none';
+            return;
+        }
+        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+        const filtered = realUsers.filter(u => 
+            (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || 
+            (u.name && u.name.toLowerCase().includes(query.toLowerCase()))
+        );
+        if (filtered.length > 0) {
+            if (resultsContainer) {
+                resultsContainer.style.display = 'block';
+                resultsContainer.innerHTML = filtered.map(u => `
+                    <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="user" style="width: 20px; color: #ccc;"></i>
+                        </div>
+                        <div>
+                            <p style="font-weight: 900; font-size: 13px; color: #000;">${u.username}</p>
+                            <p style="font-size: 11px; color: #999; font-weight: 500;">${u.name}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            if (window.lucide) lucide.createIcons();
+        } else if (resultsContainer) {
+            resultsContainer.innerHTML = `<div style="padding: 16px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum perfil encontrado.</div>`;
+            resultsContainer.style.display = 'block';
+        }
+    };
+
+    app.viewPublicProfile = function(username) {
+        this.toggleSocialSearch(false);
+        this.navigate('perfil-publico');
+        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
+        setTimeout(() => {
+            const userDisp = document.getElementById('public-username-header');
+            if (userDisp) {
+                userDisp.innerText = user.username;
+                document.getElementById('public-name').innerText = user.name;
+                document.getElementById('public-bio').innerText = user.bio;
+                document.getElementById('public-fans-count').innerText = user.fans || 0;
+                document.getElementById('public-vendas-count').innerText = user.sales || 0;
+                const grid = document.getElementById('public-posts-grid');
+                if (grid) {
+                    grid.innerHTML = Array(12).fill(0).map(() => `
+                        <div style="aspect-ratio: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="image" style="width: 24px; color: #ddd;"></i>
+                        </div>
+                    `).join('');
+                }
+                if (window.lucide) lucide.createIcons();
+            }
+        }, 100);
+    };
+
+    // Sobrescreve navigate para incluir cheque de acesso e fechar busca
+    const originalNavigate = app.navigate;
+    app.navigate = function(view) {
+        if (!this.checkAccess(view)) return;
+        if (this.toggleSocialSearch) this.toggleSocialSearch(false);
+        originalNavigate.call(this, view);
+    };
+
+    app.initRewards = function() {
+        const user = this.currentUser || { username: 'usuario' };
+        const linkDisplay = document.getElementById('profile-ref-link-display');
+        const linkFull = document.getElementById('referral-link-text');
+        const linkStr = `dito.app/ref/${user.username}`;
+        if (linkDisplay) linkDisplay.innerText = linkStr;
+        if (linkFull) linkFull.innerText = linkStr;
+        const coins = parseInt(localStorage.getItem('dito_coins') || '0');
+        const globalCoinBal = document.getElementById('global-coin-balance');
+        if (globalCoinBal) globalCoinBal.innerText = coins;
+        if (window.lucide) lucide.createIcons();
+    };
+
+    window.app = app;
+    app.init();
 
     app.searchUsers = function(query) {
         const resultsContainer = document.getElementById('social-search-results');
@@ -1735,16 +1984,11 @@
             return;
         }
 
-        const mockUsers = [
-            { username: 'ana_crypto', name: 'Ana Silva', bio: 'Buscando a liberdade financeira ₿', fans: 1240, sales: 850 },
-            { username: 'marcos_dito', name: 'Marcos Oliveira', bio: 'Estrategista de Vendas Online', fans: 3100, sales: 2100 },
-            { username: 'julia_vendas', name: 'Julia Santos', bio: 'Copywriter de Elite | 7 Dígitos', fans: 890, sales: 420 },
-            { username: 'benedito_pro', name: 'Benedito Santos', bio: 'Infoprodutor de Elite', fans: 5000, sales: 12000 }
-        ];
-
-        const filtered = mockUsers.filter(u => 
-            u.username.toLowerCase().includes(query.toLowerCase()) || 
-            u.name.toLowerCase().includes(query.toLowerCase())
+        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+        
+        const filtered = realUsers.filter(u => 
+            (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || 
+            (u.name && u.name.toLowerCase().includes(query.toLowerCase()))
         );
 
         if (filtered.length > 0) {
@@ -1771,22 +2015,26 @@
         this.toggleSocialSearch(false);
         this.navigate('perfil-publico');
         
-        const mockUsers = [
-            { username: 'ana_crypto', name: 'Ana Silva', bio: 'Buscando a liberdade financeira ₿. Especialista em DeFi.', fans: 1240, sales: 850 },
-            { username: 'marcos_dito', name: 'Marcos Oliveira', bio: 'Estrategista de Vendas Online.', fans: 3100, sales: 2100 },
-            { username: 'julia_vendas', name: 'Julia Santos', bio: 'Copywriter de Elite | 7 Dígitos.', fans: 890, sales: 420 }
-        ];
-
-        const user = mockUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
+        // Puxa a lista mais recente sincronizada
+        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
         
         setTimeout(() => {
             const userDisp = document.getElementById('public-username-header');
             if (userDisp) {
                 userDisp.innerText = user.username;
-                document.getElementById('public-name').innerText = user.name;
-                document.getElementById('public-bio').innerText = user.bio;
-                document.getElementById('public-fans-count').innerText = user.fans;
-                document.getElementById('public-vendas-count').innerText = user.sales;
+                document.getElementById('public-name').innerText = user.name || user.username;
+                document.getElementById('public-bio').innerText = user.bio || 'Membro da Dito Elite';
+                
+                // Garante que mostre 0 em vez de undefined ou NaN
+                document.getElementById('public-fans-count').innerText = parseInt(user.fans) || 0;
+                const rev = parseFloat(user.sales || 0);
+                const revEl = document.getElementById('public-revenue');
+                if (user.showRevenue === false) {
+                    revEl.innerText = "Privado";
+                } else {
+                    revEl.innerText = rev > 0 ? `R$ ${rev.toLocaleString()}` : 'R$ 0';
+                }
                 
                 const grid = document.getElementById('public-posts-grid');
                 grid.innerHTML = Array(12).fill(0).map(() => `
@@ -1799,22 +2047,47 @@
         }, 50);
     };
 
-    app.toggleFan = function() {
+    app.toggleFan = async function() {
         const btn = document.getElementById('btn-fan');
-        const fanCount = document.getElementById('public-fans-count');
-        let current = parseInt(fanCount.innerText);
+        const fanCountEl = document.getElementById('public-fans-count');
+        const username = document.getElementById('public-username-header')?.innerText;
+        
+        if (!fanCountEl || !username) return;
 
-        if (btn.innerText === 'Tornar-se Fã') {
+        let current = parseInt(fanCountEl.innerText) || 0;
+        let isBecomingFan = btn.innerText === 'Tornar-se Fã';
+
+        if (isBecomingFan) {
             btn.innerText = 'Fã ✓';
             btn.style.background = '#f5f5f5';
             btn.style.color = '#000';
-            fanCount.innerText = current + 1;
-            this.showNotification('Você agora é fã deste perfil!');
+            current++;
+            this.showNotification('Você agora é fã! ✨');
         } else {
             btn.innerText = 'Tornar-se Fã';
             btn.style.background = '#000';
             btn.style.color = '#fff';
-            fanCount.innerText = current - 1;
+            current = Math.max(0, current - 1);
+        }
+
+        fanCountEl.innerText = current;
+
+        // --- Sincronização com o Supabase ---
+        if (supabase) {
+            try {
+                const { error } = await supabase
+                    .from('dito_users')
+                    .update({ fans: current })
+                    .eq('username', username);
+                
+                if (error) console.error("Erro ao atualizar fãs na rede:", error.message);
+                else {
+                    // Atualiza localmente também para refletir imediato
+                    this.fetchNetworkUsers();
+                }
+            } catch (e) {
+                console.error("Falha na sincronia de fãs:", e);
+            }
         }
     };
 
@@ -1894,7 +2167,7 @@
     };
 
     app.recalculateCheckoutTotal = function() {
-        const totalBase = this.cart.reduce((acc, i) => acc + i.price, 0);
+        const totalBase = this.cart.reduce((acc, i) => acc + parseFloat(i.price || 0), 0);
         const hasPurchased = localStorage.getItem('dito_purchased_products');
         const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
         
@@ -1916,6 +2189,4 @@
         return finalTotal;
     };
 
-    window.app = app;
-    app.init();
 })();
