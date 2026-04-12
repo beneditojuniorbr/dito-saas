@@ -51,6 +51,14 @@
     </script>
 </head>
 <body>
+    <!-- Definição Global de Gradiente para Ícones -->
+    <svg width="0" height="0" style="position: absolute;">
+      <linearGradient id="dito-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:#ff005c;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#0487ff;stop-opacity:1" />
+      </linearGradient>
+    </svg>
+
     <!-- Splash Screen Premium -->
     <div id="splash-screen" style="position: fixed; inset: 0; background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); z-index: 99999; display: flex; align-items: center; justify-content: center; transition: 0.8s;">
         <img src="D.png" style="width: 180px; height: 180px; object-fit: contain;">
@@ -68,14 +76,9 @@
         <div class="nav-item" data-view="dashboard" onclick="app.navigate('dashboard')">
             <i data-lucide="home" style="width: 26px; height: 26px;"></i>
         </div>
-        <div class="nav-item" data-view="mercado" onclick="app.navigate('mercado')">
+        <div class="nav-item" data-view="mercado" onclick="app.navigate('mercado')" style="position: relative;">
             <i data-lucide="store" style="width: 26px; height: 26px;"></i>
-        </div>
-        <div class="nav-item" data-view="produtos" onclick="app.navigate('produtos')">
-            <i data-lucide="package" style="width: 26px; height: 26px;"></i>
-        </div>
-        <div class="nav-item" data-view="links" onclick="app.navigate('links')">
-            <i data-lucide="link" style="width: 26px; height: 26px;"></i>
+            <div id="dot-mercado" class="notif-dot" style="position: absolute; top: -2px; right: -2px; display: none;"></div>
         </div>
         <div class="nav-item" data-view="sacar" onclick="app.navigate('sacar')">
             <i data-lucide="wallet" style="width: 26px; height: 26px;"></i>
@@ -178,10 +181,15 @@
             <div id="nav-logo" style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: 900; letter-spacing: -1.5px; text-transform: capitalize;">Dito</div>
             <div style="display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex: 1;" id="nav-actions">
                 <i data-lucide="log-out" id="nav-logout" onclick="app.logout()" style="width: 22px; color: #ccc; cursor: pointer;"></i>
-                <div id="search-container" style="display: flex; align-items: center; background: #f5f5f5; border-radius: 50px; width: 40px; height: 40px; transition: all 0.5s ease; overflow: hidden; position: relative; z-index: 20;">
-                    <i data-lucide="search" id="search-icon" onclick="app.toggleSearch(true)" style="width: 22px; color: #ccc; margin-left: 9px; flex-shrink: 0; cursor: pointer;"></i>
-                    <input type="text" id="search-input" placeholder="Pesquisar..." style="border: none; background: transparent; outline: none; padding: 0 16px; width: 0; opacity: 0; font-weight: 800; font-size: 13px; transition: all 0.5s ease;">
-                    <i data-lucide="x" id="search-close" style="width: 18px; color: #999; margin-right: 12px; display: none; cursor: pointer;" onclick="app.toggleSearch(false, event)"></i>
+                <div id="search-container" style="display: flex; align-items: center; background: #f5f5f5; border-radius: 50px; width: 40px; height: 40px; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); overflow: visible; position: relative; z-index: 1000;">
+                    <i data-lucide="search" id="search-icon" onclick="app.toggleSocialSearch(true)" style="width: 20px; color: #000; margin-left: 10px; flex-shrink: 0; cursor: pointer;"></i>
+                    <input type="text" id="social-search-input" placeholder="Buscar perfis..." oninput="app.searchUsers(this.value)" style="border: none; background: transparent; outline: none; padding: 0; width: 0; opacity: 0; font-weight: 800; font-size: 13px; transition: all 0.5s ease;">
+                    <i data-lucide="x" id="search-close" style="width: 16px; color: #999; margin-right: 12px; display: none; cursor: pointer;" onclick="app.toggleSocialSearch(false, event)"></i>
+                    
+                    <!-- Dropdown de Resultados Social -->
+                    <div id="social-search-results" style="display: none; position: absolute; top: 50px; right: 0; width: 280px; background: #fff; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); border: 1px solid #f0f0f0; overflow: hidden; animation: slideDown 0.3s ease;">
+                        <!-- Injetado via JS -->
+                    </div>
                 </div>
             </div>
         </nav>
@@ -219,6 +227,20 @@
                         <i data-lucide="trending-up" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Vendas</span>
+                </div>
+
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links')">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <i data-lucide="link" style="width: 22px;"></i>
+                    </div>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Links</span>
+                </div>
+
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('produtos')">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <i data-lucide="package" style="width: 22px;"></i>
+                    </div>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Meus produtos</span>
                 </div>
 
                 <div onclick="app.navigate('sociedade')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
@@ -572,7 +594,12 @@
 
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Preço sugerido:</label>
-                        <input type="number" id="prod-price" placeholder="R$ 0,00" style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 16px; outline: none; text-align: center;">
+                        <input type="number" id="prod-price" placeholder="R$ 0,00" oninput="app.calculateNetProfit(this.value)" style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 16px; outline: none; text-align: center;">
+                        <div style="margin-top: 12px; padding: 12px 20px; background: rgba(255, 0, 92, 0.05); border-radius: 20px; border: 1px solid rgba(255, 0, 92, 0.1);">
+                            <p style="font-size: 10px; font-weight: 900; color: #ff005c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Taxa do Dito: 3%</p>
+                            <p style="font-size: 8px; font-weight: 700; color: #cc6688; margin-bottom: 6px; opacity: 0.8;">*A taxa poderá variar de acordo com o tempo.</p>
+                            <p id="profit-calc-label" style="font-size: 13px; font-weight: 900; color: #000;">Você receberá: R$ 0,00</p>
+                        </div>
                     </div>
                 </div>
 
@@ -928,6 +955,53 @@
                 <div style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
                     <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ccc; margin-bottom: 8px;">Link do seu site</label>
                     <input type="url" id="edit-link" placeholder="https://..." style="width: 100%; border: none; background: transparent; font-weight: 800; font-size: 15px; outline: none; padding: 0; color: #00376b;">
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-perfil-publico">
+        <div style="min-height: 100vh; background: #fff; padding-bottom: 100px;">
+            <header style="padding: 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 100;">
+                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px;"></i>
+                </div>
+                <h3 id="public-username-header" style="font-weight: 900; font-size: 14px; letter-spacing: -0.5px;">username</h3>
+                <div style="width: 40px;"></div>
+            </header>
+
+            <div style="padding: 0 24px;">
+                <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 24px;">
+                    <div id="public-avatar" style="width: 86px; height: 86px; border-radius: 50%; background: #f5f5f5; border: 1px solid #eee; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="user" style="width: 40px; color: #ddd;"></i>
+                    </div>
+                    <div style="flex: 1; display: flex; justify-content: space-around; text-align: center;">
+                        <div>
+                            <p id="public-fans-count" style="font-weight: 900; font-size: 16px;">0</p>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Fãs</p>
+                        </div>
+                        <div>
+                            <p id="public-vendas-count" style="font-weight: 900; font-size: 16px;">0</p>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Vendas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 24px;">
+                    <h2 id="public-name" style="font-size: 14px; font-weight: 900; margin-bottom: 4px;">...</h2>
+                    <p id="public-bio" style="font-size: 13px; font-weight: 500; color: #555; line-height: 1.4;"></p>
+                    <a id="public-link" href="#" style="font-size: 13px; font-weight: 800; color: #00376b; text-decoration: none; margin-top: 4px; display: block;"></a>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 32px;">
+                    <button id="btn-fan" onclick="app.toggleFan()" style="flex: 1; height: 44px; border-radius: 12px; border: none; background: #000; color: #fff; font-weight: 900; font-size: 13px; cursor: pointer; transition: 0.3s;">Tornar-se Fã</button>
+                    <button onclick="app.showNotification('Recurso de chat em breve na elite!')" style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid #ddd; background: #fff; color: #000; font-weight: 900; font-size: 13px; cursor: pointer;">Mensagem</button>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid #eee; padding-top: 2px;">
+                <div id="public-posts-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px;">
+                    <!-- Posts injetados -->
                 </div>
             </div>
         </div>

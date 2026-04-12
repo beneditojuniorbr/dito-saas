@@ -52,7 +52,7 @@
                 }
 
                 // Inicia sempre na tela de login conforme solicitado
-                this.checkNotifications();
+                this.checkNewProducts();
                 this.navigate('login');
                 
                 // Ativa ícones
@@ -248,20 +248,24 @@
             setTimeout(() => {
                 this.showNotification("Pagamento aprovado com sucesso!", "success");
                 
-                // Salva produtos comprados
-                const purchased = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
-                itemsToBuy.forEach(item => {
-                    if (!purchased.find(p => p.id === item.id)) {
-                        purchased.unshift({ ...item, buyDate: new Date().toLocaleDateString() });
-                    }
-                });
-                localStorage.setItem('dito_purchased_products', JSON.stringify(purchased));
-                this.purchasedProducts = purchased;
-
+                // Ao "processar", o saldo do produtor (usuário atual para teste) aumenta
+                const total = this.cart.reduce((sum, p) => sum + parseFloat(p.price || 0), 0);
+                const netAmount = total * 0.97; // Deduz taxa de 3%
+                
+                const currentBalance = parseFloat(localStorage.getItem('dito_balance') || '0');
+                const newBalance = currentBalance + netAmount;
+                
+                localStorage.setItem('dito_balance', newBalance.toString());
+                
+                // Limpa carrinho e finaliza
+                this.purchasedProducts = [...this.purchasedProducts, ...this.cart];
+                localStorage.setItem('dito_purchased_products', JSON.stringify(this.purchasedProducts));
                 this.cart = [];
                 localStorage.setItem('dito_cart', '[]');
+                
+                this.showNotification(`Venda realizada! Você recebeu R$ ${netAmount.toFixed(2)} (Taxa de 3% aplicada)`);
                 this.navigate('dashboard');
-            }, 3000);
+            }, 1500);
         },
 
         renderPurchasedProducts() {
@@ -581,7 +585,7 @@
         updateWithdrawUI() {
             const label = document.getElementById('label-balance-withdraw');
             if (label) {
-                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
+                const balance = parseFloat(localStorage.getItem('dito_balance') || '0');
                 label.innerText = 'R$ ' + balance.toFixed(2);
             }
         },
@@ -1243,11 +1247,40 @@
             }
         },
 
+        checkNewProducts() {
+            // Se for a primeira vez, simula que a última vista foi há 1 hora para mostrar novidades
+            if (!localStorage.getItem('dito_market_last_seen')) {
+                localStorage.setItem('dito_market_last_seen', (Date.now() - 3600000).toString());
+            }
+
+            const lastSeen = parseInt(localStorage.getItem('dito_market_last_seen') || '0');
+            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            const all = [...p1, ...p2];
+            
+            // Força um produto a ser novo para demonstração se não houver nenhum
+            if (all.length > 0 && !all.some(p => (p.createdAt || 0) > lastSeen)) {
+                all[0].createdAt = Date.now() + 5000;
+            }
+
+            const hasNew = all.some(p => (p.createdAt || 0) > lastSeen);
+            const dot = document.getElementById('dot-mercado');
+            if (dot) dot.style.display = hasNew ? 'block' : 'none';
+        },
+
         renderStore() {
             const container = document.getElementById('main-market-feed');
             const hContainer = document.getElementById('ebooks-horizontal-list');
             const hWrapper = document.getElementById('ebooks-carousel-container');
             if (!container) return;
+
+            // Marca que o usuário viu o mercado agora
+            localStorage.setItem('dito_market_last_seen', Date.now().toString());
+            const dot = document.getElementById('dot-mercado');
+            if (dot) dot.style.display = 'none';
+
+            const lastSeen = parseInt(localStorage.getItem('dito_market_last_seen_before') || '0');
+            localStorage.setItem('dito_market_last_seen_before', Date.now().toString());
 
             const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -1255,10 +1288,10 @@
             
             if (allProducts.length === 0) {
                 allProducts = [
-                    { id: 'elite-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420 },
-                    { id: 'elite-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843 },
-                    { id: 'elite-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105 },
-                    { id: 'elite-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22 }
+                    { id: 'elite-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420, createdAt: Date.now() - 86400000 },
+                    { id: 'elite-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843, createdAt: Date.now() - 86400000 },
+                    { id: 'elite-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105, createdAt: Date.now() - 86400000 },
+                    { id: 'elite-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22, createdAt: Date.now() - 86400000 }
                 ];
                 localStorage.setItem('dito_products', JSON.stringify(allProducts));
             }
@@ -1270,14 +1303,15 @@
             if (ebooks.length > 0 && hContainer && hWrapper) {
                 hWrapper.style.display = 'block';
                 hContainer.innerHTML = ebooks.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 130px; max-width: 130px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 12px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s;">
-                        <div style="aspect-ratio: 1; background: #fff; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
-                            <i data-lucide="book-open" style="width: 20px; color: #ff005c;"></i>
+                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 130px; max-width: 130px; background: #ffffff; padding: 12px; border-radius: 24px; border: 1px solid #f0f0f0; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                        <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
+                            <i data-lucide="book-open" stroke="url(#dito-gradient)" style="width: 20px;"></i>
+                            ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
                         </div>
-                        <h4 style="font-weight: 900; font-size: 9px; color: #fff; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
+                        <h4 style="font-weight: 900; font-size: 10px; color: #000; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 900; font-size: 13px; color: #fff;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <div style="width: 22px; height: 22px; background: #fff; color: #ff005c; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <div style="width: 24px; height: 24px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                                 <i data-lucide="plus" style="width: 10px;"></i>
                             </div>
                         </div>
@@ -1291,19 +1325,20 @@
             if (others.length === 0 && ebooks.length === 0) {
                  container.innerHTML = `<div style="grid-column: 1/-1; padding: 40px; text-align: center; color: rgba(255,255,255,0.4); font-weight: 800;">Nenhum produto encontrado.</div>`;
             } else {
-                const listToShow = others.length > 0 ? others : []; // Se não houver outros, mostra vazio no grid para não repetir ebooks
+                const listToShow = others.length > 0 ? others : []; 
                 container.innerHTML = listToShow.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); padding: 16px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: 0.3s;">
-                        <div style="aspect-ratio: 1; background: #fff; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
-                            <i data-lucide="package" style="width: 28px; color: #ff005c;"></i>
-                            <div style="position: absolute; top: 10px; right: 10px; background: linear-gradient(90deg, #ff005c, #0487ff); color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
+                    <div onclick="app.viewProduct('${p.id}')" style="background: #ffffff; padding: 16px; border-radius: 28px; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                        <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
+                            <i data-lucide="package" stroke="url(#dito-gradient)" style="width: 28px;"></i>
+                            <div style="position: absolute; top: 10px; right: 10px; background: #000; color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
+                            ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
                         </div>
-                        <h4 style="font-weight: 900; font-size: 11px; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                        <p style="font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
+                        <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                        <p style="font-size: 8px; font-weight: 800; color: #999; text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 900; font-size: 15px; color: #fff;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <div style="width: 32px; height: 32px; background: #fff; color: #0487ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                                <i data-lucide="plus" style="width: 16px;"></i>
+                            <span style="font-weight: 900; font-size: 16px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <div style="width: 32px; height: 32px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="plus" style="width: 14px;"></i>
                             </div>
                         </div>
                     </div>
@@ -1319,6 +1354,137 @@
     app.navigate = function(view) {
         if (!this.checkAccess(view)) return;
         originalNavigate.call(this, view);
+    };
+
+    window.app = app;
+    app.init();
+
+    // Funções de Rede Social e Busca
+    app.toggleSocialSearch = function(open, event) {
+        if (event) event.stopPropagation();
+        const container = document.getElementById('search-container');
+        const input = document.getElementById('social-search-input');
+        const close = document.getElementById('search-close');
+        const results = document.getElementById('social-search-results');
+
+        if (open) {
+            container.style.width = '260px';
+            container.style.background = '#fff';
+            container.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
+            input.style.width = '180px';
+            input.style.opacity = '1';
+            input.style.paddingLeft = '8px';
+            input.focus();
+            close.style.display = 'block';
+        } else {
+            container.style.width = '40px';
+            container.style.background = '#f5f5f5';
+            container.style.boxShadow = 'none';
+            input.style.width = '0';
+            input.style.opacity = '0';
+            input.style.paddingLeft = '0';
+            input.value = '';
+            close.style.display = 'none';
+            results.style.display = 'none';
+        }
+    };
+
+    app.searchUsers = function(query) {
+        const resultsContainer = document.getElementById('social-search-results');
+        if (!query || query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const mockUsers = [
+            { username: 'ana_crypto', name: 'Ana Silva', bio: 'Buscando a liberdade financeira ₿', fans: 1240, sales: 850 },
+            { username: 'marcos_dito', name: 'Marcos Oliveira', bio: 'Estrategista de Vendas Online', fans: 3100, sales: 2100 },
+            { username: 'julia_vendas', name: 'Julia Santos', bio: 'Copywriter de Elite | 7 Dígitos', fans: 890, sales: 420 },
+            { username: 'benedito_pro', name: 'Benedito Santos', bio: 'Infoprodutor de Elite', fans: 5000, sales: 12000 }
+        ];
+
+        const filtered = mockUsers.filter(u => 
+            u.username.toLowerCase().includes(query.toLowerCase()) || 
+            u.name.toLowerCase().includes(query.toLowerCase())
+        );
+
+        if (filtered.length > 0) {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = filtered.map(u => `
+                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='white'">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="user" style="width: 20px; color: #ccc;"></i>
+                    </div>
+                    <div>
+                        <p style="font-weight: 900; font-size: 13px; color: #000;">${u.username}</p>
+                        <p style="font-size: 11px; color: #999; font-weight: 500;">${u.name}</p>
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        } else {
+            resultsContainer.innerHTML = `<div style="padding: 16px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum perfil encontrado.</div>`;
+            resultsContainer.style.display = 'block';
+        }
+    };
+
+    app.viewPublicProfile = function(username) {
+        this.toggleSocialSearch(false);
+        this.navigate('perfil-publico');
+        
+        const mockUsers = [
+            { username: 'ana_crypto', name: 'Ana Silva', bio: 'Buscando a liberdade financeira ₿. Especialista em DeFi.', fans: 1240, sales: 850 },
+            { username: 'marcos_dito', name: 'Marcos Oliveira', bio: 'Estrategista de Vendas Online.', fans: 3100, sales: 2100 },
+            { username: 'julia_vendas', name: 'Julia Santos', bio: 'Copywriter de Elite | 7 Dígitos.', fans: 890, sales: 420 }
+        ];
+
+        const user = mockUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
+        
+        setTimeout(() => {
+            const userDisp = document.getElementById('public-username-header');
+            if (userDisp) {
+                userDisp.innerText = user.username;
+                document.getElementById('public-name').innerText = user.name;
+                document.getElementById('public-bio').innerText = user.bio;
+                document.getElementById('public-fans-count').innerText = user.fans;
+                document.getElementById('public-vendas-count').innerText = user.sales;
+                
+                const grid = document.getElementById('public-posts-grid');
+                grid.innerHTML = Array(12).fill(0).map(() => `
+                    <div style="aspect-ratio: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="image" style="width: 24px; color: #ddd;"></i>
+                    </div>
+                `).join('');
+                if (window.lucide) lucide.createIcons();
+            }
+        }, 50);
+    };
+
+    app.toggleFan = function() {
+        const btn = document.getElementById('btn-fan');
+        const fanCount = document.getElementById('public-fans-count');
+        let current = parseInt(fanCount.innerText);
+
+        if (btn.innerText === 'Tornar-se Fã') {
+            btn.innerText = 'Fã ✓';
+            btn.style.background = '#f5f5f5';
+            btn.style.color = '#000';
+            fanCount.innerText = current + 1;
+            this.showNotification('Você agora é fã deste perfil!');
+        } else {
+            btn.innerText = 'Tornar-se Fã';
+            btn.style.background = '#000';
+            btn.style.color = '#fff';
+            fanCount.innerText = current - 1;
+        }
+    };
+
+    app.calculateNetProfit = function(value) {
+        const label = document.getElementById('profit-calc-label');
+        if (!label) return;
+        const val = parseFloat(value) || 0;
+        const net = val * 0.97; // 3% fee
+        label.innerText = `Você receberá: R$ ${net.toFixed(2)}`;
     };
 
     window.app = app;
