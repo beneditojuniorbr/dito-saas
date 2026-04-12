@@ -1,4 +1,22 @@
 (function() {
+    // ==========================================
+    // 🌐 DITO NETWORK (SUPABASE)
+    // ==========================================
+    // ATENÇÃO: Para conectar dispositivos diferentes (ex: o seu e o da sua namorada),
+    // você precisa colocar a URL e a CHAVE do seu Supabase aqui embaixo:
+    const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_tydlr74c4DTrQs0TyjhjZw_MLF4bTyR';
+    
+    let supabase = null;
+    try {
+        if (window.supabase && SUPABASE_URL.startsWith('http')) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log("Supabase Client Inicializado!");
+        }
+    } catch (e) {
+        console.warn("Supabase não configurado. Rodando localmente.");
+    }
+
     const app = {
         currentUser: null,
         currentView: 'dashboard',
@@ -53,6 +71,7 @@
 
                 // Inicia sempre na tela de login conforme solicitado
                 this.checkNewProducts();
+                this.fetchNetworkUsers(); // Puxa usuários da rede global!
                 this.navigate('login');
                 
                 // Ativa ícones
@@ -62,6 +81,75 @@
             } catch (err) {
                 console.error("Erro no INIT:", err);
                 document.getElementById('app').innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">Erro ao iniciar: ${err.message}</div>`;
+            }
+        },
+
+        // ==========================================
+        // 🌐 SISTEMA DE REDE MULTIPLAYER
+        // ==========================================
+        
+        async fetchNetworkUsers() {
+            if (!supabase) return; // Se não tiver supabase, usa só os locais
+            
+            try {
+                // Tenta puxar a tabela 'dito_users' do Supabase
+                const { data, error } = await supabase.from('dito_users').select('*');
+                
+                if (error) {
+                    console.log("Tabela dito_users não encontrada ou erro de permissão. Crie a tabela no Supabase!");
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    // Mescla os usuários da rede com os locais, priorizando a rede
+                    let localUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                    let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+
+                    data.forEach(netUser => {
+                        // Atualiza BD de Login
+                        const idx = localUsers.findIndex(u => u.username === netUser.username);
+                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...netUser };
+                        else localUsers.push(netUser);
+
+                        // Atualiza BD de Perfis Públicos (Hall da fama etc)
+                        const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
+                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...netUser };
+                        else localProfiles.push(netUser);
+                    });
+
+                    localStorage.setItem('dito_users_db', JSON.stringify(localUsers));
+                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(localProfiles));
+                    localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles)); // Sincroniza Hall
+                    
+                    console.log("🌐 Usuários da Rede Sincronizados:", data.length);
+                }
+            } catch (e) {
+                console.log("Erro ao buscar rede:", e);
+            }
+        },
+
+        async syncUserToNetwork(user) {
+            // Remove a senha antes de mandar pra rede por segurança (se for só atualizar perfil)
+            // Mas no nosso caso, como é um MVP, vamos mandar o objeto básico.
+            if (!supabase) return;
+
+            try {
+                const { error } = await supabase.from('dito_users').upsert([
+                    {
+                        id: user.id || Date.now(),
+                        username: user.username,
+                        password: user.password, // Cuidado em produção!
+                        name: user.name || user.username,
+                        bio: user.bio || "Novo membro da Elite",
+                        avatar: user.avatar || "",
+                        sales: user.sales || 0
+                    }
+                ], { onConflict: 'username' });
+
+                if (error) console.log("Erro ao sincronizar usuário com a rede:", error);
+                else console.log(`🌐 Usuário ${user.username} subiu para a rede!`);
+            } catch (e) {
+                console.log("Falha na sincronia:", e);
             }
         },
 
@@ -184,20 +272,20 @@
             
             const list = document.getElementById('cart-items-list');
             if (this.cart.length === 0) {
-                list.innerHTML = `<div style="text-align: center; padding: 60px 0; color: #ccc;">Sua sacola está vazia.</div>`;
+                list.innerHTML = `<div style="text-align: center; padding: 60px 0; color: rgba(255,255,255,0.6); font-weight: 700;">Sua sacola está vazia.</div>`;
                 document.getElementById('cart-footer').style.display = 'none';
             } else {
                 list.innerHTML = this.cart.map((item, index) => `
-                    <div style="display: flex; gap: 16px; align-items: center; padding: 16px; border: 1px solid #f5f5f5; border-radius: 20px;">
-                        <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="shopping-bag" style="width: 24px; color: #eee;"></i>
+                    <div style="display: flex; gap: 16px; align-items: center; padding: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 24px; backdrop-filter: blur(10px);">
+                        <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="shopping-bag" style="width: 28px; color: #fff;"></i>
                         </div>
                         <div style="flex: 1;">
-                            <h4 style="font-size: 13px; font-weight: 900;">${item.name.toLowerCase()}</h4>
-                            <span style="font-size: 14px; font-weight: 900; color: #ee4d2d;">R$ ${item.price.toFixed(2)}</span>
+                            <h4 style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 4px;">${item.name.toLowerCase()}</h4>
+                            <span style="font-size: 16px; font-weight: 900; color: #fff;">R$ ${item.price.toFixed(2)}</span>
                         </div>
-                        <button onclick="app.removeFromCart(${index})" style="background: transparent; border: none; color: #ddd; cursor: pointer;">
-                            <i data-lucide="x" style="width: 18px;"></i>
+                        <button onclick="app.removeFromCart(${index})" style="background: rgba(255,255,255,0.1); border: none; width: 40px; height: 40px; border-radius: 50%; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="trash-2" style="width: 18px;"></i>
                         </button>
                     </div>
                 `).join('');
@@ -205,8 +293,8 @@
                 const total = this.cart.reduce((acc, i) => acc + i.price, 0);
                 document.getElementById('cart-total-label').innerText = 'R$ ' + total.toFixed(2);
                 document.getElementById('cart-footer').style.display = 'block';
-                document.getElementById('cart-footer').querySelector('button').onclick = () => this.setMarketView('checkout');
             }
+            if (window.lucide) lucide.createIcons();
         },
 
         renderMarketCheckout(container) {
@@ -220,9 +308,36 @@
                     <span style="font-weight: 800;">R$ ${item.price.toFixed(2)}</span>
                 </div>
             `).join('');
+
+            const hasPurchased = localStorage.getItem('dito_purchased_products');
+            const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
             
-            const total = this.cart.reduce((acc, i) => acc + i.price, 0);
-            document.getElementById('checkout-total-value').innerText = 'R$ ' + total.toFixed(2);
+            // Add Rewards Card to Checkout UI
+            const rewardsSection = document.createElement('div');
+            rewardsSection.style.marginTop = '24px';
+            rewardsSection.innerHTML = `
+                ${isFirstPurchase ? `
+                <div style="background: rgba(255, 0, 92, 0.05); border: 1px dashed #ff005c; padding: 16px; border-radius: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                    <i data-lucide="zap" style="width: 20px; color: #ff005c;"></i>
+                    <p style="font-size: 11px; font-weight: 900; color: #ff005c;">PRIMEIRA COMPRA: 75% OFF APLICADO!</p>
+                </div>
+                ` : ''}
+
+                <div class="reward-card" style="padding: 20px; border: 1px solid #ffd600; background: rgba(255, 214, 0, 0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i>
+                            <span style="font-size: 13px; font-weight: 900;">Usar Moedas Dito</span>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span> moedas</span>
+                    </div>
+                    <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(parseInt(localStorage.getItem('dito_coins') || '0'), 100)}" value="0" oninput="app.applyCoinDiscount(this.value)">
+                    <p style="font-size: 10px; color: #ccc; margin-top: 12px; font-weight: 700;">1 moeda = 1% de desconto EXTRA</p>
+                </div>
+            `;
+            list.after(rewardsSection);
+            
+            this.recalculateCheckoutTotal();
             if (window.lucide) lucide.createIcons();
         },
 
@@ -243,27 +358,33 @@
         },
 
         processPayment() {
-            const itemsToBuy = [...this.cart];
+            const finalAmount = this.recalculateCheckoutTotal();
+            const coinsToUse = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
+            
             this.showNotification("Processando pagamento...", "centered");
+            
             setTimeout(() => {
                 this.showNotification("Pagamento aprovado com sucesso!", "success");
                 
-                // Ao "processar", o saldo do produtor (usuário atual para teste) aumenta
-                const total = this.cart.reduce((sum, p) => sum + parseFloat(p.price || 0), 0);
-                const netAmount = total * 0.97; // Deduz taxa de 3%
-                
+                // Dedução de Moedas usadas
+                if (coinsToUse > 0) {
+                    const currentCoins = parseInt(localStorage.getItem('dito_coins') || '0');
+                    localStorage.setItem('dito_coins', (currentCoins - coinsToUse).toString());
+                }
+
+                // Crédito para o produtor (simulado)
+                const netAmount = finalAmount * 0.97; // Deduz taxa de 3%
                 const currentBalance = parseFloat(localStorage.getItem('dito_balance') || '0');
-                const newBalance = currentBalance + netAmount;
+                localStorage.setItem('dito_balance', (currentBalance + netAmount).toString());
                 
-                localStorage.setItem('dito_balance', newBalance.toString());
-                
-                // Limpa carrinho e finaliza
+                // Salva produtos comprados
                 this.purchasedProducts = [...this.purchasedProducts, ...this.cart];
                 localStorage.setItem('dito_purchased_products', JSON.stringify(this.purchasedProducts));
+                
                 this.cart = [];
                 localStorage.setItem('dito_cart', '[]');
                 
-                this.showNotification(`Venda realizada! Você recebeu R$ ${netAmount.toFixed(2)} (Taxa de 3% aplicada)`);
+                this.showNotification(`Venda realizada! Valor final: R$ ${finalAmount.toFixed(2)} (${coinsToUse} moedas usadas)`);
                 this.navigate('dashboard');
             }, 1500);
         },
@@ -665,21 +786,61 @@
                     case 'curso-player': this.renderCoursePlayer(); break;
                 }
                 
-                // Atualiza Barra de Navegação Global
+                // Atualiza Barra de Navegação Global e Header
                 const nav = document.getElementById('global-nav');
+                const header = document.getElementById('global-header');
                 const downloadLink = document.getElementById('download-app-link');
                 const isAuthPage = view === 'login' || view === 'cadastro';
                 
                 if (nav) {
                     nav.style.display = isAuthPage ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
-                        const targetView = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+                        const targetView = item.getAttribute('data-view');
+                        const icon = item.querySelector('i');
                         if (targetView === view) {
                             item.classList.add('active-nav');
+                            if (icon) icon.style.fill = '#000';
                         } else {
                             item.classList.remove('active-nav');
+                            if (icon) icon.style.fill = 'transparent';
                         }
                     });
+                }
+                
+                if (header) {
+                    const isMercado = view === 'mercado';
+                    header.style.display = isAuthPage ? 'none' : 'flex';
+                    header.style.background = isMercado ? 'transparent' : '#fff';
+                    header.style.borderBottomColor = isMercado ? 'transparent' : '#f0f0f0';
+                    
+                    const logo = document.getElementById('header-logo');
+                    const cartIcon = document.getElementById('cart-icon-header');
+                    const searchIcon = document.getElementById('search-icon-header');
+                    const cartBtn = document.getElementById('header-cart-btn');
+                    const coinPod = document.getElementById('coin-pod');
+                    const searchContainer = document.getElementById('search-container');
+
+                    if (logo) logo.style.color = isMercado ? '#fff' : '#000';
+                    if (cartIcon) cartIcon.style.color = isMercado ? '#fff' : '#000';
+                    if (searchIcon) searchIcon.style.color = isMercado ? '#fff' : '#000';
+                    
+                    if (cartBtn) {
+                        cartBtn.style.display = isMercado ? 'flex' : 'none';
+                        cartBtn.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                    }
+                    
+                    if (coinPod) {
+                        coinPod.style.display = isMercado ? 'flex' : 'none';
+                        coinPod.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(255,214,0,0.1)';
+                        coinPod.querySelectorAll('span').forEach(s => s.style.color = isMercado ? '#fff' : '#000');
+                    }
+                    
+                    if (searchContainer) searchContainer.style.background = isMercado ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+
+                    // Fecha a busca se estiver aberta ao trocar de tela
+                    this.toggleSocialSearch(false);
+                    // Garante que o badge da sacola esteja atualizado
+                    this.updateCartBadge();
                 }
 
                 if (downloadLink) {
@@ -1120,15 +1281,24 @@
                 password: password,
                 name: username,
                 bio: "Novo Infoprodutor Dito 🚀",
-                avatar: ""
+                avatar: "",
+                sales: 0
             };
 
             users.push(newUser);
             localStorage.setItem('dito_users_db', JSON.stringify(users));
+            
+            // Adiciona na lista de perfis públicos globais
+            let perfis = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+            perfis.push(newUser);
+            localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(perfis));
+            localStorage.setItem('dito_usuarios', JSON.stringify(perfis));
+
+            this.syncUserToNetwork(newUser); // Joga pra rede!
+
             this.showNotification('Cadastro realizado com sucesso! Agora você já pode fazer login.');
             this.navigate('login');
         },
-
         login(isGuest = false) { 
             this.showNotification(isGuest ? 'Entrando como convidado...' : 'Entrando...', 'centered');
             
@@ -1269,10 +1439,30 @@
         },
 
         renderStore() {
-            const container = document.getElementById('main-market-feed');
+            const container = document.getElementById('market-actual-content');
+            if (!container) {
+                // Se o container ainda não apareceu, tenta de novo em 50ms
+                setTimeout(() => this.renderStore(), 50);
+                return;
+            }
+
+            if (this.marketView === 'home') this.renderMarketHome(container);
+            if (this.marketView === 'product') this.renderMarketProduct(container);
+            if (this.marketView === 'cart') this.renderMarketCart(container);
+            if (this.marketView === 'checkout') this.renderMarketCheckout(container);
+            
+            this.updateCartBadge();
+            if (window.lucide) lucide.createIcons();
+        },
+
+        renderMarketHome(container) {
+            const temp = document.getElementById('template-mercado-home');
+            container.innerHTML = temp.innerHTML;
+            
+            const feed = document.getElementById('main-market-feed');
             const hContainer = document.getElementById('ebooks-horizontal-list');
             const hWrapper = document.getElementById('ebooks-carousel-container');
-            if (!container) return;
+            if (!feed) return;
 
             // Marca que o usuário viu o mercado agora
             localStorage.setItem('dito_market_last_seen', Date.now().toString());
@@ -1303,7 +1493,7 @@
             if (ebooks.length > 0 && hContainer && hWrapper) {
                 hWrapper.style.display = 'block';
                 hContainer.innerHTML = ebooks.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 130px; max-width: 130px; background: #ffffff; padding: 12px; border-radius: 24px; border: 1px solid #f0f0f0; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 135px; max-width: 135px; background: #ffffff; padding: 12px; border-radius: 24px; border: 1px solid #f0f0f0; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer;">
                         <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
                             <i data-lucide="book-open" stroke="url(#dito-gradient)" style="width: 20px;"></i>
                             ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
@@ -1311,8 +1501,8 @@
                         <h4 style="font-weight: 900; font-size: 10px; color: #000; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <div style="width: 24px; height: 24px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                <i data-lucide="plus" style="width: 10px;"></i>
+                            <div onclick="app.addToCartDirectly('${p.id}', event)" style="width: 30px; height: 30px; background: #ffd600; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(255, 214, 0, 0.3);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                                <i data-lucide="plus" style="width: 14px; stroke-width: 3;"></i>
                             </div>
                         </div>
                     </div>
@@ -1322,30 +1512,43 @@
             }
 
             // Renderizar outros produtos no Grid Vertical
-            if (others.length === 0 && ebooks.length === 0) {
-                 container.innerHTML = `<div style="grid-column: 1/-1; padding: 40px; text-align: center; color: rgba(255,255,255,0.4); font-weight: 800;">Nenhum produto encontrado.</div>`;
-            } else {
-                const listToShow = others.length > 0 ? others : []; 
-                container.innerHTML = listToShow.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="background: #ffffff; padding: 16px; border-radius: 28px; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
-                        <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
-                            <i data-lucide="package" stroke="url(#dito-gradient)" style="width: 28px;"></i>
-                            <div style="position: absolute; top: 10px; right: 10px; background: #000; color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
-                            ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
-                        </div>
-                        <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                        <p style="font-size: 8px; font-weight: 800; color: #999; text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 900; font-size: 16px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <div style="width: 32px; height: 32px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                <i data-lucide="plus" style="width: 14px;"></i>
-                            </div>
+            const sortedProducts = others.sort((a,b) => (b.salesCount || 0) - (a.salesCount || 0));
+            feed.innerHTML = sortedProducts.map(p => `
+                <div onclick="app.viewProduct('${p.id}')" style="background: #ffffff; padding: 16px; border-radius: 28px; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                    <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
+                        <i data-lucide="package" stroke="url(#dito-gradient)" style="width: 28px;"></i>
+                        <div style="position: absolute; top: 10px; right: 10px; background: #000; color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
+                        ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
+                    </div>
+                    <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                    <p style="font-size: 8px; font-weight: 800; color: #999; text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 900; font-size: 16px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                        <div onclick="app.addToCartDirectly('${p.id}', event)" style="width: 38px; height: 38px; background: #ffd600; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(255, 214, 0, 0.4);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <i data-lucide="plus" style="width: 18px; stroke-width: 3;"></i>
                         </div>
                     </div>
-                `).join('');
-            }
+                </div>
+            `).join('');
 
             if (window.lucide) lucide.createIcons();
+        },
+
+        addToCartDirectly(id, event) {
+            if (event) event.stopPropagation();
+            
+            // Busca o produto real (pode estar nos salvos ou simulados)
+            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            const all = [...p1, ...p2];
+            const product = all.find(p => p.id === id);
+
+            if (product) {
+                this.cart.push(product);
+                localStorage.setItem('dito_cart', JSON.stringify(this.cart));
+                this.updateCartBadge();
+                this.showNotification(`"${product.name}" adicionado à sacola! ✨`, "success");
+            }
         }
     };
 
@@ -1485,6 +1688,96 @@
         const val = parseFloat(value) || 0;
         const net = val * 0.97; // 3% fee
         label.innerText = `Você receberá: R$ ${net.toFixed(2)}`;
+    };
+
+    // Sincronização da Sacola Global
+    const originalUpdateCartBadge = app.updateCartBadge;
+    app.updateCartBadge = function() {
+        if (originalUpdateCartBadge) originalUpdateCartBadge.apply(this);
+        const count = this.cart ? this.cart.length : 0;
+        const globalBadge = document.getElementById('cart-badge-global');
+        if (globalBadge) {
+            globalBadge.innerText = count;
+            globalBadge.style.display = count > 0 ? 'flex' : 'none';
+        }
+    };
+
+    // REWARDS SYSTEM LOGIC
+    app.initRewards = function() {
+        const user = this.currentUser || { username: 'usuario' };
+        const linkDisplay = document.getElementById('profile-ref-link-display');
+        const linkFull = document.getElementById('referral-link-text');
+        const linkStr = `dito.app/ref/${user.username}`;
+        
+        if (linkDisplay) linkDisplay.innerText = linkStr;
+        if (linkFull) linkFull.innerText = linkStr;
+        
+        const coins = parseInt(localStorage.getItem('dito_coins') || '0');
+        const globalCoinBal = document.getElementById('global-coin-balance');
+        const pageCoinBal = document.getElementById('coins-page-balance');
+        
+        if (globalCoinBal) globalCoinBal.innerText = coins;
+        if (pageCoinBal) pageCoinBal.innerText = coins;
+        
+        const hasPurchased = localStorage.getItem('dito_purchased_products');
+        const badge = document.getElementById('first-purchase-badge');
+        if (badge) badge.style.display = (hasPurchased && JSON.parse(hasPurchased).length > 0) ? 'none' : 'flex';
+        
+        if (window.lucide) lucide.createIcons();
+    };
+
+    app.copyReferralLink = function() {
+        const user = this.currentUser || { username: 'usuario' };
+        const linkStr = `dito.app/ref/${user.username}`;
+        navigator.clipboard.writeText(linkStr).then(() => {
+            this.showNotification('Link copiado! Compartilhe com seus amigos 🚀', 'success');
+        });
+    };
+
+    app.addRewardCoins = function(amount, reason) {
+        const current = parseInt(localStorage.getItem('dito_coins') || '0');
+        localStorage.setItem('dito_coins', (current + amount).toString());
+        for (let i = 0; i < 12; i++) {
+            const coin = document.createElement('div');
+            coin.className = 'coin-particle';
+            coin.innerHTML = '🪙';
+            coin.style.left = Math.random() * 100 + 'vw';
+            coin.style.top = '100vh';
+            coin.style.animationDelay = Math.random() * 0.5 + 's';
+            document.body.appendChild(coin);
+            setTimeout(() => coin.remove(), 2000);
+        }
+        this.showNotification(`Você ganhou ${amount} Moedas Dito! (${reason})`, 'success');
+        this.initRewards();
+    };
+
+    app.applyCoinDiscount = function(sliderValue) {
+        const label = document.getElementById('coins-to-use-label');
+        if (label) label.innerText = sliderValue;
+        this.recalculateCheckoutTotal();
+    };
+
+    app.recalculateCheckoutTotal = function() {
+        const totalBase = this.cart.reduce((acc, i) => acc + i.price, 0);
+        const hasPurchased = localStorage.getItem('dito_purchased_products');
+        const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
+        
+        let finalTotal = totalBase;
+        
+        // 1. apply 75% if first purchase
+        if (isFirstPurchase) {
+            finalTotal = totalBase * 0.25;
+        }
+
+        // 2. apply coins discount (1 coin = 1% of the current total)
+        const coinsToUse = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
+        const coinDiscountValue = finalTotal * (coinsToUse / 100);
+        finalTotal -= coinDiscountValue;
+
+        const totalDisplay = document.getElementById('checkout-total-value');
+        if (totalDisplay) totalDisplay.innerText = 'R$ ' + finalTotal.toFixed(2);
+        
+        return finalTotal;
     };
 
     window.app = app;

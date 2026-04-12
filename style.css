@@ -723,6 +723,66 @@ input:checked + .slider:before {
 .nav-item.active-nav {
     color: #000 !important;
 }
+/* Coin Animation */
+@keyframes coinFloat {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+.coin-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10001;
+    color: #ffd600;
+    font-size: 24px;
+    animation: coinFloat 1.5s ease-out forwards;
+}
+
+.reward-card {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 24px;
+    padding: 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reward-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+}
+
+/* Custom Slider for Coins */
+input[type=range].coin-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+}
+
+input[type=range].coin-slider:focus {
+  outline: none;
+}
+
+input[type=range].coin-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: #eee;
+  border-radius: 10px;
+}
+
+input[type=range].coin-slider::-webkit-slider-thumb {
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  background: #000;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -8px;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
 
 @keyframes dotZoom {
     from { transform: scale(0); opacity: 0; }
