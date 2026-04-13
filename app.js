@@ -1810,43 +1810,65 @@
             if (window.lucide) lucide.createIcons();
         },
 
-        login(isGuest = false) { 
-            this.showLoading(true, 'Carregando...');
+        async login(isGuest = false) { 
+            this.showLoading(true, 'Autenticando...');
             
-            setTimeout(() => {
-                if (isGuest) {
-                    localStorage.setItem('is_logged_in_vanilla', 'true');
-                    localStorage.setItem('is_guest_vanilla', 'true');
-                    this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
-                    this.navigate('dashboard');
-                    this.showLoading(false);
-                    return;
-                }
-
-                const userInp = document.getElementById('username').value.trim();
-                const passInp = document.getElementById('password').value.trim();
-
-                let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
-                const user = users.find(u => u.username === userInp && u.password === passInp);
-
-                // Permitir o usuário 'admin' padrão para testes se o banco estiver vazio
-                if (user || (userInp === 'admin' && passInp === 'admin')) {
-                    const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador', sales: 0 };
-                    localStorage.setItem('is_logged_in_vanilla', 'true');
-                    localStorage.setItem('is_guest_vanilla', 'false');
-                    localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
-                    this.currentUser = loggedUser;
-                    
-                    // FORÇA SYNC IMEDIATO AO LOGAR PARA APARECER NA REDE
-                    this.syncUserToNetwork(this.currentUser);
-                    
-                    this.navigate('dashboard');
-                } else {
-                    // Notificação removida a pedido, mas mantemos o alert se desejar (opcional)
-                    alert('Usuário ou senha incorretos.');
-                }
+            if (isGuest) {
+                localStorage.setItem('is_logged_in_vanilla', 'true');
+                localStorage.setItem('is_guest_vanilla', 'true');
+                this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
+                this.navigate('dashboard');
                 this.showLoading(false);
-            }, 1500);
+                return;
+            }
+
+            const userInp = document.getElementById('username').value.trim();
+            const passInp = document.getElementById('password').value.trim();
+
+            if (!userInp || !passInp) {
+                alert('Preencha os campos.');
+                this.showLoading(false);
+                return;
+            }
+
+            // 1. Tenta Login Local (Cache)
+            let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+            let user = users.find(u => u.username === userInp && u.password === passInp);
+
+            // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
+            if (!user && supabase) {
+                try {
+                    const { data, error } = await supabase
+                        .from('dito_users')
+                        .select('*')
+                        .eq('username', userInp)
+                        .eq('password', passInp)
+                        .single();
+                    
+                    if (data && !error) {
+                        user = data;
+                        // Salva no cache local para próximos logins
+                        users.push(data);
+                        localStorage.setItem('dito_users_db', JSON.stringify(users));
+                    }
+                } catch (e) { console.error("Erro login rede:", e); }
+            }
+
+            // 3. Validação Final
+            if (user || (userInp === 'admin' && passInp === 'admin')) {
+                const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador', sales: 0 };
+                localStorage.setItem('is_logged_in_vanilla', 'true');
+                localStorage.setItem('is_guest_vanilla', 'false');
+                localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
+                this.currentUser = loggedUser;
+                
+                // Sincroniza estado (compras, saldo, etc)
+                this.syncUserToNetwork(this.currentUser);
+                this.navigate('dashboard');
+            } else {
+                alert('Usuário ou senha incorretos ou não sincronizados.');
+            }
+            this.showLoading(false);
         },
 
         logout() { 
