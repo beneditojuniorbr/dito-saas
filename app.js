@@ -99,16 +99,23 @@
 
                         if (this.currentUser && netUser.username === this.currentUser.username) {
                             const netPosts = netUser.posts ? JSON.parse(netUser.posts) : [];
+                            const netPurchases = netUser.purchases ? JSON.parse(netUser.purchases) : [];
                             const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                            
+                            const localPurchases = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
+
+                            // Sincronização Inteligente: Só atualiza se a rede tiver dados mais recentes ou novos
                             if (netPosts.length >= localPosts.length) {
-                                this.currentUser = { ...this.currentUser, ...netUser, posts: netPosts };
-                                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
                                 localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
-                            } else {
-                                this.currentUser = { ...this.currentUser, ...netUser, posts: localPosts };
-                                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                                this.currentUser.posts = netPosts;
                             }
+                            if (netPurchases.length >= localPurchases.length) {
+                                localStorage.setItem('dito_purchased_products', JSON.stringify(netPurchases));
+                                this.purchasedProducts = netPurchases;
+                            }
+                            
+                            this.currentUser = { ...this.currentUser, ...netUser };
+                            localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                            localStorage.setItem('dito_balance', netUser.balance || '0');
                         }
                     });
 
@@ -135,7 +142,8 @@
                     name: user.name || user.username,
                     bio: user.bio || "Membro Dito Network",
                     sales: Number(user.sales || 0),
-                    balance: Number(localStorage.getItem('user_balance_vanilla') || 0),
+                    balance: Number(localStorage.getItem('dito_balance') || user.balance || 0),
+                    purchases: JSON.stringify(JSON.parse(localStorage.getItem('dito_purchased_products') || '[]')),
                     link: user.link || "",
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || [])
@@ -405,12 +413,16 @@
                 const currentBalance = parseFloat(localStorage.getItem('dito_balance') || '0');
                 localStorage.setItem('dito_balance', (currentBalance + netAmount).toString());
                 
-                this.purchasedProducts = [...this.purchasedProducts, ...this.cart];
-                localStorage.setItem('dito_purchased_products', JSON.stringify(this.purchasedProducts));
+                // Salva produtos comprados LOCAL e prepara para rede
+                const newPurchases = [...this.purchasedProducts, ...this.cart];
+                this.purchasedProducts = newPurchases;
+                localStorage.setItem('dito_purchased_products', JSON.stringify(newPurchases));
                 
                 if (this.currentUser) {
                     this.currentUser.sales = (this.currentUser.sales || 0) + finalAmount;
                     localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    
+                    // SYNC TOTAL: Sobe tanto a venda quanto a nova compra para a rede
                     this.syncUserToNetwork(this.currentUser);
                 }
                 
