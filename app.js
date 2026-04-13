@@ -428,9 +428,9 @@
             if (this.purchasedProducts.length === 0) {
                 list.innerHTML = `
                     <div style="text-align: center; padding: 60px 20px; color: #ccc;">
-                        <i data-lucide="play-circle" style="width: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
-                        <p style="font-weight: 800; font-size: 14px;">Você ainda não comprou nenhum curso.</p>
-                        <button onclick="app.navigate('mercado')" style="margin-top: 20px; background: #ee4d2d; color: #fff; border: none; padding: 14px 32px; border-radius: 40px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">Ir para o Mercado</button>
+                        <i data-lucide="shopping-bag" style="width: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p style="font-weight: 800; font-size: 14px;">Nenhuma compra realizada ainda.</p>
+                        <button onclick="app.navigate('mercado')" style="margin-top: 20px; background: #000; color: #fff; border: none; padding: 14px 32px; border-radius: 40px; font-weight: 900; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">Ir para o Mercado</button>
                     </div>
                 `;
                 if (window.lucide) lucide.createIcons();
@@ -438,16 +438,17 @@
             }
 
             list.innerHTML = this.purchasedProducts.map(p => `
-                <div style="background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 20px; display: flex; gap: 16px; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-                    <div style="width: 64px; height: 64px; background: #f8f8f8; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #ee4d2d;">
-                        <i data-lucide="play-circle" style="width: 32px;"></i>
+                <div style="background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 16px; display: flex; gap: 16px; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.02); position: relative;">
+                    <div style="width: 70px; height: 70px; background: #f8f8f8; border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="play-circle" style="width: 28px; color: #ccc;"></i>`}
                     </div>
-                    <div style="flex: 1;">
-                        <h4 style="font-size: 14px; font-weight: 900; margin-bottom: 4px;">${p.name.toLowerCase()}</h4>
-                        <p style="font-size: 11px; color: #999; font-weight: 700;">Comprado em: ${p.buyDate || 'Recente'}</p>
+                    <div style="flex: 1; min-width: 0;">
+                        <span style="font-size: 8px; font-weight: 900; background: #f5f5f5; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; color: #999; margin-bottom: 4px; display: inline-block;">${p.type || 'Produto'}</span>
+                        <h4 style="font-size: 14px; font-weight: 900; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                        <p style="font-size: 10px; color: #22c55e; font-weight: 900;">Acesso Vitalício</p>
                     </div>
-                    <button onclick="app.openCourse('${p.id}')" style="width: 44px; height: 44px; background: #000; color: #fff; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                        <i data-lucide="chevron-right" style="width: 20px;"></i>
+                    <button onclick="app.openCourse('${p.id}')" style="width: 48px; height: 48px; background: #000; color: #fff; border: none; border-radius: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        <i data-lucide="arrow-right" style="width: 20px;"></i>
                     </button>
                 </div>
             `).join('');
@@ -834,6 +835,7 @@
                     case 'vendas': this.renderSales(); break;
                     case 'sacar': this.updateWithdrawUI(); break;
                     case 'admin-contas': this.renderAdminUsers(); break;
+                    case 'produtos': this.renderMyProducts(); break;
                     case 'meus-cursos': this.renderPurchasedProducts(); break;
                     case 'curso-player': this.renderCoursePlayer(); break;
                 }
@@ -862,7 +864,7 @@
                 if (header) {
                     const isMercado = view === 'mercado';
                     header.style.display = isAuthPage ? 'none' : 'flex';
-                    header.style.background = isMercado ? 'transparent' : '#fff';
+                    header.style.background = '#fff';
                     const logo = document.getElementById('header-logo');
                     const cartIcon = document.getElementById('cart-icon-header');
                     const searchIcon = document.getElementById('search-icon-header');
@@ -1382,7 +1384,7 @@
 
                         // Sincroniza com o Supabase
                         await this.syncUserToNetwork(this.currentUser);
-                        this.showNotification('Avatar atualizado e salvo na nuvem! 💎', 'success');
+                        this.showNotification('Avatar atualizado e salvo na nuvem!', 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -1434,6 +1436,9 @@
             if (selection) selection.style.display = 'flex';
             
             // Reset fields
+            const profitLabel = document.getElementById('profit-calc-label');
+            if (profitLabel) profitLabel.innerText = "Você receberá: R$ 0,00";
+            
             document.querySelectorAll('#product-type-selection button').forEach(btn => {
                 btn.style.borderColor = 'transparent';
                 btn.style.background = '#f5f5f5';
@@ -1449,10 +1454,9 @@
                 b.style.border = '2px solid transparent';
             });
             
-            // Apply Premium Gradient Border
+            // Apply Premium Gradient Border (No Shadow)
             btn.style.background = 'linear-gradient(#f5f5f5, #f5f5f5) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
             btn.style.border = '2px solid transparent';
-            btn.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.08)';
 
             // Show form and conditional fields
             const form = document.getElementById('create-product-form');
@@ -1465,6 +1469,29 @@
             
             // Reset filenames
             document.querySelectorAll('.file-name-display').forEach(el => el.innerText = '');
+            
+            // Reset product image preview
+            this.selectedProductImage = null;
+            const preview = document.getElementById('prod-image-preview');
+            if (preview) {
+                preview.innerHTML = `<i data-lucide="image-plus" style="width: 32px; color: #ccc;"></i><span style="font-size: 9px; font-weight: 900; color: #999; margin-top: 8px;">Upload Imagem</span>`;
+                if (window.lucide) lucide.createIcons();
+            }
+        },
+
+        handleProductImage(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.selectedProductImage = e.target.result;
+                    const preview = document.getElementById('prod-image-preview');
+                    if (preview) {
+                        preview.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
         },
 
         handleFileUpload(input, targetId) {
@@ -1486,6 +1513,11 @@
                 return;
             }
 
+            if (this.selectedProductType === 'App') {
+                this.showNotification("A publicação de App estará disponível em breve! Continue construindo.", "info");
+                return;
+            }
+
             if (!name || price <= 0) {
                 this.showNotification("Preencha o nome e o preço corretamente.", "error");
                 return;
@@ -1501,8 +1533,10 @@
                 visible: visible,
                 rating: 5.0,
                 sales: 0,
+                image: this.selectedProductImage || null,
                 author: this.currentUser?.username || "Você",
-                seller: this.currentUser?.username || "Você"
+                seller: this.currentUser?.username || "Você",
+                createdAt: Date.now()
             };
 
             // Salva na lista do mercado global se estiver visível
@@ -1543,7 +1577,7 @@
                 username: username,
                 password: password,
                 name: username,
-                bio: "Novo Infoprodutor Dito 🚀",
+                bio: "Novo Infoprodutor Dito",
                 avatar: "",
                 sales: 0
             };
@@ -1563,15 +1597,15 @@
             this.navigate('login');
         },
         login(isGuest = false) { 
-            this.showNotification(isGuest ? 'Entrando como convidado...' : 'Entrando...', 'centered');
-            this.fetchNetworkUsers(); // Garante que puxou todo mundo do server antes de entrar
+            this.showLoading(true, 'Carregando...');
+            
             setTimeout(() => {
                 if (isGuest) {
                     localStorage.setItem('is_logged_in_vanilla', 'true');
                     localStorage.setItem('is_guest_vanilla', 'true');
                     this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
                     this.navigate('dashboard');
-                    this.showNotification('Bem-vindo! Crie uma conta para realizar vendas e saques.');
+                    this.showLoading(false);
                     return;
                 }
 
@@ -1589,63 +1623,34 @@
                     localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
                     this.currentUser = loggedUser;
                     this.navigate('dashboard');
-                    this.showNotification(`Bem-vindo, ${this.currentUser.username}!`);
                 } else {
-                    this.showNotification('Usuário ou senha incorretos.', 'error');
+                    // Notificação removida a pedido, mas mantemos o alert se desejar (opcional)
+                    alert('Usuário ou senha incorretos.');
                 }
-            }, 2400);
+                this.showLoading(false);
+            }, 1500);
         },
 
         logout() { 
-            localStorage.removeItem('is_logged_in_vanilla');
-            localStorage.removeItem('is_guest_vanilla');
-            this.navigate('login'); 
+            this.showLoading(true, 'Saindo...');
+            setTimeout(() => {
+                localStorage.removeItem('is_logged_in_vanilla');
+                localStorage.removeItem('is_guest_vanilla');
+                this.navigate('login'); 
+                this.showLoading(false);
+            }, 1000);
         },
 
         showNotification(msg, type = 'success') {
-            const container = document.getElementById('notification-container');
-            if (!container) return;
-            
-            // Limpa qualquer notificação anterior para elas se sobreporem no mesmo lugar
-            container.innerHTML = '';
-            
-            const notification = document.createElement('div');
-            notification.className = `notification ${type} animate-fade`;
-            
-            // Cores baseadas no tipo
-            let bg = '#fff';
-            let color = '#000';
-            
-            if (type === 'success') {
-                bg = '#22c55e'; // Verde
-                color = '#fff';
-            } else if (type === 'error') {
-                bg = '#ef4444'; // Vermelho
-                color = '#fff';
-            }
+            // Notificações desativadas por preferência do usuário
+            return;
+        },
 
-            notification.style.cssText = `
-                background: ${bg};
-                color: ${color};
-                padding: 16px 32px;
-                border-radius: 50px;
-                margin-bottom: 12px;
-                font-weight: 800;
-                font-size: 13px;
-                box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-                border: 1px solid rgba(0,0,0,0.05);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                white-space: nowrap;
-            `;
-            notification.innerHTML = msg;
-            container.appendChild(notification);
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transform = 'translateY(-20px)';
-                setTimeout(() => notification.remove(), 500);
-            }, 3000);
+        showLoading(show, text = 'Carregando...') {
+            const overlay = document.getElementById('loading-overlay');
+            const textEl = document.getElementById('loading-text');
+            if (textEl) textEl.innerText = text;
+            if (overlay) overlay.style.display = show ? 'flex' : 'none';
         },
 
         removeFromCart(index) {
@@ -1677,7 +1682,7 @@
                     return `
                     <div style="background: #fff; padding: 16px; border-radius: 24px; border: 1px solid #f2f2f2; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
                         <div style="width: 70px; height: 70px; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex-shrink: 0;">
-                            <i data-lucide="${iconName}" stroke="url(#dito-gradient)" style="width: 24px;"></i>
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="${iconName}" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
@@ -1801,7 +1806,7 @@
                 hContainer.innerHTML = ebooks.map(p => `
                     <div onclick="app.viewProduct('${p.id}')" style="min-width: 135px; max-width: 135px; background: #ffffff; padding: 12px; border-radius: 24px; border: 1px solid #f0f0f0; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer;">
                         <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
-                            <i data-lucide="book-open" stroke="url(#dito-gradient)" style="width: 20px;"></i>
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="book-open" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
                             ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
                         </div>
                         <h4 style="font-weight: 900; font-size: 10px; color: #000; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
@@ -1822,7 +1827,7 @@
             feed.innerHTML = sortedProducts.map(p => `
                 <div onclick="app.viewProduct('${p.id}')" style="background: #ffffff; padding: 16px; border-radius: 28px; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
                     <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
-                        <i data-lucide="package" stroke="url(#dito-gradient)" style="width: 28px;"></i>
+                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="${p.type === 'Curso' ? 'play-circle' : (p.type === 'App' ? 'layers' : 'package')}" stroke="url(#dito-gradient)" style="width: 28px;"></i>`}
                         <div style="position: absolute; top: 10px; right: 10px; background: #000; color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
                         ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
                     </div>
@@ -1853,7 +1858,7 @@
                 this.cart.push(product);
                 localStorage.setItem('dito_cart', JSON.stringify(this.cart));
                 this.updateCartBadge();
-                this.showNotification(`"${product.name}" adicionado à sacola! ✨`, "success");
+                this.showNotification(`"${product.name}" adicionado à sacola!`, "success");
             }
         }
     };
@@ -2058,11 +2063,11 @@
         let isBecomingFan = btn.innerText === 'Tornar-se Fã';
 
         if (isBecomingFan) {
-            btn.innerText = 'Fã ✓';
+            btn.innerText = 'Fã';
             btn.style.background = '#f5f5f5';
             btn.style.color = '#000';
             current++;
-            this.showNotification('Você agora é fã! ✨');
+            this.showNotification('Você agora é fã!');
         } else {
             btn.innerText = 'Tornar-se Fã';
             btn.style.background = '#000';
@@ -2139,7 +2144,7 @@
         const user = this.currentUser || { username: 'usuario' };
         const linkStr = `dito.app/ref/${user.username}`;
         navigator.clipboard.writeText(linkStr).then(() => {
-            this.showNotification('Link copiado! Compartilhe com seus amigos 🚀', 'success');
+            this.showNotification('Link copiado! Compartilhe com seus amigos', 'success');
         });
     };
 
@@ -2149,7 +2154,7 @@
         for (let i = 0; i < 12; i++) {
             const coin = document.createElement('div');
             coin.className = 'coin-particle';
-            coin.innerHTML = '🪙';
+            coin.innerHTML = '';
             coin.style.left = Math.random() * 100 + 'vw';
             coin.style.top = '100vh';
             coin.style.animationDelay = Math.random() * 0.5 + 's';
@@ -2187,6 +2192,92 @@
         if (totalDisplay) totalDisplay.innerText = 'R$ ' + finalTotal.toFixed(2);
         
         return finalTotal;
+    };
+
+    app.renderMyProducts = function() {
+        const list = document.getElementById('my-products-list');
+        const emptyMsg = document.getElementById('no-products-msg');
+        if (!list) return;
+
+        const myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
+        
+        if (myProducts.length === 0) {
+            list.innerHTML = '';
+            if (emptyMsg) emptyMsg.style.display = 'block';
+            return;
+        }
+
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        list.innerHTML = myProducts.map(p => `
+            <div style="background: #fff; border: 1px solid #eee; border-radius: 24px; padding: 16px; display: flex; align-items: center; gap: 16px; position: relative;">
+                <div style="width: 60px; height: 60px; background: #f9f9f9; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" style="width: 24px; color: #ccc;"></i>`}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <h4 style="font-weight: 900; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                    <p style="font-size: 10px; font-weight: 800; color: #999; text-transform: uppercase;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p>
+                </div>
+                <button onclick="app.deleteProduct('${p.id}')" style="width: 44px; height: 44px; background: #fee2e2; color: #ef4444; border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                    <i data-lucide="trash-2" style="width: 18px;"></i>
+                </button>
+            </div>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
+    };
+
+    app.deleteProduct = function(id) {
+        if (confirm('Tem certeza que deseja APAGAR este produto? Esta ação é irreversível e o produto sairá do mercado.')) {
+            // 1. Remove de "Meus Produtos"
+            let myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
+            myProducts = myProducts.filter(p => p.id !== id);
+            localStorage.setItem('dito_my_products', JSON.stringify(myProducts));
+
+            // 2. Remove do "Mercado Global"
+            let marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            marketProducts = marketProducts.filter(p => p.id !== id);
+            localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
+
+            this.showNotification('Produto removido com sucesso.', 'success');
+            this.renderMyProducts();
+        }
+    };
+
+    app.filterMarket = function(query) {
+        const resultsContainer = document.getElementById('market-search-results');
+        if (!query || query.length < 2) {
+            if (resultsContainer) resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+        const filtered = marketProducts.filter(p => 
+            (p.name && p.name.toLowerCase().includes(query.toLowerCase())) || 
+            (p.type && p.type.toLowerCase().includes(query.toLowerCase()))
+        );
+
+        if (filtered.length > 0) {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = filtered.map(p => `
+                <div onclick="app.viewProduct('${p.id}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='white'">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" style="width: 18px; color: #ccc;"></i>`}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <p style="font-weight: 900; font-size: 13px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</p>
+                        <p style="font-size: 11px; color: #22c55e; font-weight: 900;">R$ ${parseFloat(p.price).toFixed(2)}</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 8px; font-size: 8px; font-weight: 900; text-transform: uppercase;">
+                        ${p.type || 'Prod'}
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        } else {
+            resultsContainer.innerHTML = `<div style="padding: 24px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum produto encontrado.</div>`;
+            resultsContainer.style.display = 'block';
+        }
     };
 
 })();

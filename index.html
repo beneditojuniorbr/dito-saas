@@ -64,8 +64,12 @@
         <img src="D.png" style="width: 180px; height: 180px; object-fit: contain;">
     </div>
 
-    <!-- Container de Notificações Global -->
-    <div id="notification-container" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; align-items: center; pointer-events: none;"></div>
+    <!-- Tela de Carregamento Global -->
+    <div id="loading-overlay" style="position: fixed; inset: 0; background: #fff; z-index: 99998; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; transition: opacity 0.3s ease;">
+        <div class="loading-spinner"></div>
+        <p id="loading-text" style="font-weight: 900; font-size: 14px; letter-spacing: -0.5px; color: #000; text-transform: uppercase;">Carregando...</p>
+    </div>
+
 
 
     <div id="app" class="app-container" style="padding-top: 70px;">
@@ -119,7 +123,7 @@
             <i data-lucide="store" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
             <div id="dot-mercado" class="notif-dot" style="position: absolute; top: 8px; right: 8px; display: none;"></div>
         </div>
-        <div class="nav-item" data-view="network" onclick="app.navigate('hall')" style="cursor: pointer; padding: 10px;">
+        <div class="nav-item" data-view="sociedade" onclick="app.navigate('sociedade')" style="cursor: pointer; padding: 10px;">
             <i data-lucide="users" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
         </div>
         <div class="nav-item" data-view="sacar" onclick="app.navigate('sacar')" style="cursor: pointer; padding: 10px;">
@@ -132,6 +136,30 @@
 
 
     <!-- Templates Section -->
+    <template id="template-produtos">
+        <div style="padding: 24px; padding-bottom: 120px;">
+            <header style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
+                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px;"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px;">Meus produtos</h2>
+            </header>
+
+            <div id="my-products-list" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Injetado via JS -->
+            </div>
+            
+            <div id="no-products-msg" style="display: none; text-align: center; padding: 60px 24px;">
+                <div style="width: 80px; height: 80px; background: #f9f9f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                    <i data-lucide="package-search" style="width: 32px; color: #ccc;"></i>
+                </div>
+                <h3 style="font-weight: 900; color: #000; margin-bottom: 8px;">Nenhum produto ainda</h3>
+                <p style="font-size: 13px; color: #999; font-weight: 700;">Comece a criar sua elite de produtos agora mesmo.</p>
+                <button onclick="app.navigate('criar-produto'); app.initCreateProduct();" style="margin-top: 24px; padding: 12px 24px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 900; font-size: 12px;">Criar meu primeiro produto</button>
+            </div>
+        </div>
+    </template>
+
     <template id="template-login">
         <div class="login-screen animate-fade" style="align-items: center; text-align: center;">
             <div class="login-header">
@@ -234,50 +262,42 @@
                 <!-- ... Botões de ação rápida ... -->
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center; position: relative;" onclick="app.navigate('criar-produto'); app.initCreateProduct();">
                     <div id="create-product-dot" style="position: absolute; top: 0; right: 8px; width: 12px; height: 12px; background: #ffd600; border-radius: 50%; border: 2px solid #fff; z-index: 10; display: none;"></div>
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="plus" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Criar produto</span>
                 </div>
 
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('vendas')">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="trending-up" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Vendas</span>
                 </div>
 
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links')">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="link" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Links</span>
                 </div>
 
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('produtos')">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="package" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Meus produtos</span>
                 </div>
 
-                <div onclick="app.navigate('sociedade')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                        <i data-lucide="users" style="width: 22px;"></i>
-                        <span id="dot-sociedade" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
-                    </div>
-                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Sociedade</span>
-                </div>
-
                 <div onclick="app.navigate('meus-cursos')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                        <i data-lucide="play-circle" style="width: 22px;"></i>
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                        <i data-lucide="shopping-bag" style="width: 22px;"></i>
                     </div>
-                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Meus cursos</span>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Minhas compras</span>
                 </div>
 
                 <div onclick="app.navigate('hall')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative;">
                         <i data-lucide="star" style="width: 22px;"></i>
                         <span id="dot-hall" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
                     </div>
@@ -337,7 +357,7 @@
 
             <div style="position: relative; margin-bottom: 32px;">
                 <i data-lucide="search" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: #ccc; width: 20px;"></i>
-                <input type="text" placeholder="Buscar comunidades..." style="width: 100%; height: 60px; background: var(--surface); border: 1px solid var(--border); border-radius: 30px; padding-left: 54px; font-size: 14px; font-weight: 700;">
+                <input type="text" placeholder="Buscar sociedades..." style="width: 100%; height: 60px; background: var(--surface); border: 1px solid var(--border); border-radius: 30px; padding-left: 54px; font-size: 14px; font-weight: 700;">
             </div>
 
             <div id="societies-list" style="display: flex; flex-direction: column; gap: 20px;">
@@ -443,14 +463,17 @@
                 <i data-lucide="arrow-left" style="width: 20px;"></i>
             </div>
             <header style="margin-bottom: 32px; text-align: center;">
-               <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -2px; color: #fff; italic;">Mercado</h2>
-               <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase;">Produtos da Comunidade Dito</p>
+               <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -2px; color: #fff; italic; margin: 0;">Mercado</h2>
+               <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;">Produtos da Comunidade</p>
             </header>
             
-            <div style="margin-bottom: 32px; display: flex; gap: 12px;">
+            <div style="margin-bottom: 32px; display: flex; gap: 12px; position: relative;">
                 <div style="position: relative; flex: 1;">
-                    <i data-lucide="search" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 18px; color: #000;"></i>
-                    <input type="text" id="market-search" placeholder="Pesquisar..." oninput="app.filterMarket()" style="width: 100%; padding: 16px 16px 16px 48px; background: #fff; border: none; border-radius: 20px; font-weight: 900; font-size: 13px; color: #000; outline: none; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+                    <i data-lucide="search" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 18px; color: #ccc;"></i>
+                    <input type="text" id="market-search" placeholder="Pesquisar por nome do produto..." oninput="app.filterMarket(this.value)" style="width: 100%; height: 56px; padding: 0 20px 0 54px; background: #fff; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; color: #000; outline: none; box-shadow: 0 10px 30px rgba(0,0,0,0.03); transition: 0.3s;">
+                    
+                    <!-- Resultados da Busca do Mercado -->
+                    <div id="market-search-results" style="display: none; position: absolute; top: 65px; left: 0; right: 0; background: #fff; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); border: 1px solid #f0f0f0; z-index: 2000; overflow: hidden; max-height: 400px; overflow-y: auto;"></div>
                 </div>
             </div>
 
@@ -572,60 +595,79 @@
             
             <div style="display: flex; justify-content: center; gap: 32px; margin-bottom: 48px;" id="product-type-selection">
                 <div style="text-align: center;">
-                    <button onclick="app.selectProductType('Ebook', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                    <button onclick="app.selectProductType('Ebook', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="book-open" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Ebook</span>
                 </div>
                 <div style="text-align: center;">
-                    <button onclick="app.selectProductType('Curso', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                    <button onclick="app.selectProductType('Curso', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="play-circle" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Curso</span>
                 </div>
                 <div style="text-align: center;">
-                    <button onclick="app.selectProductType('Mentoria', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                    <button onclick="app.selectProductType('Mentoria', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="users" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Mentoria</span>
                 </div>
+                <div style="text-align: center; position: relative;">
+                    <!-- Badge Em Breve -->
+                    <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ff005c, #7000ff); color: #fff; font-size: 8px; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 4px 10px rgba(255, 0, 92, 0.3); z-index: 10;">Em breve</div>
+                    
+                    <button onclick="app.selectProductType('App', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                        <i data-lucide="layers" style="width: 28px; color: #999;"></i>
+                    </button>
+                    <span style="font-size: 11px; font-weight: 900; color: #999;">App</span>
+                </div>
             </div>
 
-            <div id="create-product-form" style="display: none; flex-direction: column; gap: 32px; max-width: 450px; margin: 0 auto;">
-                <div style="display: flex; flex-direction: column; gap: 24px;">
-                    <div>
-                        <label id="label-prod-name" style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Nome do produto:</label>
-                        <input type="text" id="prod-name" placeholder=" " style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; text-align: center;">
+            <div id="create-product-form" style="display: none; flex-direction: column; gap: 24px; max-width: 450px; margin: 0 auto; padding-bottom: 40px;">
+                <!-- Upload de Capa -->
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px;">Capa do Produto (1:1):</label>
+                    <div onclick="document.getElementById('prod-image-file').click()" style="width: 140px; height: 140px; background: #f8f8f8; border: 2px dashed #ddd; border-radius: 30px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: 0.3s;" id="prod-image-preview">
+                        <i data-lucide="image-plus" style="width: 32px; color: #ccc;"></i>
+                        <span style="font-size: 9px; font-weight: 900; color: #999; margin-top: 8px;">Upload Imagem</span>
                     </div>
-
-                    <div>
-                        <label id="label-prod-desc" style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Descrição do produto: (máx 300 caracteres)</label>
-                        <textarea id="prod-desc" maxlength="300" placeholder=" " oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'" style="width: 100%; padding: 20px 28px; background: #fafafa; border: 1px solid #eee; border-radius: 28px; font-weight: 800; font-size: 14px; outline: none; height: 60px; min-height: 60px; resize: none; overflow: hidden; transition: height 0.2s; text-align: center;"></textarea>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Preço sugerido:</label>
-                        <input type="number" id="prod-price" placeholder="R$ 0,00" oninput="app.calculateNetProfit(this.value)" style="width: 100%; padding: 20px 32px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 16px; outline: none; text-align: center;">
-                        <div style="margin-top: 12px; padding: 12px 20px; background: rgba(255, 0, 92, 0.05); border-radius: 20px; border: 1px solid rgba(255, 0, 92, 0.1);">
-                            <p style="font-size: 10px; font-weight: 900; color: #ff005c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Taxa do Dito: 3%</p>
-                            <p style="font-size: 8px; font-weight: 700; color: #cc6688; margin-bottom: 6px; opacity: 0.8;">*A taxa poderá variar de acordo com o tempo.</p>
-                            <p id="profit-calc-label" style="font-size: 13px; font-weight: 900; color: #000;">Você receberá: R$ 0,00</p>
-                        </div>
-                    </div>
+                    <input type="file" id="prod-image-file" accept="image/*" style="display: none;" onchange="app.handleProductImage(this)">
                 </div>
 
-                <div style="background: #fafafa; padding: 20px 24px; border-radius: 24px; border: 1px solid #eee; margin-top: 8px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div>
-                            <p style="font-weight: 900; font-size: 13px;">Mostrar no mercado</p>
-                            <p style="font-size: 10px; color: #999; font-weight: 700;">Seu produto será visível para todos</p>
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Nome do produto:</label>
+                        <input type="text" id="prod-name" placeholder="Ex: Método Elite 2.0" style="width: 100%; padding: 18px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none;">
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Descrição:</label>
+                        <textarea id="prod-desc" placeholder="O que seu cliente vai aprender?" style="width: 100%; height: 100px; padding: 18px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 700; font-size: 13px; outline: none; resize: none;"></textarea>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Preço sugerido:</label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 24px; top: 50%; transform: translateY(-50%); font-weight: 900; font-size: 14px; color: #000;">R$</span>
+                            <input type="number" id="prod-price" placeholder="0,00" oninput="app.calculateNetProfit(this.value)" style="width: 100%; padding: 18px 24px 18px 54px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 900; font-size: 18px; outline: none;">
                         </div>
+                        <div id="profit-calc-label" style="margin-top: 12px; margin-left: 12px; font-size: 14px; font-weight: 900; color: #22c55e;">
+                            Você receberá: R$ 0,00
+                        </div>
+                        <p style="font-size: 9px; font-weight: 700; color: #ff005c; margin-top: 12px; margin-left: 12px; line-height: 1.4;">
+                            * O App Dito poderá ajustar o preço final diminuindo ou aumentando com base no programa de Moedas Dito.
+                        </p>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+                        <span style="font-size: 12px; font-weight: 800; color: #000;">Visível no Mercado</span>
                         <label class="switch">
                             <input type="checkbox" id="prod-visible" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
                 </div>
+
                 
                 <div id="ebook-upload" style="display: none; padding-bottom: 16px;">
                     <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Conteúdo do ebook: (PDF)</label>
@@ -755,7 +797,7 @@
                 <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
-                <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px;">Meus cursos</h2>
+                <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px;">Minhas compras</h2>
             </header>
             
             <div id="purchased-products-list" style="display: flex; flex-direction: column; gap: 16px;">
