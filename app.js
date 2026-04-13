@@ -55,7 +55,11 @@
                 // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 const savedUser = localStorage.getItem('current_user_vanilla');
-                if (savedUser) this.currentUser = JSON.parse(savedUser);
+                if (savedUser) {
+                    this.currentUser = JSON.parse(savedUser);
+                    // FORÇA SYNC: Se existir usuário local, empurra pra rede no boot para garantir conectividade
+                    this.syncUserToNetwork(this.currentUser);
+                }
                 
                 // --- CONEXÃO GLOBAL (NETWORK) ---
                 this.fetchNetworkUsers();
