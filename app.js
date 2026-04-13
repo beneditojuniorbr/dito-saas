@@ -112,14 +112,16 @@
                         }
                     });
 
-                    localStorage.setItem('dito_users_db', JSON.stringify(localUsers));
-                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(localProfiles));
+                    localStorage.setItem('dito_network_users', JSON.stringify(localProfiles));
                     localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles));
                     
-                    console.log("✅ [Supabase] Sincronização concluída. Fotos e dados restaurados da rede!");
+                    // Re-render Hall of Fame se estiver na tela dele
+                    if (this.currentView === 'hall') this.renderHallFame();
+                    
+                    console.log("✅ [Network] Sincronização global concluída!");
                 }
             } catch (e) {
-                console.error("❌ [Supabase] Erro crítico na conexão:", e);
+                console.error("❌ [Network] Erro na conexão:", e);
             }
         },
 
@@ -751,24 +753,27 @@
             
             if (!listTop) return;
 
-            // Carrega usuários reais ou gera lista de espera
-            const users = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+            // Carrega usuários reais da REDE (Sincronizados via Supabase)
+            const users = JSON.parse(localStorage.getItem('dito_network_users') || localStorage.getItem('dito_usuarios') || '[]');
             
             if (users.length === 0) {
-                if (firstName) firstName.innerText = "Aguardando competidores...";
-                listTop.innerHTML = `<p style="text-align: center; color: #ccc; padding: 20px; font-weight: 800; font-size: 11px; text-transform: uppercase;">A elite ainda está se preparando.</p>`;
+                if (firstName) firstName.innerText = "Conectando à rede...";
+                listTop.innerHTML = `<div style="text-align: center; padding: 40px;"><div class="loading-spinner" style="margin: 0 auto 16px;"></div><p style="color: #ccc; font-weight: 800; font-size: 11px; text-transform: uppercase;">Buscando competidores reais...</p></div>`;
+                // Tenta buscar agora se estiver vazio
+                this.fetchNetworkUsers();
                 return;
             }
 
             // Ordena por vendas REAIS
             const sortedRank = users.map(u => ({
                 ...u,
-                sales: u.sales || 0,
-                username: u.username || u.name.toLowerCase().replace(/\s+/g, '_')
+                sales: Number(u.sales || 0),
+                username: u.username || (u.name ? u.name.toLowerCase().replace(/\s+/g, '_') : 'membro_elite'),
+                avatar: u.avatar || ''
             })).sort((a,b) => b.sales - a.sales);
 
             const winner = sortedRank[0];
-            const others = sortedRank.slice(1, 10);
+            const others = sortedRank.slice(1, 6); // Pega do 2º ao 6º (5 itens)
 
             // Renderiza o 1º Lugar
             if (winner) {
@@ -789,27 +794,26 @@
                 }
             }
 
-            // Renderiza o Ranking (2º ao 10º)
+            // Renderiza o Ranking (2º ao 6º)
             listTop.innerHTML = others.map((u, i) => {
                 const pos = i + 2;
                 const bg = '#fff';
                 const border = '#f9f9f9';
-                const rankColor = '#ddd';
 
                 return `
-                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: ${bg}; border-radius: 24px; border: 1px solid ${border}; transition: 0.3s; cursor: pointer;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-weight: 900; color: #000; font-size: 13px; width: 30px; text-align: center;">${pos}º</span>
-                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #fff; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
-                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 16px; color: #ccc;"></i>`}
+                <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: ${bg}; border-radius: 20px; border: 1px solid ${border}; cursor: pointer; transition: 0.3s;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 900; color: #000; font-size: 11px; width: 24px; text-align: center;">${pos}º</span>
+                        <div style="width: 38px; height: 38px; border-radius: 50%; overflow: hidden; background: #f5f5f5; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
+                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 14px; color: #ccc;"></i>`}
                         </div>
                         <div>
-                            <p style="font-weight: 900; font-size: 12px; color: #000; margin-bottom: 2px;">${u.username}</p>
-                            <p style="font-size: 8px; font-weight: 800; color: #ccc; text-transform: uppercase;">Membro Elite</p>
+                            <p style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 0px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px;">${u.username}</p>
+                            <p style="font-size: 7px; font-weight: 800; color: #ccc; text-transform: uppercase;">Membro</p>
                         </div>
                     </div>
                     <div style="text-align: right;">
-                        <span style="font-weight: 900; font-size: 12px; color: #000;">R$ ${parseInt(u.sales || 0).toLocaleString()}</span>
+                        <span style="font-weight: 900; font-size: 11px; color: #000;">R$ ${parseInt(u.sales || 0).toLocaleString()}</span>
                     </div>
                 </div>
                 `;
@@ -1811,11 +1815,15 @@
 
                 // Permitir o usuário 'admin' padrão para testes se o banco estiver vazio
                 if (user || (userInp === 'admin' && passInp === 'admin')) {
-                    const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador' };
+                    const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador', sales: 0 };
                     localStorage.setItem('is_logged_in_vanilla', 'true');
                     localStorage.setItem('is_guest_vanilla', 'false');
                     localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
                     this.currentUser = loggedUser;
+                    
+                    // FORÇA SYNC IMEDIATO AO LOGAR PARA APARECER NA REDE
+                    this.syncUserToNetwork(this.currentUser);
+                    
                     this.navigate('dashboard');
                 } else {
                     // Notificação removida a pedido, mas mantemos o alert se desejar (opcional)
