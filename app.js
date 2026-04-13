@@ -1837,21 +1837,30 @@
 
             // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
             if (!user && supabase) {
+                console.log("🔍 [Auth] Buscando usuário na nuvem...");
                 try {
                     const { data, error } = await supabase
                         .from('dito_users')
                         .select('*')
                         .eq('username', userInp)
                         .eq('password', passInp)
-                        .single();
+                        .maybeSingle(); // maybeSingle não dá erro se não achar nada
                     
-                    if (data && !error) {
+                    if (error) {
+                        console.error("❌ Erro Supabase:", error.message);
+                        alert('Erro de conexão com o banco de dados.');
+                    } else if (data) {
+                        console.log("✅ [Auth] Usuário encontrado na rede!");
                         user = data;
-                        // Salva no cache local para próximos logins
                         users.push(data);
                         localStorage.setItem('dito_users_db', JSON.stringify(users));
+                    } else {
+                        console.warn("⚠️ [Auth] Usuário não encontrado na rede. Verifique se deu F5 no computador.");
                     }
-                } catch (e) { console.error("Erro login rede:", e); }
+                } catch (e) { 
+                    console.error("Erro crítico login rede:", e); 
+                    alert('Falha crítica na rede.');
+                }
             }
 
             // 3. Validação Final
@@ -1862,11 +1871,14 @@
                 localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
                 this.currentUser = loggedUser;
                 
-                // Sincroniza estado (compras, saldo, etc)
-                this.syncUserToNetwork(this.currentUser);
+                // Salva ID no cache para manter compras
+                localStorage.setItem('dito_user_id', loggedUser.id);
+                
+                await this.syncUserToNetwork(this.currentUser);
                 this.navigate('dashboard');
+                console.log("🚀 Login realizado com sucesso!");
             } else {
-                alert('Usuário ou senha incorretos ou não sincronizados.');
+                alert('Usuário ou senha incorretos. Dica: Se criou no PC, recarregue o PC (F5) para sincronizar.');
             }
             this.showLoading(false);
         },
