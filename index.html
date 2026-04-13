@@ -593,27 +593,30 @@
                 <h3 style="font-size: 32px; font-weight: 900; letter-spacing: -1px;">Criar produto</h3>
             </header>
             
-            <div style="display: flex; justify-content: center; gap: 32px; margin-bottom: 48px;" id="product-type-selection">
-                <div style="text-align: center;">
+            <div id="product-type-selection" class="hide-scrollbar" style="display: flex; gap: 16px; margin-bottom: 48px; overflow-x: auto; padding: 10px 24px 20px; margin: 0 -24px 40px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
+                <!-- Ebook -->
+                <div style="flex-shrink: 0; scroll-snap-align: start; text-align: center;">
                     <button onclick="app.selectProductType('Ebook', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="book-open" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Ebook</span>
                 </div>
-                <div style="text-align: center;">
+                <!-- Curso -->
+                <div style="flex-shrink: 0; scroll-snap-align: start; text-align: center;">
                     <button onclick="app.selectProductType('Curso', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="play-circle" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Curso</span>
                 </div>
-                <div style="text-align: center;">
+                <!-- Mentoria -->
+                <div style="flex-shrink: 0; scroll-snap-align: start; text-align: center;">
                     <button onclick="app.selectProductType('Mentoria', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="users" style="width: 28px;"></i>
                     </button>
                     <span style="font-size: 11px; font-weight: 900; color: #666;">Mentoria</span>
                 </div>
-                <div style="text-align: center; position: relative;">
-                    <!-- Badge Em Breve -->
+                <!-- App -->
+                <div style="flex-shrink: 0; scroll-snap-align: start; text-align: center; position: relative;">
                     <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ff005c, #7000ff); color: #fff; font-size: 8px; font-weight: 900; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 4px 10px rgba(255, 0, 92, 0.3); z-index: 10;">Em breve</div>
                     
                     <button onclick="app.selectProductType('App', this)" class="product-type-btn" style="width: 84px; height: 84px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
@@ -682,17 +685,23 @@
                     <span id="ebook-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
                 </div>
 
-                <div id="curso-upload" style="display: none; padding-bottom: 16px;">
-                    <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Aulas da formação: (Vídeos)</label>
-                    <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff; transition: 0.3s;" onmouseover="this.style.borderColor='#000'">
-                        <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
-                            <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
-                        </div>
-                        <p style="font-size: 11px; font-weight: 900; color: #000;">Selecionar arquivos de vídeo</p>
-                        <p style="font-size: 9px; color: #999; margin-top: 4px;">Pode selecionar vários arquivos</p>
-                        <input type="file" id="curso-file" multiple accept="video/*" onchange="app.handleFileUpload(this, 'curso-filename')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                <!-- Gerenciador de Módulos e Aulas (Apenas para Curso) -->
+                <div id="curso-upload" style="display: none; flex-direction: column; gap: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label style="font-size: 11px; font-weight: 800; color: #666; margin-left: 12px;">Grade Curricular:</label>
+                        <button onclick="app.addCourseModule()" style="background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                            <i data-lucide="plus-circle" style="width: 14px;"></i> Novo Módulo
+                        </button>
                     </div>
-                    <span id="curso-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
+                    
+                    <div id="course-modules-list" style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Módulos serão injetados aqui -->
+                    </div>
+
+                    <div id="no-modules-msg" style="text-align: center; padding: 32px; background: #fafafa; border: 2px dashed #eee; border-radius: 24px;">
+                        <i data-lucide="layout" style="width: 32px; color: #ccc; margin-bottom: 12px;"></i>
+                        <p style="font-size: 11px; font-weight: 800; color: #999;">Crie módulos para organizar suas aulas.</p>
+                    </div>
                 </div>
 
                 <div id="mentoria-fields" style="display: none; display: flex; flex-direction: column; gap: 24px;">
@@ -965,6 +974,26 @@
                     <button id="btn-edit-toggle" onclick="app.toggleProfileEdit(true)" class="clickable" style="flex: 1; height: 50px; background: #f5f5f5; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Editar perfil</button>
                     <button id="btn-save-inline" onclick="app.saveProfileInline()" style="display: none; flex: 1; height: 50px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 900; font-size: 12px; letter-spacing: 0.5px;">Salvar alterações</button>
                     <button id="btn-cancel-inline" onclick="app.toggleProfileEdit(false)" style="display: none; width: 50px; height: 50px; background: #f5f5f5; border: none; border-radius: 50%; font-weight: 900; font-size: 12px;"><i data-lucide="x" style="width: 18px; margin: 0 auto;"></i></button>
+                </div>
+
+                <!-- Seleção de Tipo - Agora Scrollable -->
+                <div id="product-type-selection" class="hide-scrollbar" style="display: flex; gap: 12px; margin-bottom: 32px; overflow-x: auto; padding: 4px 0 16px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
+                    <button class="product-type-btn" onclick="app.selectProductType('Ebook', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 100px; height: 100px; background: #f5f5f5; border: 2px solid transparent; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
+                        <i data-lucide="book" style="width: 24px; margin-bottom: 8px;"></i>
+                        <span style="font-size: 10px; font-weight: 900;">Ebook</span>
+                    </button>
+                    <button class="product-type-btn" onclick="app.selectProductType('Curso', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 100px; height: 100px; background: #f5f5f5; border: 2px solid transparent; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
+                        <i data-lucide="video" style="width: 24px; margin-bottom: 8px;"></i>
+                        <span style="font-size: 10px; font-weight: 900;">Curso</span>
+                    </button>
+                    <button class="product-type-btn" onclick="app.selectProductType('Mentoria', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 100px; height: 100px; background: #f5f5f5; border: 2px solid transparent; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
+                        <i data-lucide="users" style="width: 24px; margin-bottom: 8px;"></i>
+                        <span style="font-size: 10px; font-weight: 900;">Mentoria</span>
+                    </button>
+                    <button class="product-type-btn" onclick="app.selectProductType('App', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 100px; height: 100px; background: #f5f5f5; border: 2px solid transparent; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
+                        <i data-lucide="layout" style="width: 24px; margin-bottom: 8px;"></i>
+                        <span style="font-size: 10px; font-weight: 900;">App</span>
+                    </button>
                 </div>
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->

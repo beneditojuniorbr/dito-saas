@@ -32,6 +32,9 @@
         courseRatings: JSON.parse(localStorage.getItem('dito_course_ratings') || '{}'),
         globalRatings: JSON.parse(localStorage.getItem('dito_global_ratings') || '{}'),
         hasSeenCreateProd: false,
+        courseStructure: [], // {id, title, lessons: [{id, title, fileName}]}
+        openModules: {}, // {moduleId: boolean}
+        activePlayerTab: 'aulas',
         
         toSentenceCase(str) {
             if (!str) return "";
@@ -39,7 +42,6 @@
         },
 
         init() {
-            // Splash Screen Logic
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
@@ -47,46 +49,28 @@
                     splash.style.pointerEvents = 'none';
                     setTimeout(() => splash.remove(), 800);
                 }
-            }, 1500);
+            }, 1000);
 
             try {
-                console.log("Iniciando o Dito app...");
-                
-                // Carrega dados
+                // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 const savedUser = localStorage.getItem('current_user_vanilla');
+                if (savedUser) this.currentUser = JSON.parse(savedUser);
                 
-                if (savedUser) {
-                    this.currentUser = JSON.parse(savedUser);
-                    // Garante que fotos locais não sumam ao navegar/iniciar
-                    const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                    this.currentUser.posts = localPosts;
-                } else {
-                    this.currentUser = {
-                        username: "benedito_pro",
-                        name: "Benedito Santos",
-                        bio: "Infoprodutor de Elite | Especialista em SaaS 🚀",
-                        avatar: "",
-                        posts: []
-                    };
-                }
-
-                // Inicia sempre na tela de login conforme solicitado
-                this.checkNewProducts();
-                this.fetchNetworkUsers(); 
+                // --- CONEXÃO GLOBAL (NETWORK) ---
+                this.fetchNetworkUsers();
+                this.fetchNetworkProducts();
                 
-                // Real-time Polling: Atualiza dados da rede a cada 2 segundos para fluidez total
-                setInterval(() => this.fetchNetworkUsers(), 2000);
+                // Polling para simular tempo real entre usuários diferentes
+                setInterval(() => {
+                    this.fetchNetworkUsers();
+                    this.fetchNetworkProducts();
+                }, 5000);
 
                 this.navigate('login');
-                
-                // Ativa ícones
                 if (window.lucide) lucide.createIcons();
-                
-                console.log("App carregado em TEMPO REAL!");
             } catch (err) {
                 console.error("Erro no INIT:", err);
-                document.getElementById('app').innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">Erro ao iniciar: ${err.message}</div>`;
             }
         },
 
@@ -95,37 +79,26 @@
         // ==========================================
         
         async fetchNetworkUsers() {
-            if (!supabase) return; // Se não tiver supabase, usa só os locais
-            
+            if (!supabase) return;
             try {
-                // Tenta puxar a tabela 'dito_users' do Supabase
                 const { data, error } = await supabase.from('dito_users').select('*');
-                
-                if (error) {
-                    console.warn("⚠️ [Supabase] Erro ao buscar usuários. Verifique se a tabela 'dito_users' existe:", error.message);
-                    return;
-                }
+                if (error) return;
 
                 if (data) {
                     let localUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
                     let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
 
                     data.forEach(netUser => {
-                        // Mescla BD de Login
                         const idx = localUsers.findIndex(u => u.username === netUser.username);
                         if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...netUser };
                         else localUsers.push(netUser);
 
-                        // Mescla BD de Perfis Públicos
                         const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
                         if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...netUser };
                         else localProfiles.push(netUser);
 
-                        // Se for o próprio usuário logado, atualiza o objeto global dele e os posts locais
                         if (this.currentUser && netUser.username === this.currentUser.username) {
                             const netPosts = netUser.posts ? JSON.parse(netUser.posts) : [];
-                            // Só sobrescreve os posts locais se a rede tiver algo novo ou se o local estiver vazio
-                            // Isso evita que a rede (ainda sem o sync) apague o post "otimista" que acabamos de fazer
                             const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
                             
                             if (netPosts.length >= localPosts.length) {
@@ -133,7 +106,6 @@
                                 localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
                                 localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
                             } else {
-                                // Se a rede tem MENOS posts que o local, mantemos o local e apenas atualizamos os outros dados (bio, name, etc)
                                 this.currentUser = { ...this.currentUser, ...netUser, posts: localPosts };
                                 localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
                             }
@@ -153,30 +125,61 @@
 
         async syncUserToNetwork(user) {
             if (!supabase) return;
-
             try {
                 const payload = {
-                    id: Number(user.id) || Date.now(),
+                    id: user.id || Date.now(),
                     username: user.username,
                     password: user.password,
                     name: user.name || user.username,
-                    bio: user.bio || "Novo membro da Elite",
+                    bio: user.bio || "Membro Dito Network",
                     sales: Number(user.sales || 0),
+                    balance: Number(localStorage.getItem('user_balance_vanilla') || 0),
                     link: user.link || "",
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || [])
                 };
+                const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
+                if (error) console.error("❌ Erro Sync Auth:", error.message);
+                else console.log("🚀 Usuário sincronizado na rede!");
+            } catch (e) {}
+        },
 
-                const { error } = await supabase.from('dito_users').upsert([payload]);
-
-                if (error) {
-                    console.error("❌ [Supabase] Erro ao salvar usuário na rede:", error.message);
-                } else {
-                    console.log("🚀 [Supabase] Dados e fotos enviados para a nuvem!");
+        async fetchNetworkProducts() {
+            if (!supabase) return;
+            try {
+                const { data, error } = await supabase.from('dito_market_products').select('*');
+                if (data && !error) {
+                    let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                    data.forEach(net => {
+                        const idx = local.findIndex(p => p.id === net.id);
+                        const parsed = { ...net, price: Number(net.price), content: net.content ? JSON.parse(net.content) : null };
+                        if (idx !== -1) local[idx] = parsed;
+                        else local.push(parsed);
+                    });
+                    localStorage.setItem('dito_products_vanilla', JSON.stringify(local));
+                    this.products = local;
                 }
-            } catch (e) {
-                console.error("❌ [Supabase] Falha ao tentar sincronizar:", e);
-            }
+            } catch (e) {}
+        },
+
+        async syncProductToNetwork(product) {
+            if (!supabase) return;
+            try {
+                const { error } = await supabase.from('dito_market_products').upsert({
+                    id: product.id,
+                    name: product.name,
+                    description: product.description,
+                    price: Number(product.price),
+                    type: product.type,
+                    image: product.image,
+                    author: product.author,
+                    seller: product.seller,
+                    visible: product.visible,
+                    content: JSON.stringify(product.content || [])
+                }, { onConflict: 'id' });
+                if (error) console.error("❌ Erro Sync Produto:", error.message);
+                else console.log("☁️ Produto compartilhado na rede!");
+            } catch (e) {}
         },
 
         setMarketView(view) {
@@ -187,7 +190,6 @@
         renderStore() {
             const container = document.getElementById('market-view-container');
             if (!container) {
-                // Se o container ainda não apareceu, tenta de novo em 50ms
                 setTimeout(() => this.renderStore(), 50);
                 return;
             }
@@ -204,16 +206,12 @@
             const temp = document.getElementById('template-mercado-home');
             container.innerHTML = temp.innerHTML;
             
-            // Garantir que carregamos os produtos reais criados
             const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
             const marketProducts = saved.length > 0 ? saved : [
                 { id: 'm1', name: "Método Escala Rápida", price: 97.00, oldPrice: 197.00, rating: 4.8, sales: 1240, seller: "Benedito" },
                 { id: 'm2', name: "Template Notion PRO", price: 47.00, oldPrice: 87.00, rating: 4.9, sales: 850, seller: "Ana" }
             ];
 
-
-
-            // Render Main Feed (Shopee Style 2 columns) - Ordenado por vendas
             const feed = document.getElementById('main-market-feed');
             if (feed) {
                 const sortedProducts = [...marketProducts].sort((a, b) => (b.sales || 0) - (a.sales || 0));
@@ -238,7 +236,6 @@
                 `).join('');
             }
 
-            // Contador do carrinho
             const cartCount = document.getElementById('market-cart-count');
             if (cartCount) cartCount.innerText = this.cart.length;
         },
@@ -367,7 +364,6 @@
             
             this.recalculateCheckoutTotal();
             
-            // Timeout para garantir renderização dos ícones Lucide injetados dinamicamente
             setTimeout(() => {
                 if (window.lucide) lucide.createIcons();
             }, 50);
@@ -398,20 +394,23 @@
             setTimeout(() => {
                 this.showNotification("Pagamento aprovado com sucesso!", "success");
                 
-                // Dedução de Moedas usadas
                 if (coinsToUse > 0) {
                     const currentCoins = parseInt(localStorage.getItem('dito_coins') || '0');
                     localStorage.setItem('dito_coins', (currentCoins - coinsToUse).toString());
                 }
 
-                // Crédito para o produtor (simulado)
-                const netAmount = finalAmount * 0.97; // Deduz taxa de 3%
+                const netAmount = finalAmount * 0.97;
                 const currentBalance = parseFloat(localStorage.getItem('dito_balance') || '0');
                 localStorage.setItem('dito_balance', (currentBalance + netAmount).toString());
                 
-                // Salva produtos comprados
                 this.purchasedProducts = [...this.purchasedProducts, ...this.cart];
                 localStorage.setItem('dito_purchased_products', JSON.stringify(this.purchasedProducts));
+                
+                if (this.currentUser) {
+                    this.currentUser.sales = (this.currentUser.sales || 0) + finalAmount;
+                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    this.syncUserToNetwork(this.currentUser);
+                }
                 
                 this.cart = [];
                 localStorage.setItem('dito_cart', '[]');
@@ -458,6 +457,18 @@
         openCourse(id) {
             this.activeCourse = this.purchasedProducts.find(p => p.id === id);
             if (this.activeCourse) {
+                this.activePlayerTab = 'aulas';
+                this.openModules = {}; // Reseta acordeão
+                
+                // Seleciona a primeira aula por padrão se houver conteúdo real
+                if (this.activeCourse.content && this.activeCourse.content.length > 0) {
+                    const firstModule = this.activeCourse.content[0];
+                    this.openModules[firstModule.id] = true; // Abre o primeiro módulo
+                    if (firstModule.lessons && firstModule.lessons.length > 0) {
+                        this.currentLessonId = firstModule.lessons[0].id;
+                        this.currentLessonTitle = firstModule.lessons[0].title;
+                    }
+                }
                 this.navigate('curso-player');
             }
         },
@@ -484,34 +495,97 @@
                 this.setupVideoControls();
             }
 
-            // Aulas Fake
+            // Renderização da Grade Curricular (Aulas Reais vs Fake)
             const lessonsList = document.getElementById('lessons-list');
-            const lessons = [
-                { id: 1, title: 'Introdução e Boas Vindas', duration: '05:20' },
-                { id: 2, title: 'Mentalidade de Sucesso', duration: '12:45' },
-                { id: 3, title: 'Primeiros Passos no Mercado', duration: '15:10' },
-                { id: 4, title: 'Estratégia de Escala PRO', duration: '22:30' }
-            ];
+            if (!lessonsList) return;
 
-            lessonsList.innerHTML = lessons.map(l => `
-                <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: ${this.currentLessonId === l.id ? '#f0f0f0' : '#fdfdfd'}; border: 1px solid ${this.currentLessonId === l.id ? '#ddd' : '#f5f5f5'}; border-radius: 16px; cursor: pointer;" onclick="app.switchLesson(${l.id}, '${l.title}')">
-                    <div style="width: 32px; height: 32px; background: ${this.currentLessonId === l.id ? '#000' : '#eee'}; color: ${this.currentLessonId === l.id ? '#fff' : '#000'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;">${l.id}</div>
-                    <div style="flex: 1;">
-                        <p style="font-size: 12px; font-weight: 900;">${l.title}</p>
-                        <p style="font-size: 10px; color: #ccc; font-weight: 700;">${l.duration}</p>
+            const structure = course.content; // Array de Módulos
+
+            if (structure && structure.length > 0) {
+                // RENDERIZAÇÃO REAL POR MÓDULOS (ACORDEÃO)
+                lessonsList.innerHTML = structure.map(m => {
+                    const isOpen = this.openModules[m.id];
+                    return `
+                        <div style="margin-bottom: 12px; border-radius: 50px; border: 1px solid #f5f5f5; overflow: hidden;">
+                            <div onclick="app.toggleModuleAccordion('${m.id}')" style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: ${isOpen ? '#fdfdfd' : '#fff'}; cursor: pointer;">
+                                <h5 style="font-size: 13px; font-weight: 900; color: #000; letter-spacing: -0.2px;">${m.title}</h5>
+                                <i data-lucide="chevron-${isOpen ? 'up' : 'down'}" style="width: 18px; color: #ccc;"></i>
+                            </div>
+                            <div id="module-content-${m.id}" style="display: ${isOpen ? 'flex' : 'none'}; flex-direction: column; gap: 6px; padding: 0 10px 16px;">
+                                ${m.lessons.map((l, idx) => `
+                                    <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: ${this.currentLessonId === l.id ? '#000' : 'transparent'}; border-radius: 50px; cursor: pointer; transition: 0.3s;" onclick="app.switchLesson('${l.id}', '${l.title}', '${m.id}')">
+                                        <div style="width: 24px; height: 24px; background: ${this.currentLessonId === l.id ? '#fff' : '#f5f5f5'}; color: ${this.currentLessonId === l.id ? '#000' : '#666'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900;">${idx + 1}</div>
+                                        <div style="flex: 1;">
+                                            <p style="font-size: 12px; font-weight: 900; color: ${this.currentLessonId === l.id ? '#fff' : '#000'};">${l.title}</p>
+                                        </div>
+                                        ${this.currentLessonId === l.id ? '<i data-lucide="play" style="width: 14px; color: #fff; fill: #fff;"></i>' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                const currentTitleDisplay = document.getElementById('player-lesson-name');
+                if (currentTitleDisplay) currentTitleDisplay.innerText = this.currentLessonTitle || "Selecione uma aula";
+
+            } else {
+                // FALLBACK: Aulas Fake (para produtos antigos sem estrutura)
+                const fakeLessons = [
+                    { id: 1, title: 'Introdução e Boas Vindas', duration: '05:20' },
+                    { id: 2, title: 'Mentalidade de Sucesso', duration: '12:45' }
+                ];
+                lessonsList.innerHTML = `
+                    <h5 style="font-size: 11px; font-weight: 900; color: #999; text-transform: uppercase; margin-bottom: 12px; padding-left: 8px;">Módulo Único</h5>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${fakeLessons.map(l => `
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: ${this.currentLessonId === l.id ? '#000' : '#fff'}; border: 1px solid #eee; border-radius: 16px; cursor: pointer;" onclick="app.switchLesson(${l.id}, '${l.title}')">
+                                <div style="width: 32px; height: 32px; background: ${this.currentLessonId === l.id ? '#fff' : '#eee'}; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;">${l.id}</div>
+                                <div style="flex: 1;"><p style="font-size: 12px; font-weight: 900; color: ${this.currentLessonId === l.id ? '#fff' : '#000'};">${l.title}</p></div>
+                            </div>
+                        `).join('')}
                     </div>
-                </div>
-            `).join('');
+                `;
+            }
 
             this.renderLessonInteractive();
             if (window.lucide) lucide.createIcons();
         },
 
-        switchLesson(id, title) {
+        switchLesson(id, title, moduleId) {
             this.currentLessonId = id;
-            document.getElementById('player-lesson-name').innerText = `Aula ${id}: ${title}`;
-            this.renderCoursePlayer(); // Re-render to update highlights and interactive parts
+            this.currentLessonTitle = title;
+            if (moduleId) this.openModules[moduleId] = true; // Garante que o módulo atual fique aberto
+            const titleDisplay = document.getElementById('player-lesson-name');
+            if (titleDisplay) titleDisplay.innerText = title;
+            this.renderCoursePlayer(); 
         },
+
+        toggleModuleAccordion(moduleId) {
+            this.openModules[moduleId] = !this.openModules[moduleId];
+            this.renderCoursePlayer();
+        },
+
+        setPlayerTab(tab, element) {
+            this.activePlayerTab = tab;
+            
+            // UI Update
+            document.querySelectorAll('.player-tab').forEach(t => {
+                t.style.color = '#ccc';
+                t.style.borderBottom = '1px solid transparent';
+            });
+            element.style.color = '#000';
+            element.style.borderBottom = '2px solid #000';
+
+            // Visibility
+            document.getElementById('tab-content-aulas').style.display = (tab === 'aulas' ? 'block' : 'none');
+            document.getElementById('tab-content-comments').style.display = (tab === 'comments' ? 'block' : 'none');
+            document.getElementById('tab-content-ratings').style.display = (tab === 'ratings' ? 'block' : 'none');
+
+            this.renderLessonInteractive();
+        },
+        
+        currentLessonTitle: '',
 
         renderLessonInteractive() {
             // Render Comments
@@ -1435,6 +1509,8 @@
             const selection = document.getElementById('product-type-selection');
             if (selection) selection.style.display = 'flex';
             
+            this.courseStructure = [];
+            
             // Reset fields
             const profitLabel = document.getElementById('profit-calc-label');
             if (profitLabel) profitLabel.innerText = "Você receberá: R$ 0,00";
@@ -1466,6 +1542,12 @@
             document.getElementById('curso-upload').style.display = (type === 'Curso') ? 'block' : 'none';
             document.getElementById('mentoria-link').style.display = (type === 'Mentoria') ? 'block' : 'none';
             document.getElementById('mentoria-fields').style.display = (type === 'Mentoria') ? 'block' : 'none';
+            
+            const cursoStructure = document.getElementById('curso-upload');
+            if (cursoStructure) {
+                cursoStructure.style.display = (type === 'Curso') ? 'flex' : 'none';
+                if (type === 'Curso') this.renderCourseStructure();
+            }
             
             // Reset filenames
             document.querySelectorAll('.file-name-display').forEach(el => el.innerText = '');
@@ -1536,7 +1618,8 @@
                 image: this.selectedProductImage || null,
                 author: this.currentUser?.username || "Você",
                 seller: this.currentUser?.username || "Você",
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                content: this.selectedProductType === 'Curso' ? this.courseStructure : null
             };
 
             // Salva na lista do mercado global se estiver visível
@@ -1544,10 +1627,12 @@
             marketProducts.unshift(newProd);
             localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
 
-            // Salva nos meus produtos
-            const myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
-            myProducts.unshift(newProd);
+            // Salva Local
+            localStorage.setItem('dito_products_vanilla', JSON.stringify(this.products));
             localStorage.setItem('dito_my_products', JSON.stringify(myProducts));
+
+            // Compartilha com o resto do mundo via Supabase
+            this.syncProductToNetwork(newProd);
 
             this.showNotification(`Produto "${name}" criado com sucesso!`, "success");
             this.navigate('dashboard');
@@ -1596,6 +1681,115 @@
             this.showNotification('Cadastro realizado com sucesso! Agora você já pode fazer login.');
             this.navigate('login');
         },
+
+        // --- Gerenciamento de Estrutura de Curso ---
+        addCourseModule() {
+            const newModule = {
+                id: 'm-' + Date.now(),
+                title: 'Novo Módulo',
+                lessons: []
+            };
+            this.courseStructure.push(newModule);
+            this.renderCourseStructure();
+        },
+
+        removeCourseModule(moduleId) {
+            this.courseStructure = this.courseStructure.filter(m => m.id !== moduleId);
+            this.renderCourseStructure();
+        },
+
+        addCourseLesson(moduleId) {
+            const module = this.courseStructure.find(m => m.id === moduleId);
+            if (module) {
+                module.lessons.push({
+                    id: 'l-' + Date.now(),
+                    title: 'Nova Aula',
+                    fileName: ''
+                });
+                this.renderCourseStructure();
+            }
+        },
+
+        removeCourseLesson(moduleId, lessonId) {
+            const module = this.courseStructure.find(m => m.id === moduleId);
+            if (module) {
+                module.lessons = module.lessons.filter(l => l.id !== lessonId);
+                this.renderCourseStructure();
+            }
+        },
+
+        updateModuleTitle(moduleId, title) {
+            const module = this.courseStructure.find(m => m.id === moduleId);
+            if (module) module.title = title;
+        },
+
+        updateLessonTitle(moduleId, lessonId, title) {
+            const module = this.courseStructure.find(m => m.id === moduleId);
+            if (module) {
+                const lesson = module.lessons.find(l => l.id === lessonId);
+                if (lesson) lesson.title = title;
+            }
+        },
+
+        handleLessonUpload(input, moduleId, lessonId) {
+            const file = input.files[0];
+            if (file) {
+                const module = this.courseStructure.find(m => m.id === moduleId);
+                if (module) {
+                    const lesson = module.lessons.find(l => l.id === lessonId);
+                    if (lesson) {
+                        lesson.fileName = file.name;
+                        this.renderCourseStructure();
+                    }
+                }
+            }
+        },
+
+        renderCourseStructure() {
+            const list = document.getElementById('course-modules-list');
+            const noMsg = document.getElementById('no-modules-msg');
+            if (!list) return;
+
+            if (this.courseStructure.length === 0) {
+                list.innerHTML = '';
+                if (noMsg) noMsg.style.display = 'block';
+                return;
+            }
+
+            if (noMsg) noMsg.style.display = 'none';
+
+            list.innerHTML = this.courseStructure.map(m => `
+                <div style="background: #fff; border: 1px solid #eee; border-radius: 40px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px;">
+                        <input type="text" value="${m.title}" oninput="app.updateModuleTitle('${m.id}', this.value)" style="border: none; background: transparent; font-weight: 900; font-size: 16px; color: #000; outline: none; width: 60%;">
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="app.addCourseLesson('${m.id}')" style="background: #f0fdf4; color: #16a34a; border: none; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; cursor: pointer;">+ Aula</button>
+                            <button onclick="app.removeCourseModule('${m.id}')" style="background: #fef2f2; color: #ef4444; border: none; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; cursor: pointer;"><i data-lucide="trash-2" style="width: 14px;"></i></button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        ${m.lessons.map(l => `
+                            <div style="background: #fafafa; border: 1px solid #f0f0f0; border-radius: 50px; padding: 10px 20px; display: flex; align-items: center; gap: 12px;">
+                                <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
+                                    <input type="text" value="${l.title}" oninput="app.updateLessonTitle('${m.id}', '${l.id}', this.value)" style="border: none; background: transparent; font-weight: 800; font-size: 13px; color: #000; outline: none; flex: 1;">
+                                    
+                                    <div onclick="this.nextElementSibling.click()" style="width: 150px; height: 36px; background: #fff; border: 1px solid #eee; border-radius: 50px; display: flex; align-items: center; padding: 0 12px; cursor: pointer; gap: 8px;">
+                                        <i data-lucide="video" style="width: 14px; color: #ccc;"></i>
+                                        <span style="font-size: 9px; font-weight: 700; color: ${l.fileName ? '#22c55e' : '#999'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${l.fileName || 'Vídeo'}</span>
+                                    </div>
+                                    <input type="file" accept="video/*" onchange="app.handleLessonUpload(this, '${m.id}', '${l.id}')" style="display: none;">
+                                </div>
+                                <button onclick="app.removeCourseLesson('${m.id}', '${l.id}')" style="color: #ef4444; border: none; background: transparent; cursor: pointer; padding: 5px;"><i data-lucide="x" style="width: 16px;"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            if (window.lucide) lucide.createIcons();
+        },
+
         login(isGuest = false) { 
             this.showLoading(true, 'Carregando...');
             
