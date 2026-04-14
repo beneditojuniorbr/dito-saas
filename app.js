@@ -154,8 +154,8 @@
         async syncUserToNetwork(user) {
             if (!supabase) return;
             try {
+                // Removemos o 'id' aqui para o Supabase gerar automaticamente e não dar conflito
                 const payload = {
-                    id: user.id || Date.now(),
                     username: user.username,
                     password: user.password,
                     name: user.name || user.username,
@@ -165,21 +165,23 @@
                     purchases: JSON.stringify(JSON.parse(localStorage.getItem('dito_purchased_products') || '[]')),
                     link: user.link || "",
                     avatar: user.avatar || "",
-                    posts: JSON.stringify(user.posts || [])
+                    posts: JSON.stringify(user.posts || []),
+                    last_seen: new Date().toISOString() // Marca presença real
                 };
-                // Tenta sincronizar usando 'username' como chave de conflito para evitar erros de ID
+                
                 const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
                 
                 if (error) {
                     console.error("❌ Erro Sync:", error.message);
-                    if (window.location.hostname === 'localhost') alert("Erro ao sincronizar: " + error.message);
+                    alert("⚠️ Falha ao enviar para a rede: " + error.message);
                 } else {
-                    console.log("🚀 Dados do usuário sincronizados com sucesso!");
-                    // Feedback visual discreto no console ou indicador
-                    this.networkSyncSuccess = true;
+                    console.log("🚀 Sincronizado!");
                     this.updateBalanceUI();
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error("Erro crítico sync:", e);
+                alert("Erro crítico ao tentar conectar.");
+            }
         },
 
         async fetchNetworkProducts() {
@@ -814,7 +816,7 @@
             const sortedRank = users.map(u => ({
                 ...u,
                 sales: Number(u.sales || 0),
-                username: u.username || (u.name ? u.name.toLowerCase().replace(/\s+/g, '_') : 'membro_elite'),
+                username: u.username || (u.name ? u.name.toLowerCase().replace(/\s+/g, '_') : 'membro_pro'),
                 avatar: u.avatar || ''
             })).sort((a,b) => b.sales - a.sales);
 
@@ -1062,7 +1064,7 @@
             
             if (saved.length === 0) {
                 const initial = [
-                    { id: '1', name: "Elite Digital", description: "O maior ecossistema de produtores.", admin: "Benedito", entryFee: 0, membersCount: 154 },
+                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", admin: "Benedito", entryFee: 0, membersCount: 154 },
                     { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", admin: "Ana Silva", entryFee: 49.90, membersCount: 42 }
                 ];
                 localStorage.setItem('dito_societies', JSON.stringify(initial));
@@ -1260,7 +1262,7 @@
                 usuarios = usuarios.filter(u => u.id !== id);
                 localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
                 this.renderAdminUsers();
-                this.showNotification('Usuário removido da elite.');
+                this.showNotification('Usuário removido da pro.');
             }
         },
 
@@ -1372,18 +1374,21 @@
                     
                     // Atualiza o Avatar na UI
                     const avatarCont = document.getElementById('profile-avatar-container');
+                    const removeBtn = document.getElementById('remove-avatar-btn');
                     if (avatarCont) {
                         if (this.currentUser.avatar) {
                             avatarCont.innerHTML = `<img src="${this.currentUser.avatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                            if (removeBtn) removeBtn.style.display = 'flex';
                         } else {
                             avatarCont.innerHTML = `<i data-lucide="user" style="color: #ccc; width: 40px;"></i>`;
+                            if (removeBtn) removeBtn.style.display = 'none';
                             if (window.lucide) lucide.createIcons();
                         }
                     }
                 }
                 
-                // Só mostra o botão de gerenciar se for o Benedito ou Admin
-                if (adminSection && this.currentUser && (this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'admin')) {
+                // Só mostra o botão de gerenciar se for o Benedito, Ditão ou Admin
+                if (adminSection && this.currentUser && (this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Ditão' || this.currentUser.username === 'admin')) {
                     adminSection.style.display = 'block';
                 } else if (adminSection) {
                     adminSection.style.display = 'none';
@@ -1523,6 +1528,29 @@
                 reader.readAsDataURL(file);
             }
         },
+        
+        async removeAvatar(event) {
+            if (event) event.stopPropagation();
+            if (confirm('Deseja realmente remover sua foto de perfil?')) {
+                if (this.currentUser) {
+                    this.currentUser.avatar = "";
+                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    
+                    // Atualiza lista global local
+                    const allUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                    const uIdx = allUsers.findIndex(u => u.username === this.currentUser.username);
+                    if (uIdx !== -1) {
+                        allUsers[uIdx].avatar = "";
+                        localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
+                        localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                    }
+                    
+                    await this.syncUserToNetwork(this.currentUser);
+                    this.renderProfile();
+                    this.showNotification('Foto removida com sucesso!', 'success');
+                }
+            }
+        },
 
         updateBalanceUI() {
             const el = document.getElementById('label-balance');
@@ -1538,7 +1566,7 @@
             }
 
             // Exibe as bolinhas de notificação se ainda não viu
-            // Status de Conexão e Contador de Elite (Debug)
+            // Status de Conexão e Contador de Pro (Debug)
             const statusEl = document.getElementById('network-status-indicator');
             if (statusEl) {
                 const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
@@ -1546,7 +1574,7 @@
                 if (supabase) {
                     statusEl.innerHTML = `
                         <div style="text-align: right;">
-                            <span style="color: #22c55e;">● Online (${globalUsers.length} elite)</span>
+                            <span style="color: #22c55e;">● Online (${globalUsers.length} pessoas)</span>
                             <div style="font-size: 6px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                 Projeto: ${SUPABASE_URL.split('//')[1].split('.')[0]}
                             </div>
@@ -1683,47 +1711,48 @@
                 return;
             }
 
-            if (this.selectedProductType === 'App') {
-                this.showNotification("A publicação de App estará disponível em breve! Continue construindo.", "info");
-                return;
-            }
-
             if (!name || price <= 0) {
                 this.showNotification("Preencha o nome e o preço corretamente.", "error");
                 return;
             }
 
-            const newProd = {
-                id: 'p-' + Date.now(),
-                name: name,
-                description: desc,
-                price: price,
-                oldPrice: price * 1.4,
-                type: this.selectedProductType,
-                visible: visible,
-                rating: 5.0,
-                sales: 0,
-                image: this.selectedProductImage || null,
-                author: this.currentUser?.username || "Você",
-                seller: this.currentUser?.username || "Você",
-                createdAt: Date.now(),
-                content: this.selectedProductType === 'Curso' ? this.courseStructure : null
-            };
+            // Notificação Central de 3 segundos
+            const notif = document.createElement('div');
+            notif.className = 'center-notification';
+            notif.innerText = 'Enviando...';
+            document.body.appendChild(notif);
 
-            // Salva na lista do mercado global se estiver visível
-            const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            marketProducts.unshift(newProd);
-            localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
+            setTimeout(() => {
+                const newProd = {
+                    id: 'p-' + Date.now(),
+                    name: name,
+                    description: desc,
+                    price: price,
+                    oldPrice: price * 1.4,
+                    type: this.selectedProductType,
+                    visible: visible,
+                    rating: 5.0,
+                    sales: 0,
+                    image: this.selectedProductImage || null,
+                    author: this.currentUser?.username || "Você",
+                    seller: this.currentUser?.username || "Você",
+                    createdAt: Date.now(),
+                    content: this.selectedProductType === 'Curso' ? this.courseStructure : null
+                };
 
-            // Salva Local
-            localStorage.setItem('dito_products_vanilla', JSON.stringify(this.products));
-            localStorage.setItem('dito_my_products', JSON.stringify(myProducts));
+                // Salva na lista global local
+                const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                marketProducts.unshift(newProd);
+                localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
+                localStorage.setItem('dito_products', JSON.stringify(marketProducts)); // Sincroniza variantes
 
-            // Compartilha com o resto do mundo via Supabase
-            this.syncProductToNetwork(newProd);
+                // Compartilha via Supabase
+                this.syncProductToNetwork(newProd);
 
-            this.showNotification(`Produto "${name}" criado com sucesso!`, "success");
-            this.navigate('dashboard');
+                notif.remove();
+                this.showNotification(`Produto "${name}" criado com sucesso!`, "success");
+                this.navigate('dashboard');
+            }, 3000);
         },
 
         updateWithdrawUI() {
@@ -2088,6 +2117,7 @@
 
         renderMarketHome(container) {
             const temp = document.getElementById('template-mercado-home');
+            if (!temp) return;
             container.innerHTML = temp.innerHTML;
             
             const feed = document.getElementById('main-market-feed');
@@ -2097,67 +2127,51 @@
 
             // Marca que o usuário viu o mercado agora
             localStorage.setItem('dito_market_last_seen', Date.now().toString());
-            const dot = document.getElementById('dot-mercado');
-            if (dot) dot.style.display = 'none';
-
-            const lastSeen = parseInt(localStorage.getItem('dito_market_last_seen_before') || '0');
-            localStorage.setItem('dito_market_last_seen_before', Date.now().toString());
 
             const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            let allProducts = [...p1, ...p2];
+            const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
+            let all = [...p1, ...p2, ...p3].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
             
-            if (allProducts.length === 0) {
-                allProducts = [
-                    { id: 'elite-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420, createdAt: Date.now() - 86400000 },
-                    { id: 'elite-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843, createdAt: Date.now() - 86400000 },
-                    { id: 'elite-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105, createdAt: Date.now() - 86400000 },
-                    { id: 'elite-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22, createdAt: Date.now() - 86400000 }
+            if (all.length === 0) {
+                all = [
+                    { id: 'pro-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420, createdAt: Date.now() - 3600000 },
+                    { id: 'pro-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843, createdAt: Date.now() - 7200000 },
+                    { id: 'pro-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105, createdAt: Date.now() - 10800000 },
+                    { id: 'pro-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22, createdAt: Date.now() - 14400000 }
                 ];
-                localStorage.setItem('dito_products', JSON.stringify(allProducts));
+                localStorage.setItem('dito_products', JSON.stringify(all));
             }
 
-            // Filtrar Ebooks para o Carrossel
-            const ebooks = allProducts.filter(p => p.type === 'Ebook');
-            const others = allProducts.filter(p => p.type !== 'Ebook');
+            // 1. DESTAQUES: Novos primeiro (Horizontal)
+            const arrival = [...all].sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-            if (ebooks.length > 0 && hContainer && hWrapper) {
-                hWrapper.style.display = 'block';
-                hContainer.innerHTML = ebooks.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="min-width: 135px; max-width: 135px; background: #ffffff; padding: 12px; border-radius: 24px; border: 1px solid #f0f0f0; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer;">
-                        <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden;">
-                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="book-open" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
-                            ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
+            if (hContainer && hWrapper) {
+                hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
+                hContainer.innerHTML = arrival.map(p => `
+                    <div onclick="app.viewProduct('${p.id}')" style="width: 140px; min-width: 140px; height: 210px; flex-shrink: 0; background: #fff; padding: 10px; border-radius: 12px; border: 1px solid #eee; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column;">
+                        <div style="width: 100%; height: 120px; background: #f9f9f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; flex-shrink: 0;">
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
                         </div>
-                        <h4 style="font-weight: 900; font-size: 10px; color: #000; margin-bottom: 6px; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</h4>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <div onclick="app.addToCartDirectly('${p.id}', event)" style="width: 30px; height: 30px; background: #ffd600; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(255, 214, 0, 0.3);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                                <i data-lucide="plus" style="width: 14px; stroke-width: 3;"></i>
-                            </div>
+                        <h4 style="font-weight: 900; font-size: 10px; color: #000; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: auto;">${p.name}</h4>
+                        <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 900; font-size: 13px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
                         </div>
                     </div>
                 `).join('');
-            } else if (hWrapper) {
-                hWrapper.style.display = 'none';
             }
 
-            // Renderizar outros produtos no Grid Vertical
-            const sortedProducts = others.sort((a,b) => (b.salesCount || 0) - (a.salesCount || 0));
-            feed.innerHTML = sortedProducts.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="background: #ffffff; padding: 16px; border-radius: 28px; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
-                    <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; overflow: hidden;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="${p.type === 'Curso' ? 'play-circle' : (p.type === 'App' ? 'layers' : 'package')}" stroke="url(#dito-gradient)" style="width: 28px;"></i>`}
-                        <div style="position: absolute; top: 10px; right: 10px; background: #000; color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 900; text-transform: uppercase;">${p.type || 'Dito'}</div>
-                        ${(p.createdAt || 0) > lastSeen ? '<div class="notif-dot" style="position: absolute; top: 10px; left: 10px; z-index: 10;"></div>' : ''}
+            // 2. TODOS (Grid Vertical com Gap Reduzido)
+            feed.style.gap = '10px';
+            feed.innerHTML = all.map(p => `
+                <div onclick="app.viewProduct('${p.id}')" style="background: #fff; padding: 12px; border-radius: 12px; border: 1px solid #f0f0f0; cursor: pointer;">
+                    <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; overflow: hidden;">
+                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="layers" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
                     </div>
-                    <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                    <p style="font-size: 8px; font-weight: 800; color: #999; text-transform: uppercase; margin-bottom: 8px;">${p.salesCount || p.sales || 0} vendidas</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 900; font-size: 16px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                        <div onclick="app.addToCartDirectly('${p.id}', event)" style="width: 38px; height: 38px; background: #ffd600; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(255, 214, 0, 0.4);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                            <i data-lucide="plus" style="width: 18px; stroke-width: 3;"></i>
-                        </div>
+                    <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                        <span style="font-weight: 900; font-size: 14px;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                        <span style="font-size: 8px; font-weight: 800; color: #ccc;">${p.salesCount || 0} v.</span>
                     </div>
                 </div>
             `).join('');
@@ -2256,7 +2270,7 @@
         this.toggleSocialSearch(false);
         this.navigate('perfil-publico');
         const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
+        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
         setTimeout(() => {
             const userDisp = document.getElementById('public-username-header');
             if (userDisp) {
@@ -2342,14 +2356,14 @@
         
         // Puxa a lista mais recente sincronizada
         const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Elite', fans: 0, sales: 0 };
+        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
         
         setTimeout(() => {
             const userDisp = document.getElementById('public-username-header');
             if (userDisp) {
                 userDisp.innerText = user.username;
                 document.getElementById('public-name').innerText = user.name || user.username;
-                document.getElementById('public-bio').innerText = user.bio || 'Membro da Dito Elite';
+                document.getElementById('public-bio').innerText = user.bio || 'Membro da Dito Pro';
                 
                 // Garante que mostre 0 em vez de undefined ou NaN
                 document.getElementById('public-fans-count').innerText = parseInt(user.fans) || 0;

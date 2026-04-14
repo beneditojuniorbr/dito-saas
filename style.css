@@ -296,14 +296,16 @@ body {
 .horizontal-scroll {
     display: flex;
     overflow-x: auto;
-    padding: 0 24px 24px;
-    gap: 16px;
-    scrollbar-width: none; /* Firefox */
+    padding: 24px;
+    gap: 12px; /* Reduzi um pouco para ficarem mais próximos */
+    scrollbar-width: none;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
 }
 
-.horizontal-scroll::-webkit-scrollbar { display: none; } /* Safari/Chrome */
+.horizontal-scroll::-webkit-scrollbar { display: none; }
 
 .hide-scrollbar {
     -ms-overflow-style: none;
