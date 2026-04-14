@@ -53,14 +53,18 @@
             }, 1000);
 
             try {
-                // Carrega dados locais
+                // Carrega dados locais e limpa chaves obsoletas
+                localStorage.removeItem('dito_usuarios_vanilla'); // Limpa cache antigo
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
-                    // FORÇA SYNC: Se existir usuário local, empurra pra rede no boot para garantir conectividade
                     this.syncUserToNetwork(this.currentUser);
                 }
+                
+                // Força busca imediata na rede
+                this.fetchNetworkUsers();
+                this.fetchNetworkProducts();
                 
                 // --- CONEXÃO GLOBAL (NETWORK) ---
                 this.fetchNetworkUsers();
