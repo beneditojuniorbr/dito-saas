@@ -152,9 +152,16 @@
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || [])
                 };
-                const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
-                if (error) console.error("❌ Erro Sync Auth:", error.message);
-                else console.log("🚀 Usuário sincronizado na rede!");
+                const { error } = await supabase.from('dito_users').upsert([payload]);
+                if (error) {
+                    console.error("❌ Erro Sync:", error.message);
+                    // Avisa o usuário no computador sobre o erro real
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        console.warn("Dica: Verifique se sua tabela 'dito_users' tem a coluna 'id' como Primary Key.");
+                    }
+                } else {
+                    console.log("🚀 Usuário sincronizado!");
+                }
             } catch (e) {}
         },
 
