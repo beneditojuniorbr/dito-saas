@@ -153,15 +153,17 @@
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || [])
                 };
-                const { error } = await supabase.from('dito_users').upsert([payload]);
+                // Tenta sincronizar usando 'username' como chave de conflito para evitar erros de ID
+                const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
+                
                 if (error) {
                     console.error("❌ Erro Sync:", error.message);
-                    // Avisa o usuário no computador sobre o erro real
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                        console.warn("Dica: Verifique se sua tabela 'dito_users' tem a coluna 'id' como Primary Key.");
-                    }
+                    if (window.location.hostname === 'localhost') alert("Erro ao sincronizar: " + error.message);
                 } else {
-                    console.log("🚀 Usuário sincronizado!");
+                    console.log("🚀 Dados do usuário sincronizados com sucesso!");
+                    // Feedback visual discreto no console ou indicador
+                    this.networkSyncSuccess = true;
+                    this.updateBalanceUI();
                 }
             } catch (e) {}
         },
@@ -1513,18 +1515,14 @@
             }
 
             // Exibe as bolinhas de notificação se ainda não viu
-            const dotDash = document.getElementById('create-product-dot');
-            const dotHeader = document.getElementById('header-create-dot');
-            if (dotDash) dotDash.style.display = this.hasSeenCreateProd ? 'none' : 'block';
-            if (dotHeader) dotHeader.style.display = this.hasSeenCreateProd ? 'none' : 'block';
-
-            // Status de Conexão (Debug)
+            // Status de Conexão e Contador de Elite (Debug)
             const statusEl = document.getElementById('network-status-indicator');
             if (statusEl) {
+                const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
                 if (supabase) {
-                    statusEl.innerHTML = '<span style="color: #22c55e;">● Online</span>';
+                    statusEl.innerHTML = `<span style="color: #22c55e;">● Online (${globalUsers.length} elite)</span>`;
                 } else {
-                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline (Local)</span>';
+                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline</span>';
                 }
             }
         },
