@@ -1306,38 +1306,49 @@
             const newName = document.getElementById('edit-profile-name').value.trim();
             const newBio = document.getElementById('edit-profile-bio').value.trim();
             const newLink = document.getElementById('edit-profile-link').value.trim();
-            const showRev = document.getElementById('edit-profile-show-revenue').checked;
+            const showRev = document.getElementById('edit-profile-show-revenue')?.checked ?? true;
 
             if (!newName) {
                 this.showNotification('O nome não pode estar vazio.', 'error');
                 return;
             }
 
-            // Atualiza o objeto do usuário
-            this.currentUser.name = newName;
-            this.currentUser.bio = newBio;
-            this.currentUser.link = newLink;
-            this.currentUser.showRevenue = showRev;
+            // Notificação de Salvando (1 segundo)
+            const notif = document.createElement('div');
+            notif.className = 'center-notification';
+            notif.innerText = 'Salvando...';
+            document.body.appendChild(notif);
 
-            // Salva Localmente
-            localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
-            
-            // Atualiza DB de usuários local
-            const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
-            const idx = usuarios.findIndex(u => u.username === this.currentUser.username);
-            if (idx !== -1) {
-                usuarios[idx] = { ...usuarios[idx], ...this.currentUser };
-                localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
-                localStorage.setItem('dito_usuarios', JSON.stringify(usuarios));
-            }
+            setTimeout(async () => {
+                // Atualiza o objeto do usuário
+                this.currentUser.name = newName;
+                this.currentUser.bio = newBio;
+                this.currentUser.link = newLink;
+                this.currentUser.showRevenue = showRev;
 
-            // Sincroniza com o Supabase
-            await this.syncUserToNetwork(this.currentUser);
+                // Salva Localmente
+                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                
+                // Atualiza DB de usuários local
+                const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                const idx = usuarios.findIndex(u => u.username === this.currentUser.username);
+                if (idx !== -1) {
+                    usuarios[idx] = { ...usuarios[idx], ...this.currentUser };
+                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
+                    localStorage.setItem('dito_usuarios', JSON.stringify(usuarios));
+                }
 
-            // Volta para o modo de exibição e atualiza a UI
-            this.toggleProfileEdit(false);
-            this.renderProfile();
-            this.showNotification('Perfil atualizado!', 'success');
+                // Sincroniza com o Supabase
+                await this.syncUserToNetwork(this.currentUser);
+
+                // Remove notificação de salvando
+                notif.remove();
+
+                // Volta para o modo de exibição e atualiza a UI
+                this.toggleProfileEdit(false);
+                this.renderProfile();
+                this.showNotification('Perfil atualizado!', 'success');
+            }, 1000);
         },
 
         renderProfile() {
@@ -1484,9 +1495,9 @@
                         if (uIdx !== -1) {
                             allUsers[uIdx] = this.currentUser;
                             localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
-                            localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
                         }
 
+                        // Sincronização Obrigatória com Banco de Dados
                         await this.syncUserToNetwork(this.currentUser);
                     }
 
@@ -1971,11 +1982,18 @@
                 // Salva ID no cache para manter compras
                 localStorage.setItem('dito_user_id', loggedUser.id);
                 
-                await this.syncUserToNetwork(this.currentUser);
+                // PRIMEIRO: Puxa os dados mais recentes da rede (Foto, Bio, etc)
+                await this.fetchNetworkUsers(); 
+                
+                // SEGUNDO: Atualiza a sessão com o que veio da rede
+                if (this.currentUser) {
+                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                }
+
                 this.navigate('dashboard');
-                console.log("🚀 Login realizado com sucesso!");
+                console.log("🚀 Login realizado e dados sincronizados da nuvem!");
             } else {
-                alert('Usuário ou senha incorretos. Dica: Se criou no PC, recarregue o PC (F5) para sincronizar.');
+                alert('Usuário ou senha incorretos.');
             }
             this.showLoading(false);
         },
@@ -1988,11 +2006,6 @@
                 this.navigate('login'); 
                 this.showLoading(false);
             }, 1000);
-        },
-
-        showNotification(msg, type = 'success') {
-            // Notificações desativadas por preferência do usuário
-            return;
         },
 
         showLoading(show, text = 'Carregando...') {

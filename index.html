@@ -924,15 +924,15 @@
                             <div id="profile-avatar-container" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                                 <i data-lucide="user" style="color: #ccc; width: 40px;"></i>
                             </div>
-                            <!-- Botão de Apagar Foto -->
-                            <div id="remove-avatar-btn" onclick="app.removeAvatar(event)" style="position: absolute; top: 0; right: 0; width: 24px; height: 24px; background: #ff005c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; border: 2px solid #fff; z-index: 10;">
-                                <i data-lucide="trash-2" style="width: 12px;"></i>
-                            </div>
                             <!-- Overlay de mudança que só ativa no modo Editar -->
                             <div id="avatar-edit-overlay" onclick="document.getElementById('avatar-upload').click()" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); flex-direction: column; align-items: center; justify-content: center; color: #fff; cursor: pointer; transition: 0.2s; z-index: 10;">
                                 <i data-lucide="camera" style="width: 20px; margin-bottom: 2px;"></i>
                                 <span style="font-size: 8px; font-weight: 900; text-transform: uppercase;">Mudar</span>
                             </div>
+                        </div>
+                        <!-- Botão de Apagar Foto (Agora fora do overflow) -->
+                        <div id="remove-avatar-btn" onclick="app.removeAvatar(event)" style="position: absolute; top: -5px; right: -5px; width: 28px; height: 28px; background: #ff005c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; border: 3px solid #fff; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+                            <i data-lucide="trash-2" style="width: 14px;"></i>
                         </div>
                         <input type="file" id="avatar-upload" style="display: none;" accept="image/*" onchange="app.handleAvatarUpload(event)">
                     </div>
@@ -981,25 +981,7 @@
                     <button id="btn-cancel-inline" onclick="app.toggleProfileEdit(false)" style="display: none; width: 50px; height: 50px; background: #f5f5f5; border: none; border-radius: 50%; font-weight: 900; font-size: 12px;"><i data-lucide="x" style="width: 18px; margin: 0 auto;"></i></button>
                 </div>
 
-                <!-- Seleção de Tipo - Agora Scrollable -->
-                <div id="product-type-selection" class="hide-scrollbar" style="display: flex; gap: 12px; margin-bottom: 32px; overflow-x: auto; padding: 4px 0 16px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
-                    <button class="product-type-btn" onclick="app.selectProductType('Ebook', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 90px; height: 90px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
-                        <i data-lucide="book" style="width: 22px; margin-bottom: 4px;"></i>
-                        <span style="font-size: 9px; font-weight: 900;">Ebook</span>
-                    </button>
-                    <button class="product-type-btn" onclick="app.selectProductType('Curso', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 90px; height: 90px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
-                        <i data-lucide="video" style="width: 22px; margin-bottom: 4px;"></i>
-                        <span style="font-size: 9px; font-weight: 900;">Curso</span>
-                    </button>
-                    <button class="product-type-btn" onclick="app.selectProductType('Mentoria', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 90px; height: 90px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
-                        <i data-lucide="users" style="width: 22px; margin-bottom: 4px;"></i>
-                        <span style="font-size: 9px; font-weight: 900;">Mentoria</span>
-                    </button>
-                    <button class="product-type-btn" onclick="app.selectProductType('App', this)" style="flex-shrink: 0; scroll-snap-align: start; width: 90px; height: 90px; background: #f5f5f5; border: 2px solid transparent; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;">
-                        <i data-lucide="layers" style="width: 22px; margin-bottom: 4px;"></i>
-                        <span style="font-size: 9px; font-weight: 900;">App</span>
-                    </button>
-                </div>
+                <div style="border-bottom: 1px solid #f9f9f9; width: 100%; margin-bottom: 24px;"></div>
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->
                 <div id="admin-only-section" style="display: none; margin-bottom: 24px;">
