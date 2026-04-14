@@ -1523,12 +1523,32 @@
             const statusEl = document.getElementById('network-status-indicator');
             if (statusEl) {
                 const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
+                const names = globalUsers.map(u => u.username).join(', ');
                 if (supabase) {
-                    statusEl.innerHTML = `<span style="color: #22c55e;">● Online (${globalUsers.length} elite)</span>`;
+                    statusEl.innerHTML = `
+                        <div style="text-align: right;">
+                            <span style="color: #22c55e;">● Online (${globalUsers.length} elite)</span>
+                            <div style="font-size: 7px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                Encontrados: ${names || 'nenhum'}
+                            </div>
+                            <button onclick="app.forceSyncAll()" style="font-size: 7px; background: #f5f5f5; border: 1px solid #eee; border-radius: 4px; padding: 2px 4px; margin-top: 4px; cursor: pointer;">Forçar Sync</button>
+                        </div>
+                    `;
                 } else {
                     statusEl.innerHTML = '<span style="color: #ef4444;">● Offline</span>';
                 }
             }
+        },
+
+        async forceSyncAll() {
+            this.showLoading(true, "Sincronizando rede...");
+            const localUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+            for (let u of localUsers) {
+                await this.syncUserToNetwork(u);
+            }
+            await this.fetchNetworkUsers();
+            this.showLoading(false);
+            alert("Sincronização finalizada! Verifique o contador.");
         },
 
         toggleBalance() {
