@@ -7,14 +7,15 @@
     const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI';
     
-    let supabase = null;
     try {
         if (window.supabase && SUPABASE_URL.startsWith('http')) {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log("Supabase Client Inicializado!");
+            console.log("✅ [Supabase] Conectado com sucesso!");
+        } else {
+            console.warn("⚠️ [Supabase] Biblioteca não carregada ou URL inválida.");
         }
     } catch (e) {
-        console.warn("Supabase não configurado. Rodando localmente.");
+        console.error("❌ [Supabase] Erro na inicialização:", e);
     }
 
     const app = {
@@ -241,6 +242,12 @@
                     <div onclick="app.viewProduct('${p.id}')" style="cursor: pointer; background: #fff; border-radius: 12px; border: 1px solid #f0f0f0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                         <div style="aspect-ratio: 1; background: #f8f8f8; display: flex; align-items: center; justify-content: center; position: relative;">
                             <i data-lucide="shopping-bag" style="color: #eee; width: 40px; height: 40px;"></i>
+                        </div>
+                        <div style="padding: 0 24px 32px; display: flex; justify-content: space-between; align-items: center;">
+                            <p style="color: #999; font-size: 15px; font-weight: 800;">Oii, <span id="user-greeting-name" style="color: #000;">...</span></p>
+                            <div id="network-status-indicator" style="font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">
+                                <!-- Injetado via JS -->
+                            </div>
                         </div>
                         <div style="padding: 10px;">
                             <h4 style="font-size: 12px; font-weight: 500; color: #333; height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; line-height: 1.3;">${this.toSentenceCase(p.name)}</h4>
@@ -1510,6 +1517,16 @@
             const dotHeader = document.getElementById('header-create-dot');
             if (dotDash) dotDash.style.display = this.hasSeenCreateProd ? 'none' : 'block';
             if (dotHeader) dotHeader.style.display = this.hasSeenCreateProd ? 'none' : 'block';
+
+            // Status de Conexão (Debug)
+            const statusEl = document.getElementById('network-status-indicator');
+            if (statusEl) {
+                if (supabase) {
+                    statusEl.innerHTML = '<span style="color: #22c55e;">● Online</span>';
+                } else {
+                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline (Local)</span>';
+                }
+            }
         },
 
         toggleBalance() {
