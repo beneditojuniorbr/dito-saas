@@ -7,15 +7,23 @@
     const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI';
     
-    try {
-        if (window.supabase && SUPABASE_URL.startsWith('http')) {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log("✅ [Supabase] Conectado com sucesso!");
-        } else {
-            console.warn("⚠️ [Supabase] Biblioteca não carregada ou URL inválida.");
+    let supabase = null;
+    
+    async function initSupabase() {
+        if (!window.supabase) {
+            console.warn("⚠️ [Supabase] Biblioteca não encontrada. Tentando carregar...");
+            return;
         }
-    } catch (e) {
-        console.error("❌ [Supabase] Erro na inicialização:", e);
+        try {
+            if (SUPABASE_URL.startsWith('http')) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log("✅ [Supabase] Conectado a:", SUPABASE_URL);
+                return true;
+            }
+        } catch (e) {
+            console.error("❌ [Supabase] Erro de config:", e);
+        }
+        return false;
     }
 
     const app = {
@@ -42,7 +50,9 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        init() {
+        async init() {
+            await initSupabase(); // Garante que a rede ligou antes de começar
+
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
@@ -59,12 +69,12 @@
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
-                    this.syncUserToNetwork(this.currentUser);
+                    await this.syncUserToNetwork(this.currentUser);
                 }
                 
                 // Força busca imediata na rede
-                this.fetchNetworkUsers();
-                this.fetchNetworkProducts();
+                await this.fetchNetworkUsers();
+                await this.fetchNetworkProducts();
                 
                 // --- CONEXÃO GLOBAL (NETWORK) ---
                 this.fetchNetworkUsers();
@@ -855,11 +865,20 @@
                 `;
             }).join('');
 
-            // Atualiza a posição do usuário logado
-            const myRankPos = sortedRank.findIndex(u => u.username === this.currentUser?.username) + 1;
+            // Atualiza a posição do usuário logado de forma inteligente
+            const currentUsername = this.currentUser?.username?.toLowerCase();
+            const myRankPos = sortedRank.findIndex(u => u.username?.toLowerCase() === currentUsername) + 1;
+            
             const rankLabel = document.getElementById('hall-user-rank-text');
             if (rankLabel) {
-                rankLabel.innerText = myRankPos > 0 ? `Você é o ${myRankPos}º` : 'Você não está no ranking';
+                if (myRankPos > 0) {
+                    rankLabel.innerText = `Você é o ${myRankPos}º`;
+                } else if (this.currentUser) {
+                    // Se não estiver no Top 6, mas já tiver vendas, ou apenas for um novo membro
+                    rankLabel.innerText = `Você é o ${sortedRank.length + 1}º (Novo Membro)`;
+                } else {
+                    rankLabel.innerText = 'Entre para entrar no ranking';
+                }
             }
 
             if (window.lucide) lucide.createIcons();
@@ -1528,14 +1547,17 @@
                     statusEl.innerHTML = `
                         <div style="text-align: right;">
                             <span style="color: #22c55e;">● Online (${globalUsers.length} elite)</span>
-                            <div style="font-size: 7px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                Encontrados: ${names || 'nenhum'}
+                            <div style="font-size: 6px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                Projeto: ${SUPABASE_URL.split('//')[1].split('.')[0]}
                             </div>
-                            <button onclick="app.forceSyncAll()" style="font-size: 7px; background: #f5f5f5; border: 1px solid #eee; border-radius: 4px; padding: 2px 4px; margin-top: 4px; cursor: pointer;">Forçar Sync</button>
+                            <div style="font-size: 7px; color: #999; margin-top: 2px;">
+                                [ ${names || 'carregando...'} ]
+                            </div>
+                            <button onclick="app.forceSyncAll()" style="font-size: 7px; background: #000; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; margin-top: 6px; cursor: pointer; font-weight: 900;">RE-SINCRONIZAR TUDO</button>
                         </div>
                     `;
                 } else {
-                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline</span>';
+                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline (Erro de Config)</span>';
                 }
             }
         },
