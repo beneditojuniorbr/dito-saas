@@ -41,6 +41,7 @@
         courseRatings: JSON.parse(localStorage.getItem('dito_course_ratings') || '{}'),
         globalRatings: JSON.parse(localStorage.getItem('dito_global_ratings') || '{}'),
         hasSeenCreateProd: false,
+        adminNetworkInfoVisible: false, // Inicia como false
         courseStructure: [], // {id, title, lessons: [{id, title, fileName}]}
         openModules: {}, // {moduleId: boolean}
         activePlayerTab: 'aulas',
@@ -51,43 +52,48 @@
         },
 
         async init() {
-            await initSupabase(); // Garante que a rede ligou antes de começar
+            await initSupabase(); 
 
+            // Reduz tempo de splash para feedback imediato
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
                     splash.style.opacity = '0';
                     splash.style.pointerEvents = 'none';
-                    setTimeout(() => splash.remove(), 800);
+                    setTimeout(() => splash.remove(), 400);
                 }
-            }, 1000);
+            }, 300);
 
             try {
-                // Carrega dados locais e limpa chaves obsoletas
-                localStorage.removeItem('dito_usuarios_vanilla'); // Limpa cache antigo
+                // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
-                    await this.syncUserToNetwork(this.currentUser);
                 }
                 
-                // Força busca imediata na rede
-                await this.fetchNetworkUsers();
-                await this.fetchNetworkProducts();
+                // Conexão Única Inicial
+                await Promise.all([
+                    this.fetchNetworkUsers(),
+                    this.fetchNetworkProducts()
+                ]);
                 
-                // --- CONEXÃO GLOBAL (NETWORK) ---
-                this.fetchNetworkUsers();
-                this.fetchNetworkProducts();
-                
-                // Polling para simular tempo real entre usuários diferentes
+                // Polling otimizado (10s em vez de 5s para economizar bateria/processamento)
                 setInterval(() => {
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
-                }, 5000);
+                }, 10000);
 
                 this.navigate('login');
                 if (window.lucide) lucide.createIcons();
+                
+                // 🧹 RESET PARA O USUÁRIO (Executa uma vez para limpar os testes anteriores)
+                if (!localStorage.getItem('dito_factory_reset_done')) {
+                    localStorage.removeItem('dito_real_sales_history');
+                    localStorage.removeItem('dito_test_sale_done');
+                    localStorage.setItem('dito_factory_reset_done', 'true');
+                    console.log("🧹 [System] Sistema zerado para novo ciclo!");
+                }
             } catch (err) {
                 console.error("Erro no INIT:", err);
             }
@@ -117,12 +123,19 @@
                         else localProfiles.push(netUser);
 
                         if (this.currentUser && netUser.username === this.currentUser.username) {
-                            const netPosts = netUser.posts ? JSON.parse(netUser.posts) : [];
-                            const netPurchases = netUser.purchases ? JSON.parse(netUser.purchases) : [];
+                            let netPosts = [];
+                            let netPurchases = [];
+                            try {
+                                netPosts = netUser.posts ? (typeof netUser.posts === 'string' ? JSON.parse(netUser.posts) : netUser.posts) : [];
+                                netPurchases = netUser.purchases ? (typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases) : [];
+                            } catch (parseErr) {
+                                console.warn("⚠️ [Network] Erro ao processar posts/compras do perfil:", parseErr);
+                            }
+                            
                             const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
                             const localPurchases = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
 
-                            // Sincronização Inteligente: Só atualiza se a rede tiver dados mais recentes ou novos
+                            // Sincronização Inteligente
                             if (netPosts.length >= localPosts.length) {
                                 localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
                                 this.currentUser.posts = netPosts;
@@ -147,7 +160,7 @@
                     console.log("✅ [Network] Sincronização global concluída!");
                 }
             } catch (e) {
-                console.error("❌ [Network] Erro na conexão:", e);
+                console.warn("⚠️ [Network] Erro na conexão:");
             }
         },
 
@@ -172,15 +185,13 @@
                 const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
                 
                 if (error) {
-                    console.error("❌ Erro Sync:", error.message);
-                    alert("⚠️ Falha ao enviar para a rede: " + error.message);
+                    console.warn("⚠️ [Network] Erro Sync:", error.message);
                 } else {
                     console.log("🚀 Sincronizado!");
                     this.updateBalanceUI();
                 }
             } catch (e) {
-                console.error("Erro crítico sync:", e);
-                alert("Erro crítico ao tentar conectar.");
+                console.warn("⚠️ [Network] Erro crítico sync:");
             }
         },
 
@@ -227,64 +238,7 @@
             this.renderStore();
         },
 
-        renderStore() {
-            const container = document.getElementById('market-view-container');
-            if (!container) {
-                setTimeout(() => this.renderStore(), 50);
-                return;
-            }
 
-            if (this.marketView === 'home') this.renderMarketHome(container);
-            if (this.marketView === 'product') this.renderMarketProduct(container);
-            if (this.marketView === 'cart') this.renderMarketCart(container);
-            if (this.marketView === 'checkout') this.renderMarketCheckout(container);
-            
-            if (window.lucide) lucide.createIcons();
-        },
-
-        renderMarketHome(container) {
-            const temp = document.getElementById('template-mercado-home');
-            container.innerHTML = temp.innerHTML;
-            
-            const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            const marketProducts = saved.length > 0 ? saved : [
-                { id: 'm1', name: "Método Escala Rápida", price: 97.00, oldPrice: 197.00, rating: 4.8, sales: 1240, seller: "Benedito" },
-                { id: 'm2', name: "Template Notion PRO", price: 47.00, oldPrice: 87.00, rating: 4.9, sales: 850, seller: "Ana" }
-            ];
-
-            const feed = document.getElementById('main-market-feed');
-            if (feed) {
-                const sortedProducts = [...marketProducts].sort((a, b) => (b.sales || 0) - (a.sales || 0));
-                
-                feed.innerHTML = sortedProducts.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="cursor: pointer; background: #fff; border-radius: 12px; border: 1px solid #f0f0f0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                        <div style="aspect-ratio: 1; background: #f8f8f8; display: flex; align-items: center; justify-content: center; position: relative;">
-                            <i data-lucide="shopping-bag" style="color: #eee; width: 40px; height: 40px;"></i>
-                        </div>
-                        <div style="padding: 0 24px 32px; display: flex; justify-content: space-between; align-items: center;">
-                            <p style="color: #999; font-size: 15px; font-weight: 800;">Oii, <span id="user-greeting-name" style="color: #000;">...</span></p>
-                            <div id="network-status-indicator" style="font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">
-                                <!-- Injetado via JS -->
-                            </div>
-                        </div>
-                        <div style="padding: 10px;">
-                            <h4 style="font-size: 12px; font-weight: 500; color: #333; height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; line-height: 1.3;">${this.toSentenceCase(p.name)}</h4>
-                            <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
-                                <i data-lucide="star" style="width: 10px; color: #facc15; fill: #facc15;"></i>
-                                <span style="font-size: 9px; font-weight: 700; color: #999;">${p.rating || '5.0'} | ${p.sales || '0'} vendidos</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 16px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
-                                <div style="font-size: 10px; color: #999; font-weight: 700;">Brasil</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            const cartCount = document.getElementById('market-cart-count');
-            if (cartCount) cartCount.innerText = this.cart.length;
-        },
 
         viewProduct(id) {
             const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -335,36 +289,6 @@
             }
         },
 
-        renderMarketCart(container) {
-            const temp = document.getElementById('template-mercado-carrinho');
-            container.innerHTML = temp.innerHTML;
-            
-            const list = document.getElementById('cart-items-list');
-            if (this.cart.length === 0) {
-                list.innerHTML = `<div style="text-align: center; padding: 60px 0; color: rgba(255,255,255,0.6); font-weight: 700;">Sua sacola está vazia.</div>`;
-                document.getElementById('cart-footer').style.display = 'none';
-            } else {
-                list.innerHTML = this.cart.map((item, index) => `
-                    <div style="display: flex; gap: 16px; align-items: center; padding: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 24px; backdrop-filter: blur(10px);">
-                        <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="shopping-bag" style="width: 28px; color: #fff;"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <h4 style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 4px;">${item.name.toLowerCase()}</h4>
-                            <span style="font-size: 16px; font-weight: 900; color: #fff;">R$ ${item.price.toFixed(2)}</span>
-                        </div>
-                        <button onclick="app.removeFromCart(${index})" style="background: rgba(255,255,255,0.1); border: none; width: 40px; height: 40px; border-radius: 50%; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="trash-2" style="width: 18px;"></i>
-                        </button>
-                    </div>
-                `).join('');
-                
-                const total = this.cart.reduce((acc, i) => acc + i.price, 0);
-                document.getElementById('cart-total-label').innerText = 'R$ ' + total.toFixed(2);
-                document.getElementById('cart-footer').style.display = 'block';
-            }
-            if (window.lucide) lucide.createIcons();
-        },
 
         renderMarketCheckout(container) {
             const temp = document.getElementById('template-checkout');
@@ -812,13 +736,32 @@
                 return;
             }
 
-            // Ordena por vendas REAIS
-            const sortedRank = users.map(u => ({
-                ...u,
-                sales: Number(u.sales || 0),
-                username: u.username || (u.name ? u.name.toLowerCase().replace(/\s+/g, '_') : 'membro_pro'),
-                avatar: u.avatar || ''
-            })).sort((a,b) => b.sales - a.sales);
+            // Busca usuários e calcula vendas baseadas no CICLO 30 DIAS
+            const sortedRank = users.map(u => {
+                let salesHistory = [];
+                try {
+                    // Se for o usuário atual, usa o histórico local para garantir dados em tempo real
+                    if (this.currentUser && u.username === this.currentUser.username) {
+                        salesHistory = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+                    } else {
+                        // Para outros, tenta pegar o que veio do banco (se disponível) ou simula
+                        salesHistory = u.purchases ? (typeof u.purchases === 'string' ? JSON.parse(u.purchases) : u.purchases) : [];
+                    }
+                } catch(e) {}
+
+                const cycleSum = Array.isArray(salesHistory) ? salesHistory.reduce((acc, s) => {
+                    const d = new Date(s.timestamp || Date.now()).getDate();
+                    if (d >= 1 && d <= 30) return acc + (Number(s.value) || 0);
+                    return acc;
+                }, 0) : Number(u.sales || 0);
+
+                return {
+                    ...u,
+                    sales: cycleSum,
+                    username: u.username || 'membro_pro',
+                    avatar: u.avatar || ''
+                };
+            }).sort((a,b) => b.sales - a.sales);
 
             const winner = sortedRank[0];
             const others = sortedRank.slice(1, 6); // Pega do 2º ao 6º (5 itens)
@@ -888,13 +831,6 @@
 
 
 
-        updateWithdrawUI() {
-            const label = document.getElementById('label-balance-withdraw');
-            if (label) {
-                const balance = parseFloat(localStorage.getItem('dito_balance') || '0');
-                label.innerText = 'R$ ' + balance.toFixed(2);
-            }
-        },
 
         showNotification(message, type = 'success') {
             const notification = document.createElement('div');
@@ -908,11 +844,6 @@
             }, 3000);
         },
 
-        removeFromCart(index) {
-            this.cart.splice(index, 1);
-            localStorage.setItem('dito_cart', JSON.stringify(this.cart));
-            this.renderMarketCart(document.getElementById('market-view-container'));
-        },
 
         checkNotifications() {
             // Sociedade
@@ -1050,6 +981,7 @@
                     downloadLink.style.display = isAuthPage ? 'none' : 'block';
                 }
 
+
                 if (window.lucide) lucide.createIcons();
             } catch (err) {
                 console.error("Erro Crítico na Navegação:", err);
@@ -1166,6 +1098,152 @@
             this.showNotification(`Solicitação enviada para o ADM de ${name}.`, "default");
         },
 
+        renderSales(days = 30) {
+            // Ativa o botão correto na UI (já renderizada pelo navigate)
+            ['30','60','90'].forEach(d => {
+                const btn = document.getElementById(`btn-sales-${d}`);
+                if (btn) {
+                    btn.style.background = (parseInt(d) === days) ? '#000' : 'transparent';
+                    btn.style.color = (parseInt(d) === days) ? '#fff' : '#999';
+                }
+            });
+
+            // Geração de dados (Apenas Real)
+            console.log("📊 [Render] Iniciando renderização real...");
+            let realSales = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+            
+            // Soma das vendas REAIS do ciclo (Dia 01 ao 30)
+            const cycleTotal = realSales.reduce((acc, s) => {
+                const d = new Date(s.timestamp || Date.now()).getDate();
+                if (d >= 1 && d <= 30) return acc + (s.value || 0);
+                return acc;
+            }, 0);
+
+            const totalLabel = document.getElementById('sales-chart-total');
+            if (totalLabel) totalLabel.innerText = `R$ ${(cycleTotal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            // Passa array vazio para dummyData para não mostrar a linha de fundo
+            this.drawSalesChart([], realSales);
+            this.renderSalesHistory(realSales.filter(s => s.isSale).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15));
+
+            if (window.lucide) lucide.createIcons();
+        },
+
+        simulateSale() {
+            const amount = 97.00;
+            const now = new Date();
+            const newSale = {
+                date: now.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}),
+                fullDate: now.toLocaleDateString('pt-BR'),
+                timestamp: Date.now(),
+                value: amount,
+                isSale: true,
+                productName: "Venda de Teste"
+            };
+
+            const history = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+            history.unshift(newSale);
+            localStorage.setItem('dito_real_sales_history', JSON.stringify(history));
+
+            this.showNotification("Venda simulada com sucesso!", "success");
+            this.renderSales(); // Atualiza a tela
+        },
+
+        generateDummySales(days) {
+            // Retorna apenas zeros para um ambiente 100% real e limpo
+            const data = [];
+            const now = new Date();
+            for (let i = days; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(now.getDate() - i);
+                data.push({
+                    date: date.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}),
+                    value: 0,
+                    isSale: false
+                });
+            }
+            return data;
+        },
+
+        drawSalesChart(dummyData, realData = []) {
+            const container = document.getElementById('sales-chart-container');
+            if (!container) return;
+
+            const width = container.clientWidth;
+            const height = 200;
+            const padding = 20;
+
+            const maxValue = Math.max(...[...dummyData, ...realData].map(d => d.value), 200);
+            
+            let svg = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="overflow: visible;">`;
+            
+            let points = "";
+            let dots = "";
+
+            // Renderiza Linha de Fundo (Praticamente Invisível/Naked)
+            dummyData.forEach((d, i) => {
+                const x = (i / (dummyData.length - 1)) * width;
+                const y = height - ((d.value / maxValue) * (height - padding * 2) + padding);
+                if (i === 0) points += `M ${x} ${y} `;
+                else points += `L ${x} ${y} `;
+            });
+
+            svg += `<path d="${points}" fill="none" stroke="rgba(0,0,0,0.02)" stroke-width="1" />`;
+            
+            // Renderiza apenas os ÍCONES DE VENDAS (Os pontinhos amarelos)
+            realData.forEach((s, i) => {
+                const saleDate = new Date(s.timestamp || Date.now());
+                const dayOfMonth = saleDate.getDate();
+                
+                // Se for dia 31, não renderizamos no gráfico de ciclo 30
+                if (dayOfMonth > 30) return;
+
+                // Mapeia o dia (1 a 30) para a largura (0 a width) com pequena margem
+                const x = ((dayOfMonth - 1) / 29) * (width - 20) + 10; 
+                const y = height - ((s.value / maxValue) * (height - padding * 2) + padding);
+                
+                svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="#FFD600">
+                            <title>R$ ${s.value.toFixed(2)} - Dia ${dayOfMonth}</title>
+                         </circle>`;
+            });
+
+            svg += dots;
+            svg += `</svg>`;
+
+            container.innerHTML = svg;
+        },
+
+        renderSalesHistory(data) {
+            const list = document.getElementById('sales-history-list');
+            if (!list) return;
+
+            const salesWithValues = data.filter(d => d.value > 0);
+
+            if (salesWithValues.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #ccc; font-size: 12px; padding: 20px;">Nenhuma venda no período.</p>`;
+                return;
+            }
+
+            list.innerHTML = salesWithValues.map(s => `
+                <div style="background: #fff; padding: 16px; border-radius: 20px; border: 1px solid #f9f9f9; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 40px; height: 40px; background: #fffbeb; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fbbf24;">
+                            <i data-lucide="trending-up" style="width: 20px;"></i>
+                        </div>
+                        <div>
+                            <p style="font-weight: 900; font-size: 13px; color: #000;">Venda Realizada</p>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc;">${s.date}</p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-weight: 900; font-size: 15px; color: #000;">+ R$ ${s.value.toFixed(2)}</p>
+                        <p style="font-size: 8px; font-weight: 900; color: #22c55e; text-transform: uppercase;">Aprovado</p>
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        },
+
         initEditProfile() {
             if (!this.currentUser) return;
             const userInp = document.getElementById('edit-username');
@@ -1232,37 +1310,68 @@
             const list = document.getElementById('admin-users-list');
             if (!list) return;
 
-            const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+            // Busca todos os usuários sincronizados da REDE
+            const usuarios = JSON.parse(localStorage.getItem('dito_network_users') || localStorage.getItem('dito_usuarios') || '[]');
             
             if (usuarios.length === 0) {
-                list.innerHTML = `<p style="text-align: center; color: #999; font-weight: 800; padding: 40px;">Nenhum usuário cadastrado além de você.</p>`;
+                list.innerHTML = `<p style="text-align: center; color: #999; font-weight: 800; padding: 40px;">Buscando usuários na rede...</p>`;
+                this.fetchNetworkUsers();
                 return;
             }
 
             list.innerHTML = usuarios.map(user => `
-                <div style="background: #fafafa; border: 1px solid #eee; border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900;">${user.username[0].toUpperCase()}</div>
+                <div style="background: #fff; border: 1px solid #f2f2f2; border-radius: 24px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display: flex; gap: 14px; align-items: center;">
+                        <div style="width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: #f5f5f5; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
+                            ${user.avatar ? `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`}
+                        </div>
                         <div>
-                            <h4 style="font-weight: 900; font-size: 14px; lowercase">${user.username}</h4>
-                            <p style="font-size: 10px; font-weight: 700; color: #ccc;">ID: ${user.id}</p>
+                            <h4 style="font-weight: 900; font-size: 14px; color: #000;">${user.username}</h4>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc;">${(user.name || '').toLowerCase()} • R$ ${(parseFloat(user.sales || 0)).toFixed(2)}</p>
                         </div>
                     </div>
-                    <button onclick="app.deleteUser(${user.id})" style="width: 32px; height: 32px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                        <i data-lucide="trash-2" style="width: 16px;"></i>
+                    <button onclick="app.deleteUser('${user.username}', '${user.id}')" style="width: 40px; height: 40px; background: #fee2e2; color: #ef4444; border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                        <i data-lucide="trash-2" style="width: 18px;"></i>
                     </button>
                 </div>
             `).join('');
             if (window.lucide) lucide.createIcons();
         },
 
-        deleteUser(id) {
-            if (confirm('Tem certeza que deseja EXCLUIR este usuário?')) {
-                let usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
-                usuarios = usuarios.filter(u => u.id !== id);
-                localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
-                this.renderAdminUsers();
-                this.showNotification('Usuário removido da pro.');
+        async deleteUser(username, id) {
+            if (username === 'Ditão' || username === 'benedito_pro') {
+                this.showNotification('Você não pode excluir um administrador master.', 'error');
+                return;
+            }
+
+            if (confirm(`Tem certeza que deseja EXCLUIR permanentemente a conta de "${username}"?`)) {
+                this.showLoading(true, 'Excluindo conta da rede...');
+                
+                try {
+                    // 1. Remove do Supabase
+                    if (supabase) {
+                        const { error } = await supabase
+                            .from('dito_users')
+                            .delete()
+                            .eq('username', username);
+                        
+                        if (error) throw error;
+                    }
+
+                    // 2. Remove do localStorage local
+                    let localUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+                    localUsers = localUsers.filter(u => u.username !== username);
+                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(localUsers));
+
+                    this.showNotification(`Conta de ${username} excluída com sucesso.`);
+                    await this.fetchNetworkUsers(); // Atualiza a lista da rede
+                    this.renderAdminUsers(); // Redesenha o painel
+                } catch (e) {
+                    console.error("Erro ao deletar usuário:", e);
+                    this.showNotification('Erro ao excluir conta da rede.', 'error');
+                } finally {
+                    this.showLoading(false);
+                }
             }
         },
 
@@ -1281,11 +1390,19 @@
                 btnSave.style.display = 'block';
                 btnCancel.style.display = 'block';
                 if (avatarOverlay) avatarOverlay.style.display = 'flex';
+                
+                // Botão de Remover Foto: Deixa ele bem visível durante a edição se houver avatar
+                const removeBtn = document.getElementById('remove-avatar-btn');
+                if (removeBtn && this.currentUser && this.currentUser.avatar) {
+                    removeBtn.style.display = 'flex';
+                    removeBtn.style.transform = 'scale(1.2)'; // Fica maior na edição
+                    removeBtn.style.background = '#000'; // Cor mais séria
+                }
 
                 // Preenche os campos com os valores atuais
-                document.getElementById('edit-profile-name').value = this.currentUser.name || '';
-                document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
-                document.getElementById('edit-profile-link').value = this.currentUser.link || '';
+                if (document.getElementById('edit-profile-name')) document.getElementById('edit-profile-name').value = this.currentUser.name || '';
+                if (document.getElementById('edit-profile-bio')) document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
+                if (document.getElementById('edit-profile-link')) document.getElementById('edit-profile-link').value = this.currentUser.link || '';
                 
                 const showRevInp = document.getElementById('edit-profile-show-revenue');
                 if (showRevInp) {
@@ -1298,6 +1415,14 @@
                 btnSave.style.display = 'none';
                 btnCancel.style.display = 'none';
                 if (avatarOverlay) avatarOverlay.style.display = 'none';
+                
+                // Oculta o botão de remover fora da edição
+                const removeBtn = document.getElementById('remove-avatar-btn');
+                if (removeBtn) {
+                    removeBtn.style.display = 'none';
+                    removeBtn.style.transform = 'scale(1)';
+                    removeBtn.style.background = '#ff005c';
+                }
             }
             if (window.lucide) lucide.createIcons();
         },
@@ -1414,8 +1539,14 @@
                 const grid = document.getElementById('profile-posts-grid');
                 if (!grid) return;
                 
-                // Zera contagem de posts
-                const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                let posts = [];
+                try {
+                    const raw = localStorage.getItem('dito_profile_posts') || '[]';
+                    posts = JSON.parse(raw);
+                    if (!Array.isArray(posts)) posts = [];
+                } catch(e) {
+                    posts = [];
+                }
 
                 if (posts.length === 0) {
                     grid.innerHTML = `<div style="grid-column: span 3; padding: 60px 0; text-align: center; color: #ccc;">
@@ -1444,8 +1575,15 @@
         async deletePost(index, event) {
             if (event) event.stopPropagation();
             if (confirm('Deseja excluir este post?')) {
-                const posts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                posts.splice(index, 1);
+                let posts = [];
+                try {
+                    const raw = localStorage.getItem('dito_profile_posts') || '[]';
+                    posts = JSON.parse(raw);
+                    if (!Array.isArray(posts)) posts = [];
+                } catch(e) { posts = []; }
+
+                if (posts[index]) {
+                    posts.splice(index, 1);
                 
                 // Salva localmente
                 localStorage.setItem('dito_profile_posts', JSON.stringify(posts));
@@ -1467,8 +1605,9 @@
                     await this.syncUserToNetwork(this.currentUser);
                 }
 
-                this.renderProfileFeed();
-                this.showNotification('Post removido!', 'success');
+                    this.renderProfileFeed();
+                    this.showNotification('Post removido!', 'success');
+                }
             }
         },
 
@@ -1566,8 +1705,16 @@
         updateBalanceUI() {
             const el = document.getElementById('label-balance');
             if (el) {
-                const balance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
-                el.innerText = this.showBalance ? `R$ ${balance.toFixed(2)}` : '••••••••';
+                const baseBalance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
+                const realSales = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+                const salesTotal = realSales.reduce((acc, s) => acc + (s.value || 0), 0);
+                
+                const total = baseBalance + salesTotal;
+                el.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
+                
+                if (salesTotal > 0) {
+                    console.log(`💰 [Finance] Salvo: R$ ${baseBalance.toFixed(2)} + Vendas: R$ ${salesTotal.toFixed(2)} = Total: R$ ${total.toFixed(2)}`);
+                }
             }
             
             // Atualiza o nome da saudação
@@ -1577,28 +1724,45 @@
             }
 
             // Exibe as bolinhas de notificação se ainda não viu
-            // Status de Conexão e Contador de Pro (Debug)
+            // Status de Conexão (Privado para o Ditão)
             const statusEl = document.getElementById('network-status-indicator');
             if (statusEl) {
-                const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
-                const names = globalUsers.map(u => u.username).join(', ');
-                if (supabase) {
-                    statusEl.innerHTML = `
-                        <div style="text-align: right;">
-                            <span style="color: #22c55e;">● Online (${globalUsers.length} pessoas)</span>
-                            <div style="font-size: 6px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                Projeto: ${SUPABASE_URL.split('//')[1].split('.')[0]}
+                if (this.currentUser && this.currentUser.username === 'Ditão') {
+                    const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
+                    const names = globalUsers.map(u => u.username).join(', ');
+                    
+                    if (this.adminNetworkInfoVisible) {
+                        statusEl.innerHTML = `
+                            <div style="text-align: right; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px solid #eee;">
+                                <span style="color: #22c55e; display: block; margin-bottom: 4px;">● Online (${globalUsers.length} pessoas)</span>
+                                <div style="font-size: 7px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    Projeto: ${SUPABASE_URL.split('//')[1].split('.')[0]}
+                                </div>
+                                <div style="font-size: 7px; color: #999; margin-top: 2px;">
+                                    [ ${names || 'carregando...'} ]
+                                </div>
+                                <div style="display: flex; gap: 4px; margin-top: 8px; justify-content: flex-end;">
+                                    <button onclick="app.forceSyncAll()" style="font-size: 6px; background: #000; color: #fff; border: none; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-weight: 900;">SINCRONIZAR</button>
+                                    <button onclick="app.toggleNetworkStatus()" style="font-size: 6px; background: #eee; color: #000; border: none; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-weight: 900;">OCULTAR</button>
+                                </div>
                             </div>
-                            <div style="font-size: 7px; color: #999; margin-top: 2px;">
-                                [ ${names || 'carregando...'} ]
-                            </div>
-                            <button onclick="app.forceSyncAll()" style="font-size: 7px; background: #000; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; margin-top: 6px; cursor: pointer; font-weight: 900;">RE-SINCRONIZAR TUDO</button>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        statusEl.innerHTML = `
+                            <button onclick="app.toggleNetworkStatus()" style="background: #f5f5f5; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; font-size: 8px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <span style="color: #22c55e;">●</span> REDE PRO
+                            </button>
+                        `;
+                    }
                 } else {
-                    statusEl.innerHTML = '<span style="color: #ef4444;">● Offline (Erro de Config)</span>';
+                    statusEl.innerHTML = ''; // Esconde para outros usuários
                 }
             }
+        },
+
+        toggleNetworkStatus() {
+            this.adminNetworkInfoVisible = !this.adminNetworkInfoVisible;
+            this.updateBalanceUI();
         },
 
         async forceSyncAll() {
@@ -1675,6 +1839,9 @@
                 cursoStructure.style.display = (type === 'Curso') ? 'flex' : 'none';
                 if (type === 'Curso') this.renderCourseStructure();
             }
+            
+            this.selectedProductType = type;
+            this.courseStructure = []; 
             
             // Reset filenames
             document.querySelectorAll('.file-name-display').forEach(el => el.innerText = '');
@@ -1944,30 +2111,25 @@
             let user = users.find(u => u.username === userInp && u.password === passInp);
 
             // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
-            if (!user && supabase) {
+            if (!user && window.supabase) {
                 console.log("🔍 [Auth] Buscando usuário na nuvem...");
                 try {
-                    const { data, error } = await supabase
+                    const { data, error } = await window.supabase
                         .from('dito_users')
                         .select('*')
                         .eq('username', userInp)
                         .eq('password', passInp)
-                        .maybeSingle(); // maybeSingle não dá erro se não achar nada
+                        .maybeSingle();
                     
-                    if (error) {
-                        console.error("❌ Erro Supabase:", error.message);
-                        alert('Erro de conexão com o banco de dados.');
-                    } else if (data) {
+                    if (data && !error) {
                         console.log("✅ [Auth] Usuário encontrado na rede!");
                         user = data;
                         users.push(data);
                         localStorage.setItem('dito_users_db', JSON.stringify(users));
-                    } else {
-                        console.warn("⚠️ [Auth] Usuário não encontrado na rede. Verifique se deu F5 no computador.");
                     }
                 } catch (e) { 
-                    console.error("Erro crítico login rede:", e); 
-                    alert('Falha crítica na rede.');
+                    console.warn("⚠️ [Auth] Falha na rede, prosseguindo com verificação local:", e); 
+                    // Não dar alert aqui para não travar o fluxo se o usuário existir localmente
                 }
             }
 
@@ -2147,13 +2309,8 @@
             let all = [...p1, ...p2, ...p3].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
             
             if (all.length === 0) {
-                all = [
-                    { id: 'pro-1', name: 'Método Anti-Crise Módulos 1 a 4', type: 'Curso', price: '297.00', salesCount: 1420, createdAt: Date.now() - 3600000 },
-                    { id: 'pro-2', name: 'Pack Dito Premium Ebook', type: 'Ebook', price: '47.90', salesCount: 843, createdAt: Date.now() - 7200000 },
-                    { id: 'pro-3', name: 'Acesso Sala de Sinais', type: 'Dito', price: '19.90', salesCount: 3105, createdAt: Date.now() - 10800000 },
-                    { id: 'pro-4', name: 'Mentoria 1-on-1 Avançada', type: 'Mentoria', price: '997.00', salesCount: 22, createdAt: Date.now() - 14400000 }
-                ];
-                localStorage.setItem('dito_products', JSON.stringify(all));
+                // Mercado começa vazio para os usuários cadastrarem seus produtos
+                localStorage.setItem('dito_products', '[]');
             }
 
             // 1. DESTAQUES: Novos primeiro (Horizontal)
@@ -2194,13 +2351,10 @@
 
         addToCartDirectly(id, event) {
             if (event) event.stopPropagation();
-            
-            // Busca o produto real (pode estar nos salvos ou simulados)
             const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
             const all = [...p1, ...p2];
             const product = all.find(p => p.id === id);
-
             if (product) {
                 this.cart.push(product);
                 localStorage.setItem('dito_cart', JSON.stringify(this.cart));
@@ -2210,37 +2364,25 @@
         }
     };
 
-    // Funções de Rede Social e Busca
+    // ==========================================
+    // 🔍 SOCIAL & SEARCH METHODS (Consolidated)
+    // ==========================================
+
     app.toggleSocialSearch = function(open, event) {
         if (event) event.stopPropagation();
         const container = document.getElementById('search-container');
         const input = document.getElementById('social-search-input');
         const close = document.getElementById('search-close');
         const results = document.getElementById('social-search-results');
-
         if (open) {
             this.fetchNetworkUsers();
-            if (container) {
-                container.style.width = '260px';
-                container.style.background = '#fff';
-            }
-            if (input) {
-                input.style.width = '180px';
-                input.style.opacity = '1';
-                input.focus();
-            }
+            if (container) { container.style.width = '260px'; container.style.background = '#fff'; }
+            if (input) { input.style.width = '180px'; input.style.opacity = '1'; input.focus(); }
             if (close) close.style.display = 'block';
         } else {
             const isMarket = this.currentView === 'mercado';
-            if (container) {
-                container.style.width = '40px';
-                container.style.background = isMarket ? '#fff' : 'rgba(0,0,0,0.05)';
-            }
-            if (input) {
-                input.style.width = '0';
-                input.style.opacity = '0';
-                input.value = '';
-            }
+            if (container) { container.style.width = '40px'; container.style.background = isMarket ? '#fff' : 'rgba(0,0,0,0.05)'; }
+            if (input) { input.style.width = '0'; input.style.opacity = '0'; input.value = ''; }
             if (close) close.style.display = 'none';
             if (results) results.style.display = 'none';
         }
@@ -2248,114 +2390,18 @@
 
     app.searchUsers = function(query) {
         const resultsContainer = document.getElementById('social-search-results');
-        if (!query || query.length < 2) {
-            if (resultsContainer) resultsContainer.style.display = 'none';
-            return;
-        }
+        if (!query || query.length < 2) { if (resultsContainer) resultsContainer.style.display = 'none'; return; }
         const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const filtered = realUsers.filter(u => 
-            (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || 
-            (u.name && u.name.toLowerCase().includes(query.toLowerCase()))
-        );
-        if (filtered.length > 0) {
-            if (resultsContainer) {
-                resultsContainer.style.display = 'block';
-                resultsContainer.innerHTML = filtered.map(u => `
-                    <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="user" style="width: 20px; color: #ccc;"></i>
-                        </div>
-                        <div>
-                            <p style="font-weight: 900; font-size: 13px; color: #000;">${u.username}</p>
-                            <p style="font-size: 11px; color: #999; font-weight: 500;">${u.name}</p>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            if (window.lucide) lucide.createIcons();
-        } else if (resultsContainer) {
-            resultsContainer.innerHTML = `<div style="padding: 16px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum perfil encontrado.</div>`;
-            resultsContainer.style.display = 'block';
-        }
-    };
-
-    app.viewPublicProfile = function(username) {
-        this.toggleSocialSearch(false);
-        this.navigate('perfil-publico');
-        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
-        setTimeout(() => {
-            const userDisp = document.getElementById('public-username-header');
-            if (userDisp) {
-                userDisp.innerText = user.username;
-                document.getElementById('public-name').innerText = user.name;
-                document.getElementById('public-bio').innerText = user.bio;
-                document.getElementById('public-fans-count').innerText = user.fans || 0;
-                document.getElementById('public-vendas-count').innerText = user.sales || 0;
-                const grid = document.getElementById('public-posts-grid');
-                if (grid) {
-                    grid.innerHTML = Array(12).fill(0).map(() => `
-                        <div style="aspect-ratio: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
-                            <i data-lucide="image" style="width: 24px; color: #ddd;"></i>
-                        </div>
-                    `).join('');
-                }
-                if (window.lucide) lucide.createIcons();
-            }
-        }, 100);
-    };
-
-    // Sobrescreve navigate para incluir cheque de acesso e fechar busca
-    const originalNavigate = app.navigate;
-    app.navigate = function(view) {
-        if (!this.checkAccess(view)) return;
-        if (this.toggleSocialSearch) this.toggleSocialSearch(false);
-        originalNavigate.call(this, view);
-    };
-
-    app.initRewards = function() {
-        const user = this.currentUser || { username: 'usuario' };
-        const linkDisplay = document.getElementById('profile-ref-link-display');
-        const linkFull = document.getElementById('referral-link-text');
-        const linkStr = `dito.app/ref/${user.username}`;
-        if (linkDisplay) linkDisplay.innerText = linkStr;
-        if (linkFull) linkFull.innerText = linkStr;
-        const coins = parseInt(localStorage.getItem('dito_coins') || '0');
-        const globalCoinBal = document.getElementById('global-coin-balance');
-        if (globalCoinBal) globalCoinBal.innerText = coins;
-        if (window.lucide) lucide.createIcons();
-    };
-
-    window.app = app;
-    app.init();
-
-    app.searchUsers = function(query) {
-        const resultsContainer = document.getElementById('social-search-results');
-        if (!query || query.length < 2) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-
-        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        
-        const filtered = realUsers.filter(u => 
-            (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || 
-            (u.name && u.name.toLowerCase().includes(query.toLowerCase()))
-        );
-
+        const filtered = realUsers.filter(u => (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || (u.name && u.name.toLowerCase().includes(query.toLowerCase())));
         if (filtered.length > 0) {
             resultsContainer.style.display = 'block';
             resultsContainer.innerHTML = filtered.map(u => `
                 <div onclick="app.viewPublicProfile('${u.username}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='white'">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center;">
-                        <i data-lucide="user" style="width: 20px; color: #ccc;"></i>
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        ${u.avatar ? `<img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" style="width: 20px; color: #ccc;"></i>`}
                     </div>
-                    <div>
-                        <p style="font-weight: 900; font-size: 13px; color: #000;">${u.username}</p>
-                        <p style="font-size: 11px; color: #999; font-weight: 500;">${u.name}</p>
-                    </div>
-                </div>
-            `).join('');
+                    <div><p style="font-weight: 900; font-size: 13px; color: #000;">${u.username}</p><p style="font-size: 11px; color: #999; font-weight: 500;">${u.name}</p></div>
+                </div>`).join('');
             if (window.lucide) lucide.createIcons();
         } else {
             resultsContainer.innerHTML = `<div style="padding: 16px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum perfil encontrado.</div>`;
@@ -2366,34 +2412,49 @@
     app.viewPublicProfile = function(username) {
         this.toggleSocialSearch(false);
         this.navigate('perfil-publico');
-        
-        // Puxa a lista mais recente sincronizada
         const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
         const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
-        
         setTimeout(() => {
             const userDisp = document.getElementById('public-username-header');
             if (userDisp) {
                 userDisp.innerText = user.username;
-                document.getElementById('public-name').innerText = user.name || user.username;
-                document.getElementById('public-bio').innerText = user.bio || 'Membro da Dito Pro';
-                
-                // Garante que mostre 0 em vez de undefined ou NaN
-                document.getElementById('public-fans-count').innerText = parseInt(user.fans) || 0;
-                const rev = parseFloat(user.sales || 0);
+                const nameEl = document.getElementById('public-name');
+                const bioEl = document.getElementById('public-bio');
+                const fansEl = document.getElementById('public-fans-count');
                 const revEl = document.getElementById('public-revenue');
-                if (user.showRevenue === false) {
-                    revEl.innerText = "Privado";
-                } else {
-                    revEl.innerText = rev > 0 ? `R$ ${rev.toLocaleString()}` : 'R$ 0';
-                }
+                const avatarEl = document.getElementById('public-avatar-container');
+                const btnFan = document.getElementById('btn-fan');
                 
+                if (nameEl) nameEl.innerText = user.name || user.username;
+                if (bioEl) bioEl.innerText = user.bio || 'Membro da Dito Pro';
+                if (fansEl) fansEl.innerText = parseInt(user.fans) || 0;
+                if (revEl) revEl.innerText = (user.showRevenue === false) ? "Privado" : `R$ ${parseFloat(user.sales || 0).toLocaleString()}`;
+                if (avatarEl) avatarEl.innerHTML = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" style="width: 40px; color: #ccc;"></i>`;
+                
+                // Atualiza estado do botão Fã
+                if (btnFan) {
+                    const myFans = JSON.parse(localStorage.getItem('dito_my_follows') || '{}');
+                    const isFollower = myFans[username] === true;
+                    if (isFollower) {
+                        btnFan.innerText = 'Fã'; 
+                        btnFan.style.background = '#f5f5f5'; 
+                        btnFan.style.color = '#000';
+                    } else {
+                        btnFan.innerText = 'Tornar-se fã'; 
+                        btnFan.style.background = '#000'; 
+                        btnFan.style.color = '#fff';
+                    }
+                }
+
                 const grid = document.getElementById('public-posts-grid');
-                grid.innerHTML = Array(12).fill(0).map(() => `
-                    <div style="aspect-ratio: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;">
-                        <i data-lucide="image" style="width: 24px; color: #ddd;"></i>
-                    </div>
-                `).join('');
+                if (grid) {
+                    const posts = user.posts ? (typeof user.posts === 'string' ? JSON.parse(user.posts) : user.posts) : [];
+                    if (posts.length > 0) {
+                        grid.innerHTML = posts.map(p => `<div style="aspect-ratio: 1; background: #eee; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 100%; object-fit: cover;"></div>`).join('');
+                    } else {
+                        grid.innerHTML = Array(6).fill(0).map(() => `<div style="aspect-ratio: 1; background: #f5f5f5; display: flex; align-items: center; justify-content: center;"><i data-lucide="image" style="width: 24px; color: #ddd;"></i></div>`).join('');
+                    }
+                }
                 if (window.lucide) lucide.createIcons();
             }
         }, 50);
@@ -2403,28 +2464,39 @@
         const btn = document.getElementById('btn-fan');
         const fanCountEl = document.getElementById('public-fans-count');
         const username = document.getElementById('public-username-header')?.innerText;
-        
-        if (!fanCountEl || !username) return;
-
-        let current = parseInt(fanCountEl.innerText) || 0;
-        let isBecomingFan = btn.innerText === 'Tornar-se Fã';
-
-        if (isBecomingFan) {
-            btn.innerText = 'Fã';
-            btn.style.background = '#f5f5f5';
-            btn.style.color = '#000';
-            current++;
-            this.showNotification('Você agora é fã!');
-        } else {
-            btn.innerText = 'Tornar-se Fã';
-            btn.style.background = '#000';
-            btn.style.color = '#fff';
-            current = Math.max(0, current - 1);
+        if (!fanCountEl || !username || !this.currentUser) {
+            this.showNotification('Faça login para seguir usuários.', 'error');
+            return;
         }
 
+        let current = parseInt(fanCountEl.innerText) || 0;
+        
+        // Controle de persistência local da relação
+        const myFans = JSON.parse(localStorage.getItem('dito_my_follows') || '{}');
+        const isCurrentlyFan = myFans[username] === true;
+
+        if (!isCurrentlyFan) {
+            // Tornar-se fã
+            btn.innerText = 'Fã'; 
+            btn.style.background = '#f5f5f5'; 
+            btn.style.color = '#000';
+            current++;
+            myFans[username] = true;
+            this.showNotification('Você agora é fã! ✨', 'success');
+        } else {
+            // Deixar de ser fã
+            btn.innerText = 'Tornar-se fã'; 
+            btn.style.background = '#000'; 
+            btn.style.color = '#fff';
+            current = Math.max(0, current - 1);
+            delete myFans[username];
+        }
+
+        // Salva relação localmente
+        localStorage.setItem('dito_my_follows', JSON.stringify(myFans));
         fanCountEl.innerText = current;
 
-        // --- Sincronização com o Supabase ---
+        // Sincroniza com a REDE em tempo real
         if (supabase) {
             try {
                 const { error } = await supabase
@@ -2432,83 +2504,54 @@
                     .update({ fans: current })
                     .eq('username', username);
                 
-                if (error) console.error("Erro ao atualizar fãs na rede:", error.message);
-                else {
-                    // Atualiza localmente também para refletir imediato
-                    this.fetchNetworkUsers();
+                if (!error) {
+                    console.log(`👥 [RealTime] Fãs de ${username} atualizados para ${current}`);
+                    this.fetchNetworkUsers(); // Força atualização para todos
                 }
             } catch (e) {
-                console.error("Falha na sincronia de fãs:", e);
+                console.error("Erro ao sincronizar fãs:", e);
             }
         }
     };
 
     app.calculateNetProfit = function(value) {
         const label = document.getElementById('profit-calc-label');
-        if (!label) return;
-        const val = parseFloat(value) || 0;
-        const net = val * 0.97; // 3% fee
-        label.innerText = `Você receberá: R$ ${net.toFixed(2)}`;
+        if (label) label.innerText = `Você receberá: R$ ${(parseFloat(value) * 0.97 || 0).toFixed(2)}`;
     };
 
-    // Sincronização da Sacola Global
-    const originalUpdateCartBadge = app.updateCartBadge;
     app.updateCartBadge = function() {
-        if (originalUpdateCartBadge) originalUpdateCartBadge.apply(this);
         const count = this.cart ? this.cart.length : 0;
         const globalBadge = document.getElementById('cart-badge-global');
-        if (globalBadge) {
-            globalBadge.innerText = count;
-            globalBadge.style.display = count > 0 ? 'flex' : 'none';
-        }
+        if (globalBadge) { globalBadge.innerText = count; globalBadge.style.display = count > 0 ? 'flex' : 'none'; }
     };
 
-    // REWARDS SYSTEM LOGIC
     app.initRewards = function() {
         const user = this.currentUser || { username: 'usuario' };
-        const linkDisplay = document.getElementById('profile-ref-link-display');
-        const linkFull = document.getElementById('referral-link-text');
         const linkStr = `dito.app/ref/${user.username}`;
-        
-        if (linkDisplay) linkDisplay.innerText = linkStr;
-        if (linkFull) linkFull.innerText = linkStr;
-        
+        const linkD = document.getElementById('profile-ref-link-display');
+        const linkF = document.getElementById('referral-link-text');
+        if (linkD) linkD.innerText = linkStr;
+        if (linkF) linkF.innerText = linkStr;
         const coins = parseInt(localStorage.getItem('dito_coins') || '0');
-        const globalCoinBal = document.getElementById('global-coin-balance');
-        const pageCoinBal = document.getElementById('coins-page-balance');
-        
-        if (globalCoinBal) globalCoinBal.innerText = coins;
-        if (pageCoinBal) pageCoinBal.innerText = coins;
-        
-        const hasPurchased = localStorage.getItem('dito_purchased_products');
+        const gCoin = document.getElementById('global-coin-balance');
+        const pCoin = document.getElementById('coins-page-balance');
+        if (gCoin) gCoin.innerText = coins;
+        if (pCoin) pCoin.innerText = coins;
+        const hasP = localStorage.getItem('dito_purchased_products');
         const badge = document.getElementById('first-purchase-badge');
-        if (badge) badge.style.display = (hasPurchased && JSON.parse(hasPurchased).length > 0) ? 'none' : 'flex';
-        
+        if (badge) badge.style.display = (hasP && JSON.parse(hasP).length > 0) ? 'none' : 'flex';
         if (window.lucide) lucide.createIcons();
     };
 
     app.copyReferralLink = function() {
         const user = this.currentUser || { username: 'usuario' };
-        const linkStr = `dito.app/ref/${user.username}`;
-        navigator.clipboard.writeText(linkStr).then(() => {
-            this.showNotification('Link copiado! Compartilhe com seus amigos', 'success');
-        });
+        navigator.clipboard.writeText(`dito.app/ref/${user.username}`).then(() => this.showNotification('Link copiado!', 'success'));
     };
 
     app.addRewardCoins = function(amount, reason) {
         const current = parseInt(localStorage.getItem('dito_coins') || '0');
         localStorage.setItem('dito_coins', (current + amount).toString());
-        for (let i = 0; i < 12; i++) {
-            const coin = document.createElement('div');
-            coin.className = 'coin-particle';
-            coin.innerHTML = '';
-            coin.style.left = Math.random() * 100 + 'vw';
-            coin.style.top = '100vh';
-            coin.style.animationDelay = Math.random() * 0.5 + 's';
-            document.body.appendChild(coin);
-            setTimeout(() => coin.remove(), 2000);
-        }
-        this.showNotification(`Você ganhou ${amount} Moedas Dito! (${reason})`, 'success');
+        this.showNotification(`+${amount} Moedas Dito! (${reason})`, 'success');
         this.initRewards();
     };
 
@@ -2520,111 +2563,66 @@
 
     app.recalculateCheckoutTotal = function() {
         const totalBase = this.cart.reduce((acc, i) => acc + parseFloat(i.price || 0), 0);
-        const hasPurchased = localStorage.getItem('dito_purchased_products');
-        const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
-        
-        let finalTotal = totalBase;
-        
-        // 1. apply 75% if first purchase
-        if (isFirstPurchase) {
-            finalTotal = totalBase * 0.25;
-        }
-
-        // 2. apply coins discount (1 coin = 1% of the current total)
-        const coinsToUse = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
-        const coinDiscountValue = finalTotal * (coinsToUse / 100);
-        finalTotal -= coinDiscountValue;
-
-        const totalDisplay = document.getElementById('checkout-total-value');
-        if (totalDisplay) totalDisplay.innerText = 'R$ ' + finalTotal.toFixed(2);
-        
-        return finalTotal;
+        const hasP = localStorage.getItem('dito_purchased_products');
+        const isFirst = !(hasP && JSON.parse(hasP).length > 0);
+        let final = isFirst ? (totalBase * 0.25) : totalBase;
+        const coins = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
+        final -= (final * (coins / 100));
+        const disp = document.getElementById('checkout-total-value');
+        if (disp) disp.innerText = 'R$ ' + final.toFixed(2);
+        return final;
     };
 
     app.renderMyProducts = function() {
         const list = document.getElementById('my-products-list');
-        const emptyMsg = document.getElementById('no-products-msg');
         if (!list) return;
-
-        const myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
-        
-        if (myProducts.length === 0) {
-            list.innerHTML = '';
-            if (emptyMsg) emptyMsg.style.display = 'block';
+        const myP = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]').filter(p => p.author === this.currentUser?.username);
+        if (myP.length === 0) {
+            list.innerHTML = `<p style="text-align:center; padding:40px; color:#ccc;">Você não criou nenhum produto.</p>`;
             return;
         }
-
-        if (emptyMsg) emptyMsg.style.display = 'none';
-
-        list.innerHTML = myProducts.map(p => `
-            <div style="background: #fff; border: 1px solid #eee; border-radius: 24px; padding: 16px; display: flex; align-items: center; gap: 16px; position: relative;">
-                <div style="width: 60px; height: 60px; background: #f9f9f9; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" style="width: 24px; color: #ccc;"></i>`}
+        list.innerHTML = myP.map(p => `
+            <div style="background:#fff; border:1px solid #eee; border-radius:24px; padding:16px; display:flex; align-items:center; gap:16px;">
+                <div style="width:60px; height:60px; background:#f9f9f9; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                    ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="package" style="width:24px; color:#ccc;"></i>`}
                 </div>
-                <div style="flex: 1; min-width: 0;">
-                    <h4 style="font-weight: 900; font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                    <p style="font-size: 10px; font-weight: 800; color: #999; text-transform: uppercase;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p>
-                </div>
-                <button onclick="app.deleteProduct('${p.id}')" style="width: 44px; height: 44px; background: #fee2e2; color: #ef4444; border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
-                    <i data-lucide="trash-2" style="width: 18px;"></i>
-                </button>
-            </div>
-        `).join('');
-
+                <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
+                <button onclick="app.deleteProduct('${p.id}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+            </div>`).join('');
         if (window.lucide) lucide.createIcons();
     };
 
     app.deleteProduct = function(id) {
-        if (confirm('Tem certeza que deseja APAGAR este produto? Esta ação é irreversível e o produto sairá do mercado.')) {
-            // 1. Remove de "Meus Produtos"
-            let myProducts = JSON.parse(localStorage.getItem('dito_my_products') || '[]');
-            myProducts = myProducts.filter(p => p.id !== id);
-            localStorage.setItem('dito_my_products', JSON.stringify(myProducts));
-
-            // 2. Remove do "Mercado Global"
-            let marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            marketProducts = marketProducts.filter(p => p.id !== id);
-            localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
-
-            this.showNotification('Produto removido com sucesso.', 'success');
+        if (confirm('Deseja apagar este produto?')) {
+            let market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            market = market.filter(p => p.id !== id);
+            localStorage.setItem('dito_products_vanilla', JSON.stringify(market));
+            this.showNotification('Produto removido.');
             this.renderMyProducts();
         }
     };
 
     app.filterMarket = function(query) {
-        const resultsContainer = document.getElementById('market-search-results');
-        if (!query || query.length < 2) {
-            if (resultsContainer) resultsContainer.style.display = 'none';
-            return;
-        }
-
-        const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-        const filtered = marketProducts.filter(p => 
-            (p.name && p.name.toLowerCase().includes(query.toLowerCase())) || 
-            (p.type && p.type.toLowerCase().includes(query.toLowerCase()))
-        );
-
+        const results = document.getElementById('market-search-results');
+        if (!query || query.length < 2) { if (results) results.style.display = 'none'; return; }
+        const market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+        const filtered = market.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
         if (filtered.length > 0) {
-            resultsContainer.style.display = 'block';
-            resultsContainer.innerHTML = filtered.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f9f9f9; transition: 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='white'">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" style="width: 18px; color: #ccc;"></i>`}
+            results.style.display = 'block';
+            results.innerHTML = filtered.map(p => `
+                <div onclick="app.viewProduct('${p.id}')" style="display:flex; align-items:center; gap:12px; padding:12px; cursor:pointer; border-bottom:1px solid #f9f9f9;">
+                    <div style="width:40px; height:40px; background:#f5f5f5; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="package" style="width:18px; color:#ccc;"></i>`}
                     </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <p style="font-weight: 900; font-size: 13px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</p>
-                        <p style="font-size: 11px; color: #22c55e; font-weight: 900;">R$ ${parseFloat(p.price).toFixed(2)}</p>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 8px; font-size: 8px; font-weight: 900; text-transform: uppercase;">
-                        ${p.type || 'Prod'}
-                    </div>
-                </div>
-            `).join('');
+                    <div><p style="font-weight:900; font-size:13px;">${p.name}</p><p style="font-size:11px; color:#22c55e; font-weight:900;">R$ ${parseFloat(p.price).toFixed(2)}</p></div>
+                </div>`).join('');
             if (window.lucide) lucide.createIcons();
         } else {
-            resultsContainer.innerHTML = `<div style="padding: 24px; font-size: 12px; color: #999; text-align: center; font-weight: 800;">Nenhum produto encontrado.</div>`;
-            resultsContainer.style.display = 'block';
+            results.innerHTML = `<div style="padding:16px; color:#999; text-align:center;">Nenhum produto.</div>`;
+            results.style.display = 'block';
         }
     };
 
+    window.app = app;
+    app.init();
 })();
