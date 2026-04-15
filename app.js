@@ -45,6 +45,8 @@
         courseStructure: [], // {id, title, lessons: [{id, title, fileName}]}
         openModules: {}, // {moduleId: boolean}
         activePlayerTab: 'aulas',
+        paypalLink: 'https://www.paypal.com/checkoutnow?token=LIVE', // Link Real do PayPal ativado
+        paymentMethod: 'pix',
         
         toSentenceCase(str) {
             if (!str) return "";
@@ -150,6 +152,56 @@
                 }
             } catch (err) {
                 console.error("Erro no INIT:", err);
+            }
+        },
+
+        async showOnlineFriends() {
+            if (!supabase) return;
+            
+            document.getElementById('drawer-overlay').style.display = 'block';
+            document.getElementById('friends-drawer').classList.add('active');
+            const container = document.getElementById('friends-list-content');
+            if (!container) return;
+            
+            container.innerHTML = '<div style="padding: 40px; text-align: center; font-weight: 900; color: #ccc;">Conectando...</div>';
+
+            try {
+                const { data: users, error } = await supabase.from('dito_users').select('*');
+                if (users && !error) {
+                    const now = new Date();
+                    const sortedUsers = users.map(u => {
+                        const lastSeen = new Date(u.last_seen || 0);
+                        const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
+                        return { ...u, isOnline: diffMinutes < 10 };
+                    }).sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
+
+                    container.innerHTML = sortedUsers.map(u => {
+                        const isOnline = u.isOnline;
+                        const color = isOnline ? '#000' : '#ccc';
+                        return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-radius: 100px; border: 1px solid #f0f0f0; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;" onclick="app.viewPublicProfile('${u.username}')">
+                                    <div style="position: relative;">
+                                        <div style="width: 44px; height: 44px; border-radius: 50%; background: #f5f5f5; overflow: hidden; border: 1px solid #eee;">
+                                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="padding: 14px; color: #ccc;">👤</div>`}
+                                        </div>
+                                        ${isOnline ? `<div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid #fff;"></div>` : ''}
+                                    </div>
+                                    <div>
+                                        <p style="font-weight: 900; font-size: 14px; color: ${color};">${u.name || u.username}</p>
+                                        <p style="font-size: 8px; font-weight: 800; color: #bbb; text-transform: uppercase;">${isOnline ? 'Ativo na Pro' : 'Offline'}</p>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="app.showNotification('Em breve: Chat com ${u.username}')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #f8f8f8; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"></path></svg></button>
+                                    <button onclick="app.showNotification('Redirecionando para envio de Moedas...')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #ff005c; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                console.error(e);
             }
         },
 
@@ -285,19 +337,13 @@
                     author: product.author,
                     seller: product.seller,
                     visible: product.visible,
+                    sales_link: product.sales_link || "",
                     content: JSON.stringify(product.content || [])
                 }, { onConflict: 'id' });
                 if (error) console.error("❌ Erro Sync Produto:", error.message);
                 else console.log("☁️ Produto compartilhado na rede!");
             } catch (e) {}
         },
-
-        setMarketView(view) {
-            this.marketView = view;
-            this.renderStore();
-        },
-
-
 
         viewProduct(id) {
             const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -392,22 +438,138 @@
             list.after(rewardsSection);
             
             this.recalculateCheckoutTotal();
+            this.generateCheckoutQR();
             
             setTimeout(() => {
                 if (window.lucide) lucide.createIcons();
             }, 50);
         },
 
+        generateCheckoutQR() {
+            const qrImg = document.getElementById('checkout-qr-code');
+            const qrLoading = document.getElementById('qr-loading');
+            const btnPayPal = document.getElementById('btn-paypal-direct');
+            const paymentText = document.getElementById('payment-text');
+            const copyText = document.getElementById('btn-copy-text');
+            
+            if (!qrImg) return;
+
+            // Determina o link baseado no método
+            let link = "";
+            
+            // Prioridade: Link do primeiro produto no carrinho -> Link Global -> Link Fake
+            const productWithLink = this.cart.find(p => p.sales_link);
+            const activePayPalLink = productWithLink ? productWithLink.sales_link : this.paypalLink;
+
+            if (this.paymentMethod === 'pix') {
+                link = "https://dito.app/pix-placeholder-" + Date.now();
+                paymentText.innerText = "Escaneie o QR Code acima para pagar via Pix e receber seu acesso imediato.";
+                copyText.innerText = "Copiar código Pix";
+                if (btnPayPal) btnPayPal.style.display = 'none';
+                const ppContainer = document.getElementById('paypal-button-container');
+                if (ppContainer) ppContainer.style.display = 'none';
+            } else {
+                // Se for PayPal (Cartão ou outro)
+                link = activePayPalLink; 
+                paymentText.innerText = "Use o botão do PayPal abaixo para pagar com cartão em até 12x.";
+                copyText.innerText = "Copiar link de pagamento";
+                if (btnPayPal) {
+                    btnPayPal.style.display = 'flex';
+                    btnPayPal.href = activePayPalLink;
+                }
+                
+                const total = this.cart.reduce((sum, p) => sum + p.price, 0);
+                const productId = productWithLink ? productWithLink.id : 'global';
+                const ppContainer = document.getElementById('paypal-button-container');
+                if (ppContainer) {
+                    ppContainer.style.display = 'block';
+                    ppContainer.innerHTML = ''; // Clear previous button
+                    this.initPayPalOfficialButton(total.toFixed(2), productId);
+                }
+            }
+
+            // Gera o QR Code usando API pública (QRServer)
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(link)}`;
+            
+            qrImg.src = qrUrl;
+            qrImg.onload = () => {
+                if (qrLoading) qrLoading.style.display = 'none';
+                qrImg.style.display = 'block';
+            };
+        },
+        initPayPalOfficialButton(amount, productId) {
+            if (typeof paypal === 'undefined') {
+                console.error("PayPal SDK not loaded");
+                return;
+            }
+            paypal.Buttons({
+                createOrder: (data, actions) => {
+                    return actions.order.create({
+                        purchase_units: [{
+                            amount: { value: amount }
+                        }]
+                    });
+                },
+                onApprove: (data, actions) => {
+                    return actions.order.capture().then(details => {
+                        this.unlockPurchasedProducts(productId);
+                    });
+                }
+            }).render('#paypal-button-container');
+        },
+
+        async unlockPurchasedProducts(productId) {
+            this.showNotification("Pagamento confirmado! Liberando produto...", "success");
+            
+            // Simulação local + Supabase se logado
+            const product = this.products.find(p => p.id === productId) || { name: 'Produto Dito', id: productId };
+            
+            if (this.currentUser && supabase) {
+                const { error } = await supabase.from('purchases').insert([{
+                    user_id: this.currentUser.id,
+                    product_id: productId,
+                    amount: product.price || 0
+                }]);
+                
+                if (error) console.error("Erro ao registrar compra no Supabase:", error);
+            }
+
+            // Adiciona localmente para feedback imediato
+            this.purchasedProducts.push(product);
+            this.safeLocalStorageSet('dito_purchased_products', JSON.stringify(this.purchasedProducts));
+            
+            setTimeout(() => {
+                this.navigate('meus-cursos');
+                this.showNotification("Produto liberado! Acesse agora.", "success");
+            }, 1500);
+        },
+
+        copyPaymentCode() {
+            const link = (this.paymentMethod === 'pix') ? "00020126360014BR.GOV.BCB.PIX0114+5511999999999..." : this.paypalLink;
+            navigator.clipboard.writeText(link).then(() => {
+                this.showNotification("Copiado com sucesso!", "success");
+            });
+        },
+
         selectPayment(method, btn) {
-            this.selectedPaymentMethod = method;
+            this.paymentMethod = method;
             document.querySelectorAll('.payment-opt').forEach(opt => {
                 opt.style.borderColor = '#eee';
                 opt.style.background = '#fff';
             });
             btn.style.borderColor = '#ee4d2d';
             
-            document.getElementById('pix-details').style.display = (method === 'pix') ? 'block' : 'none';
-            document.getElementById('card-details').style.display = (method === 'card') ? 'flex' : 'none';
+            // Recarrega o QR Code para o novo método
+            const qrImg = document.getElementById('checkout-qr-code');
+            const qrLoading = document.getElementById('qr-loading');
+            if (qrImg) qrImg.style.display = 'none';
+            if (qrLoading) qrLoading.style.display = 'flex';
+            
+            this.generateCheckoutQR();
+            
+            // Antigo Pix details não existe mais, agora é centralizado
+            const cardDetails = document.getElementById('card-details');
+            if (cardDetails) cardDetails.style.display = (method === 'card') ? 'flex' : 'none';
         },
 
         copyPix() {
@@ -916,7 +1078,7 @@
             this.showHallDot = currentMembers > lastMembers;
         },
 
-        navigate(view) { 
+        navigate(view, direction = null) { 
             try {
                 console.log("Navegando para:", view);
                 this.currentView = view;
@@ -925,6 +1087,17 @@
                 if (!isLoggedIn && view !== 'login' && view !== 'cadastro') {
                     view = 'login';
                     this.currentView = 'login';
+                }
+
+                // Efeito de Transição de Página (Arraste)
+                const appContainer = document.getElementById('app');
+                if (direction && appContainer) {
+                    appContainer.classList.remove('view-sliding-right', 'view-sliding-left');
+                    // Força reflow para reiniciar animação
+                    void appContainer.offsetWidth; 
+                    
+                    if (direction === 'right') appContainer.classList.add('view-sliding-right');
+                    else if (direction === 'left') appContainer.classList.add('view-sliding-left');
                 }
 
                 // Force background for Market
@@ -941,7 +1114,6 @@
                 }
 
                 // Renderiza o template básico
-                const appContainer = document.getElementById('app');
                 const template = document.getElementById(`template-${view}`);
                 if (template) {
                     appContainer.innerHTML = template.innerHTML;
@@ -964,7 +1136,7 @@
                     case 'meus-cursos': this.renderPurchasedProducts(); break;
                     case 'curso-player': this.renderCoursePlayer(); break;
                 }
-                
+
                 // Atualiza Barra de Navegação Global e Header
                 const nav = document.getElementById('global-nav');
                 const header = document.getElementById('global-header');
@@ -1045,6 +1217,20 @@
             } catch (err) {
                 console.error("Erro Crítico na Navegação:", err);
             }
+        },
+
+        setMarketView(view, direction) {
+            if (direction) {
+                const appContainer = document.getElementById('app');
+                if (appContainer) {
+                    appContainer.classList.remove('view-sliding-right', 'view-sliding-left');
+                    void appContainer.offsetWidth;
+                    if (direction === 'right') appContainer.classList.add('view-sliding-right');
+                    else if (direction === 'left') appContainer.classList.add('view-sliding-left');
+                }
+            }
+            this.marketView = view;
+            this.renderStore();
         },
 
         renderSocieties() {
@@ -1513,13 +1699,14 @@
                 // Salva Localmente
                 localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
                 
-                // Atualiza DB de usuários local
+                // Garante que o usuário global também tenha os dados atualizados
                 const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
                 const idx = usuarios.findIndex(u => u.username === this.currentUser.username);
                 if (idx !== -1) {
                     usuarios[idx] = { ...usuarios[idx], ...this.currentUser };
                     localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
                     localStorage.setItem('dito_usuarios', JSON.stringify(usuarios));
+                    localStorage.setItem('dito_network_users', JSON.stringify(usuarios));
                 }
 
                 // Sincroniza com o Supabase
@@ -1528,10 +1715,15 @@
                 // Remove notificação de salvando
                 notif.remove();
 
-                // Volta para o modo de exibição e atualiza a UI
+                // Volta para o modo de exibição e atualiza a UI em todos os lugares
                 this.toggleProfileEdit(false);
                 this.renderProfile();
-                this.showNotification('Perfil atualizado!', 'success');
+                this.updateBalanceUI(); // Atualiza Saudação no Dashboard
+                
+                // Se estiver no Hall da Fama ou Mercado, força re-renderização se necessário
+                if (this.currentView === 'hall') this.renderHallOfFame();
+                
+                this.showNotification('Perfil atualizado em toda a rede!', 'success');
             }, 1000);
         },
 
@@ -1727,10 +1919,17 @@
                             allUsers[uIdx].avatar = avatarData;
                             localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
                             localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                            localStorage.setItem('dito_network_users', JSON.stringify(allUsers));
                         }
 
                         // Sincroniza com o Supabase
                         await this.syncUserToNetwork(this.currentUser);
+                        
+                        // Atualiza UI Imediatamente
+                        this.renderProfile();
+                        this.updateBalanceUI();
+                        if (this.currentView === 'hall') this.renderHallOfFame();
+                        
                         this.showNotification('Avatar atualizado e salvo na nuvem!', 'success');
                     }
                 };
@@ -1752,10 +1951,14 @@
                         allUsers[uIdx].avatar = "";
                         localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
                         localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
+                        localStorage.setItem('dito_network_users', JSON.stringify(allUsers));
                     }
                     
                     await this.syncUserToNetwork(this.currentUser);
                     this.renderProfile();
+                    this.updateBalanceUI();
+                    if (this.currentView === 'hall') this.renderHallOfFame();
+                    
                     this.showNotification('Foto removida com sucesso!', 'success');
                 }
             }
@@ -1942,6 +2145,7 @@
             const desc = document.getElementById('prod-desc')?.value.trim() || "";
             const price = parseFloat(document.getElementById('prod-price').value) || 0;
             const visible = document.getElementById('prod-visible').checked;
+            const salesLink = document.getElementById('prod-sales-link')?.value.trim() || "";
 
             if (!this.selectedProductType) {
                 this.showNotification("Selecione um tipo de produto.", "error");
@@ -1973,6 +2177,7 @@
                     image: this.selectedProductImage || null,
                     author: this.currentUser?.username || "Você",
                     seller: this.currentUser?.username || "Você",
+                    sales_link: salesLink,
                     createdAt: Date.now(),
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };

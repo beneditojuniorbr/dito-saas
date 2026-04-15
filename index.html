@@ -151,7 +151,7 @@
     <template id="template-produtos">
         <div style="padding: 24px; padding-bottom: 120px;">
             <header style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
-                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px;">Meus produtos</h2>
@@ -220,7 +220,7 @@
 
     <template id="template-cadastro">
         <div class="login-screen animate-fade" style="align-items: center; text-align: center;">
-            <div onclick="app.navigate('login')" style="position: absolute; top: 40px; left: 24px; cursor: pointer; color: #ccc;">
+            <div onclick="app.navigate('login', 'left')" style="position: absolute; top: 40px; left: 24px; cursor: pointer; color: #ccc;">
                 <i data-lucide="arrow-left" style="width: 24px;"></i>
             </div>
             <div class="login-header">
@@ -273,7 +273,7 @@
             <!-- Quick Actions Scroll -->
             <section class="hide-scrollbar" style="display: flex; gap: 32px; overflow-x: auto; padding: 10px 24px 30px; margin-bottom: 24px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scroll-padding-left: 24px;">
                 <!-- ... Botões de ação rápida ... -->
-                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center; position: relative;" onclick="app.navigate('criar-produto'); app.initCreateProduct();">
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center; position: relative;" onclick="app.navigate('criar-produto', 'right'); app.initCreateProduct();">
                     <div id="create-product-dot" style="position: absolute; top: 0; right: 8px; width: 12px; height: 12px; background: #ffd600; border-radius: 50%; border: 2px solid #fff; z-index: 10; display: none;"></div>
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="plus" style="width: 22px;"></i>
@@ -281,35 +281,35 @@
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Criar produto</span>
                 </div>
 
-                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('vendas')">
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('vendas', 'right')">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="trending-up" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Vendas</span>
                 </div>
 
-                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links')">
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links', 'right')">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="link" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Links</span>
                 </div>
 
-                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('produtos')">
+                <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('produtos', 'right')">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="package" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Meus produtos</span>
                 </div>
 
-                <div onclick="app.navigate('meus-cursos')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
+                <div onclick="app.navigate('meus-cursos', 'right')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="shopping-bag" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Minhas compras</span>
                 </div>
 
-                <div onclick="app.navigate('hall')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
+                <div onclick="app.navigate('hall', 'right')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative;">
                         <i data-lucide="star" style="width: 22px;"></i>
                         <span id="dot-hall" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
@@ -405,7 +405,7 @@
     <template id="template-mercado-produto">
         <div style="background: #fff; padding-bottom: 120px;" class="animate-fade">
             <div style="position: relative; height: 380px; background: linear-gradient(135deg, #fdfdfd 0%, #f5f5f5 100%); display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                <button onclick="app.setMarketView('home')" style="position: absolute; top: 20px; left: 24px; width: 44px; height: 44px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer; z-index: 10;">
+                <button onclick="app.setMarketView('home', 'left')" style="position: absolute; top: 20px; left: 24px; width: 44px; height: 44px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer; z-index: 10;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </button>
                 <div style="width: 140px; height: 140px; background: #fff; border-radius: 40px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px rgba(0,0,0,0.03);">
@@ -430,7 +430,7 @@
     <template id="template-mercado-carrinho">
         <div style="min-height: 100vh; background: #fff;" class="animate-fade">
             <header style="display: flex; align-items: center; justify-content: space-between; padding: 24px; background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); color: #fff; border-radius: 0 0 32px 32px; margin-bottom: 32px;">
-                <div onclick="app.setMarketView('home')" style="width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.setMarketView('home', 'left')" style="width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 <h2 style="font-size: 20px; font-weight: 900; letter-spacing: -1px;">Minha Sacola</h2>
@@ -475,7 +475,7 @@
 
     <template id="template-mercado-home">
         <div class="bg-mercado-premium" style="padding: 24px; padding-bottom: 120px; min-height: 100vh;">
-            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #fff; cursor: pointer; margin-bottom: 24px;">
+            <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #fff; cursor: pointer; margin-bottom: 24px;">
                 <i data-lucide="arrow-left" style="width: 20px;"></i>
             </div>
             <header style="margin-bottom: 32px; text-align: center;">
@@ -516,7 +516,7 @@
         <div style="padding: 12px; padding-bottom: 80px; background: #fff; min-height: 100vh; overflow-x: hidden;">
             <!-- Simple Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div onclick="app.navigate('dashboard')" class="clickable" style="width: 36px; height: 36px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <div onclick="app.navigate('dashboard', 'left')" class="clickable" style="width: 36px; height: 36px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                     <i data-lucide="arrow-left" style="width: 16px;"></i>
                 </div>
             </div>
@@ -570,7 +570,7 @@
     
     <template id="template-links">
         <div style="padding: 24px;">
-            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 24px; transition: 0.3s;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
+            <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 24px; transition: 0.3s;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
                 <i data-lucide="arrow-left" style="width: 24px;"></i>
             </div>
             <div style="padding: 40px 24px; text-align: center;">
@@ -581,7 +581,7 @@
     
     <template id="template-sacar">
         <div style="padding: 24px;">
-            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 32px;">
+            <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 32px;">
                 <i data-lucide="arrow-left" style="width: 24px;"></i>
             </div>
             
@@ -601,7 +601,7 @@
 
     <template id="template-criar-produto">
         <div style="padding: 24px;">
-            <div onclick="app.navigate('dashboard')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 32px; transition: 0.3s;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
+            <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 32px; transition: 0.3s;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
                 <i data-lucide="arrow-left" style="width: 24px;"></i>
             </div>
 
@@ -656,26 +656,34 @@
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Nome do produto:</label>
-                        <input type="text" id="prod-name" placeholder="Ex: Método Pro 2.0" style="width: 100%; padding: 18px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none;">
+                        <input type="text" id="prod-name" style="width: 100%; height: 60px; padding: 0 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
                     </div>
 
                     <div>
-                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Descrição:</label>
-                        <textarea id="prod-desc" placeholder="O que seu cliente vai aprender?" style="width: 100%; height: 100px; padding: 18px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 700; font-size: 13px; outline: none; resize: none;"></textarea>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Descrição do produto:</label>
+                        <textarea id="prod-desc" oninput="this.style.height = '60px'; this.style.height = this.scrollHeight + 'px'" style="width: 100%; min-height: 60px; height: 60px; padding: 18px 30px; background: #fafafa; border: 1px solid #eee; border-radius: 30px; font-weight: 700; font-size: 14px; outline: none; transition: 0.2s; resize: none; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01); display: flex; align-items: center;"></textarea>
                     </div>
 
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Preço sugerido:</label>
-                        <div style="position: relative;">
-                            <span style="position: absolute; left: 24px; top: 50%; transform: translateY(-50%); font-weight: 900; font-size: 14px; color: #000;">R$</span>
-                            <input type="number" id="prod-price" placeholder="0,00" oninput="app.calculateNetProfit(this.value)" style="width: 100%; padding: 18px 24px 18px 54px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 900; font-size: 18px; outline: none;">
+                        <div style="position: relative; height: 60px;">
+                            <span style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); font-weight: 900; font-size: 14px; color: #000;">R$</span>
+                            <input type="number" id="prod-price" style="width: 100%; height: 60px; padding: 0 24px 0 60px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 900; font-size: 14px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
                         </div>
                         <div id="profit-calc-label" style="margin-top: 12px; margin-left: 12px; font-size: 14px; font-weight: 900; color: #22c55e;">
                             Você receberá: R$ 0,00
                         </div>
-                        <p style="font-size: 9px; font-weight: 700; color: #ff005c; margin-top: 12px; margin-left: 12px; line-height: 1.4;">
+                        <p style="font-size: 9px; font-weight: 700; color: #999; margin-top: 12px; margin-left: 12px; line-height: 1.4; opacity: 0.8;">
                             * O App Dito poderá ajustar o preço final diminuindo ou aumentando com base no programa de Moedas Dito.
                         </p>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Link do Criador desse trabalho:</label>
+                        <div style="position: relative; height: 60px;">
+                            <i data-lucide="link-2" style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); width: 18px; color: #ccc;"></i>
+                            <input type="url" id="prod-sales-link" style="width: 100%; height: 60px; padding: 0 24px 0 60px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
+                        </div>
                     </div>
 
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
@@ -690,7 +698,7 @@
                 
                 <div id="ebook-upload" style="display: none; padding-bottom: 16px;">
                     <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px; letter-spacing: -0.2px;">Conteúdo do ebook: (PDF)</label>
-                    <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff; transition: 0.3s;" onmouseover="this.style.borderColor='#000'">
+                    <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 40px; text-align: center; background: #fff; transition: 0.3s;" onmouseover="this.style.borderColor='#000'">
                         <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; transition: 0.3s;">
                             <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
                         </div>
@@ -701,7 +709,6 @@
                     <span id="ebook-filename" class="file-name-display" style="display: block; margin-top: 12px; text-align: center; font-size: 11px; font-weight: 800; color: #22c55e;"></span>
                 </div>
 
-                <!-- Gerenciador de Módulos e Aulas (Apenas para Curso) -->
                 <div id="curso-upload" style="display: none; flex-direction: column; gap: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                         <label style="font-size: 11px; font-weight: 800; color: #666; margin-left: 12px;">Grade Curricular:</label>
@@ -711,10 +718,9 @@
                     </div>
                     
                     <div id="course-modules-list" style="display: flex; flex-direction: column; gap: 20px;">
-                        <!-- Módulos serão injetados aqui -->
                     </div>
 
-                    <div id="no-modules-msg" style="text-align: center; padding: 32px; background: #fafafa; border: 2px dashed #eee; border-radius: 24px;">
+                    <div id="no-modules-msg" style="text-align: center; padding: 32px; background: #fafafa; border: 2px dashed #eee; border-radius: 40px;">
                         <i data-lucide="layout" style="width: 32px; color: #ccc; margin-bottom: 12px;"></i>
                         <p style="font-size: 11px; font-weight: 800; color: #999;">Crie módulos para organizar suas aulas.</p>
                     </div>
@@ -723,7 +729,7 @@
                 <div id="mentoria-fields" style="display: none; display: flex; flex-direction: column; gap: 24px;">
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Material de apoio: (Opcional)</label>
-                        <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 28px; text-align: center; background: #fff;">
+                        <div style="position: relative; width: 100%; padding: 40px; border: 2px dashed #ddd; border-radius: 40px; text-align: center; background: #fff;">
                             <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                                 <i data-lucide="upload-cloud" style="width: 28px; color: #ccc;"></i>
                             </div>
@@ -735,16 +741,16 @@
                     
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Data de início da mentoria:</label>
-                        <input type="date" id="prod-date" style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
+                        <input type="date" id="prod-date" style="width: 100%; padding: 20px 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none;">
                     </div>
 
                     <div id="mentoria-link">
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 12px; margin-left: 12px;">Link das sessões: (Zoom, Meet, etc)</label>
-                        <input type="url" id="prod-link" placeholder="https://..." style="width: 100%; padding: 20px 24px; background: #fafafa; border: 1px solid #eee; border-radius: 20px; font-weight: 800; font-size: 14px; outline: none;">
+                        <input type="url" id="prod-link" placeholder="https://..." style="width: 100%; padding: 20px 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none;">
                     </div>
                 </div>
                 <div style="display: flex; gap: 16px; margin-top: 40px;">
-                    <button onclick="app.saveProduct()" class="btn-enviar-produto" style="flex: 2; height: 60px; background: #000; color: #fff; border: none; border-radius: 30px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: 0.2s active, 0.3s transform;">Enviar</button>
+                    <button onclick="app.saveProduct()" class="btn-enviar-produto" style="flex: 2; height: 60px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: 0.2s active, 0.3s transform;">Enviar</button>
                 </div>
             </div>
         </div>
@@ -793,14 +799,33 @@
                 </div>
             </div>
 
-            <!-- Pix Details -->
-            <div id="pix-details" style="display: block; text-align: center;">
-                <div style="width: 200px; height: 200px; background: #f8f8f8; border-radius: 20px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #eee;">
-                    <i data-lucide="qr-code" style="width: 100px; height: 100px; opacity: 1; color: #333;"></i>
+            <!-- Payment Details (Pix or Stripe) -->
+            <div id="payment-details-container" style="display: block; text-align: center;">
+                <div id="qr-container" style="width: 240px; height: 240px; background: #fff; border-radius: 32px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #f0f0f0; box-shadow: 0 10px 40px rgba(0,0,0,0.03); overflow: hidden; position: relative;">
+                    <!-- QR Code será injetado aqui via JS -->
+                    <div id="qr-loading" style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <div class="loading-spinner"></div>
+                        <p style="font-size: 8px; font-weight: 900; color: #ccc; text-transform: uppercase;">Gerando QR Code...</p>
+                    </div>
+                    <img id="checkout-qr-code" style="width: 200px; height: 200px; display: none;">
                 </div>
-                <button onclick="app.copyPix()" style="width: 100%; height: 50px; background: #f5f5f5; border: none; border-radius: 12px; font-weight: 800; font-size: 12px; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i data-lucide="copy" style="width: 16px;"></i> Copiar código Pix
-                </button>
+                
+                <div id="payment-instructions" style="margin-bottom: 24px; padding: 0 20px;">
+                    <p style="font-size: 11px; font-weight: 800; color: #ccc; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Instruções</p>
+                    <p id="payment-text" style="font-size: 13px; font-weight: 700; color: #666; line-height: 1.4;">Escaneie o QR Code acima para Pix ou use o botão do PayPal abaixo para cartão.</p>
+                </div>
+
+                <div id="paypal-button-container" style="margin-bottom: 24px; display: none;"></div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button id="btn-copy-payment" onclick="app.copyPaymentCode()" style="width: 100%; height: 56px; background: #f9f9f9; border: none; border-radius: 16px; font-weight: 900; font-size: 12px; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <i data-lucide="copy" style="width: 18px;"></i> <span id="btn-copy-text">Copiar link de pagamento</span>
+                    </button>
+                    
+                    <a id="btn-paypal-direct" href="#" target="_blank" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 12px; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 10px; text-decoration: none;">
+                        <i data-lucide="external-link" style="width: 18px;"></i> Pagar no site oficial
+                    </a>
+                </div>
             </div>
 
             <!-- Card Details -->
@@ -819,7 +844,7 @@
     <template id="template-meus-cursos">
         <div style="padding: 24px; padding-bottom: 120px;">
             <header style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
-                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px;">Minhas compras</h2>
@@ -1072,7 +1097,7 @@
     <template id="template-perfil-publico">
         <div style="min-height: 100vh; background: #fff; padding-bottom: 100px;">
             <header style="padding: 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 100;">
-                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 <h3 id="public-username-header" style="font-weight: 900; font-size: 14px; letter-spacing: -0.5px;">username</h3>
@@ -1124,62 +1149,15 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=AWfoxAPMJjl08COTGAE8evpaW_A-ADz1oLDrHjXuoBnmCa1SFnGlpYFnG5II2dKe-cQkZ2Ht_dRO64jG&currency=BRL"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
-    <style>
-        .friends-drawer {
-            position: fixed;
-            bottom: -100%;
-            left: 0;
-            width: 100%;
-            background: #fff;
-            border-radius: 0; /* Totalmente quadrada */
-            box-shadow: 0 -20px 40px rgba(0,0,0,0.1);
-            transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 2000;
-            padding: 24px;
-            max-height: 85vh;
-            overflow-y: auto;
-            border-top: 5px solid;
-            border-image: linear-gradient(to right, #ff005c, #0487ff) 1;
-        }
-        .friends-drawer.active { bottom: 0; }
-        .drawer-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(4px);
-            display: none;
-            z-index: 1999;
-        }
-        .btn-enviar-produto:active {
-            transform: scale(0.95);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
 
-        .center-notification {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            color: #fff;
-            padding: 20px 40px;
-            border-radius: 20px;
-            font-weight: 900;
-            z-index: 10000;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-            animation: fadeInOut 3s forwards;
-        }
-
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translate(-50%, -40%); }
-            15% { opacity: 1; transform: translate(-50%, -50%); }
-            85% { opacity: 1; transform: translate(-50%, -50%); }
-            100% { opacity: 0; transform: translate(-50%, -60%); }
-        }
-    </style>
+    <div id="modal-container" class="modal-overlay" onclick="app.closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div id="modal-body"></div>
+        </div>
+    </div>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeFriendsDrawer()"></div>
     <div id="friends-drawer" class="friends-drawer">
@@ -1189,70 +1167,17 @@
         </div>
         <div id="friends-list-content"></div>
     </div>
-
+    
     <script>
         function closeFriendsDrawer() {
             document.getElementById('friends-drawer').classList.remove('active');
             document.getElementById('drawer-overlay').style.display = 'none';
         }
-
-        window.addEventListener('load', () => {
-            if (window.app) {
-                app.showOnlineFriends = async function() {
-                    const supabase = window.supabase?.createClient?.('https://heofezexvhgyaejltcvc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI');
-                    if (!supabase) return;
-                    
-                    document.getElementById('drawer-overlay').style.display = 'block';
-                    document.getElementById('friends-drawer').classList.add('active');
-                    const container = document.getElementById('friends-list-content');
-                    container.innerHTML = '<div style="padding: 40px; text-align: center; font-weight: 900; color: #ccc;">Conectando...</div>';
-
-                    try {
-                        const { data: users, error } = await supabase.from('dito_users').select('*');
-                        if (users && !error) {
-                            const now = new Date();
-                            const sortedUsers = users.map(u => {
-                                const lastSeen = new Date(u.last_seen || 0);
-                                const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
-                                return { ...u, isOnline: diffMinutes < 10 };
-                            }).sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
-
-                            container.innerHTML = sortedUsers.map(u => {
-                                const isOnline = u.isOnline;
-                                const color = isOnline ? '#000' : '#ccc';
-                                return `
-                                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-radius: 100px; border: 1px solid #f0f0f0; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-                                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;" onclick="app.viewPublicProfile('${u.username}')">
-                                            <div style="position: relative;">
-                                                <div style="width: 44px; height: 44px; border-radius: 50%; background: #f5f5f5; overflow: hidden; border: 1px solid #eee;">
-                                                    ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="padding: 14px; color: #ccc;">👤</div>`}
-                                                </div>
-                                                ${isOnline ? `<div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid #fff;"></div>` : ''}
-                                            </div>
-                                            <div>
-                                                <p style="font-weight: 900; font-size: 14px; color: ${color};">${u.name || u.username}</p>
-                                                <p style="font-size: 8px; font-weight: 800; color: #bbb; text-transform: uppercase;">${isOnline ? 'Ativo na Pro' : 'Offline'}</p>
-                                            </div>
-                                        </div>
-                                        <div style="display: flex; gap: 8px;">
-                                            <button onclick="app.showNotification('Em breve: Chat com ${u.username}')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #f8f8f8; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"></path></svg></button>
-                                            <button onclick="app.showNotification('Redirecionando para envio de Moedas...')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #ff005c; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
-                };
-            }
-        });
     </script>
     <template id="template-recompensas">
         <div style="padding: 24px; padding-bottom: 120px;" class="animate-fade">
             <header style="margin-bottom: 32px; display: flex; align-items: center; gap: 16px;">
-                <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 <h1 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Recompensas</h1>
@@ -1291,7 +1216,7 @@
         <div style="padding: 24px; padding-bottom: 120px;" class="animate-fade">
             <header style="margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <div onclick="app.navigate('dashboard')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i data-lucide="arrow-left" style="width: 20px;"></i>
                     </div>
                     <h1 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Minhas Vendas</h1>

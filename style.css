@@ -50,8 +50,8 @@ body {
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes slideInRight {
@@ -61,6 +61,25 @@ body {
 
 .animate-fade { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 .animate-slide { animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* Transições de Página Rápidas (Efeito Arraste) */
+.view-sliding-right {
+    animation: slideInRightFast 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.view-sliding-left {
+    animation: slideInLeftFast 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes slideInRightFast {
+    0% { transform: translateX(100%); opacity: 0.8; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInLeftFast {
+    0% { transform: translateX(-100%); opacity: 0.8; }
+    100% { transform: translateX(0); opacity: 1; }
+}
 
 .clickable {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -81,8 +100,8 @@ body {
 }
 
 @keyframes viewEnter {
-    from { opacity: 0; transform: scale(0.98) translateY(5px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 /* Animações Globais */
@@ -826,4 +845,54 @@ input[type=range].coin-slider::-webkit-slider-thumb {
     transform: translate(-50%, -50%) !important;
     bottom: auto !important;
     margin-bottom: 0 !important;
+}
+
+
+/* Modal & Drawer UI */
+.friends-drawer {
+    position: fixed;
+    bottom: -100%;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 0;
+    box-shadow: 0 -20px 40px rgba(0,0,0,0.1);
+    transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    z-index: 2000;
+    padding: 24px;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-top: 5px solid;
+    border-image: linear-gradient(to right, #ff005c, #0487ff) 1;
+}
+.friends-drawer.active { bottom: 0; }
+.drawer-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    display: none;
+    z-index: 1999;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    display: none;
+    z-index: 10000;
+    align-items: center; justify-content: center;
+    padding: 20px;
+}
+.modal-content {
+    background: #fff;
+    width: 100%; max-width: 400px;
+    border-radius: 32px;
+    padding: 32px;
+    animation: modalEnter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes modalEnter {
+    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
 }
