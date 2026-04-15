@@ -113,10 +113,14 @@
             return clean;
         },
 
-        // Limpa um perfil para exibição pública (remove tudo que é privado/pesado)
         cleanPublicProfile(user) {
             const clean = this.cleanProfile(user);
-            if (clean) delete clean.password;
+            if (clean) {
+                delete clean.password;
+                delete clean.withdrawPixKey;
+                delete clean.withdrawCardNumber;
+                delete clean.withdrawCardName;
+            }
             return clean;
         },
 
@@ -153,6 +157,10 @@
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
                 }, 10000);
+
+                // Inicia Notificações Realtime
+                this.initRealtimeNotifications();
+                this.fetchNotifications();
 
                 this.navigate('login');
                 if (window.lucide) lucide.createIcons();
@@ -279,9 +287,13 @@
                             this.currentUser = { ...this.currentUser, ...netUser };
                             this.currentUser.fans = parseInt(netUser.fans || 0);
                             this.currentUser.sales = parseFloat(netUser.sales || 0);
+                            this.currentUser.withdrawPixKey = netUser.withdrawPixKey || "";
+                            this.currentUser.withdrawCardNumber = netUser.withdrawCardNumber || "";
+                            this.currentUser.withdrawCardName = netUser.withdrawCardName || "";
                             
                             this.saveSession(this.currentUser);
                             localStorage.setItem('dito_balance', netUser.balance || '0');
+                            localStorage.setItem(`user_balance_vanilla_${this.getUserKey()}`, netUser.balance || '0');
                         }
                     });
 
@@ -332,7 +344,10 @@
                     link: user.link || "",
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || []),
-                    last_seen: new Date().toISOString()
+                    last_seen: new Date().toISOString(),
+                    withdrawPixKey: user.withdrawPixKey || "",
+                    withdrawCardNumber: user.withdrawCardNumber || "",
+                    withdrawCardName: user.withdrawCardName || ""
                 };
                 
                 const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
@@ -572,38 +587,80 @@
         },
 
         async unlockPurchasedProducts(productId) {
-            this.showNotification("Pagamento confirmado! Liberando produto...", "success");
+            this.showNotification("Compra confirmada!", "success");
             
             const productsToUnlock = productId ? [this.products.find(p => p.id === productId) || { name: 'Produto Dito', id: productId }] : this.cart;
-            const key = this.getUserKey();
+            const buyerKey = this.getUserKey();
 
             for (let product of productsToUnlock) {
-                if (this.currentUser && supabase) {
-                    const { error } = await supabase.from('purchases').insert([{
-                        user_id: this.currentUser.id,
-                        product_id: product.id,
-                        amount: product.price || 0
-                    }]);
-                    if (error) console.error("Erro ao registrar compra no Supabase:", error);
-                }
-                
-                // Adiciona localmente
+                // 1. REGISTRA PARA O COMPRADOR
                 if (!this.purchasedProducts.find(p => p.id === product.id)) {
                     this.purchasedProducts.push(product);
                 }
+
+                // 2. CRÉDITO JUSTO PARA O VENDEDOR (REDE)
+                const sellerName = product.author || product.seller;
+                if (sellerName && sellerName !== 'Ditão' && sellerName !== 'Visitante') {
+                    console.log(`💰 [Financeiro] Creditando R$ ${product.price} para o vendedor: ${sellerName}`);
+                    await this.creditSeller(sellerName, product.price, product.name);
+                }
             }
 
-            this.safeLocalStorageSet(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
+            this.safeLocalStorageSet(`dito_purchased_products_${buyerKey}`, JSON.stringify(this.purchasedProducts));
             
             // Limpa o carrinho
             this.cart = [];
-            localStorage.setItem(`dito_cart_${key}`, '[]');
+            localStorage.setItem(`dito_cart_${buyerKey}`, '[]');
             this.updateCartBadge();
             
             setTimeout(() => {
                 this.navigate('meus-cursos');
-                this.showNotification("Acesso liberado! Bons estudos.", "success");
+                this.showNotification("Obrigado pela compra! Acesso liberado.", "success");
             }, 1000);
+        },
+
+        async creditSeller(sellerUsername, amount, productName) {
+            if (!supabase) return;
+            try {
+                // Busca o vendedor na rede
+                const { data: sellerData, error } = await supabase
+                    .from('dito_users')
+                    .select('*')
+                    .eq('username', sellerUsername)
+                    .maybeSingle();
+
+                if (sellerData && !error) {
+                    const newBalance = (parseFloat(sellerData.balance || 0) + parseFloat(amount)).toFixed(2);
+                    const newSalesTotal = (parseFloat(sellerData.sales || 0) + parseFloat(amount)).toFixed(2);
+                    
+                    // Adiciona ao histórico de vendas do vendedor (json column 'purchases' or similar)
+                    let history = [];
+                    try {
+                        history = sellerData.purchases ? (typeof sellerData.purchases === 'string' ? JSON.parse(sellerData.purchases) : sellerData.purchases) : [];
+                    } catch(e) {}
+                    
+                    history.push({
+                        item: productName,
+                        value: parseFloat(amount),
+                        timestamp: new Date().toISOString(),
+                        type: 'sale'
+                    });
+
+                    // Atualiza na Rede
+                    await supabase.from('dito_users').update({
+                        balance: newBalance,
+                        sales: newSalesTotal,
+                        purchases: JSON.stringify(history)
+                    }).eq('username', sellerUsername);
+
+                    console.log(`✅ [Financeiro] R$ ${amount} creditados com sucesso para ${sellerUsername}`);
+                    
+                    // ENVIA NOTIFICAÇÃO DE VENDA PARA O VENDEDOR
+                    this.sendNetworkNotification(sellerUsername, 'sale', 'Venda Realizada! 💰', `Você vendeu "${productName}" por R$ ${amount}.`);
+                }
+            } catch (e) {
+                console.error("❌ [Financeiro] Erro ao creditar vendedor:", e);
+            }
         },
 
         copyPaymentCode() {
@@ -2184,6 +2241,14 @@
             }
         },
 
+        calculateNetProfit(price) {
+            const label = document.getElementById('profit-calc-label');
+            const net = (parseFloat(price) * 0.97 || 0).toFixed(2);
+            if (label) {
+                label.innerText = `Receba até R$ ${parseFloat(net).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            }
+        },
+
         saveProduct() {
             const name = document.getElementById('prod-name').value.trim();
             const desc = document.getElementById('prod-desc')?.value.trim() || "";
@@ -2242,7 +2307,105 @@
         },
 
         updateWithdrawUI() {
-            // Em desenvolvimento
+            if (!this.currentUser) return;
+            const balanceEl = document.getElementById('withdraw-balance');
+            const pixInp = document.getElementById('withdraw-pix-key');
+            const cardNumInp = document.getElementById('withdraw-card-number');
+            const cardNameInp = document.getElementById('withdraw-card-name');
+
+            // Atualiza Saldo na Tela
+            const key = this.getUserKey();
+            const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
+            const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+            const salesTotal = realSales.reduce((acc, s) => acc + (s.value || 0), 0);
+            const total = baseBalance + salesTotal;
+
+            if (balanceEl) balanceEl.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            // Preenche dados salvos
+            if (pixInp) pixInp.value = this.currentUser.withdrawPixKey || '';
+            if (cardNumInp) cardNumInp.value = this.currentUser.withdrawCardNumber || '';
+            if (cardNameInp) cardNameInp.value = this.currentUser.withdrawCardName || '';
+        },
+
+        async saveWithdrawInfo() {
+            const btn = document.getElementById('btn-save-withdraw');
+            const pix = document.getElementById('withdraw-pix-key').value.trim();
+            const cardNum = document.getElementById('withdraw-card-number').value.trim();
+            const cardName = document.getElementById('withdraw-card-name').value.trim();
+
+            if (!pix && !cardNum) {
+                this.showNotification('Preencha ao menos uma forma de recebimento.', 'error');
+                return;
+            }
+
+            if (btn) {
+                btn.innerText = 'CADASTRANDO...';
+                btn.style.opacity = '0.7';
+                btn.disabled = true;
+            }
+
+            // Simula um tempo de rede para o feedback visual
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            this.currentUser.withdrawPixKey = pix;
+            this.currentUser.withdrawCardNumber = cardNum;
+            this.currentUser.withdrawCardName = cardName;
+
+            this.saveSession(this.currentUser);
+            await this.syncUserToNetwork(this.currentUser);
+            
+            if (btn) {
+                btn.innerText = 'DADOS SALVOS';
+                btn.style.background = '#22c55e';
+                btn.style.opacity = '1';
+                
+                setTimeout(() => {
+                    btn.innerText = 'SALVAR DADOS';
+                    btn.style.background = '#000';
+                    btn.disabled = false;
+                }, 2000);
+            }
+
+            this.showNotification('Dados de recebimento salvos com sucesso!', 'success');
+        },
+
+        handleWithdraw() {
+            const amountInp = document.getElementById('withdraw-amount');
+            const amount = parseFloat(amountInp.value) || 0;
+
+            const key = this.getUserKey();
+            const currentBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
+            
+            if (amount <= 0) {
+                this.showNotification('Digite um valor válido para saque.', 'error');
+                return;
+            }
+
+            if (amount > currentBalance) {
+                this.showNotification('Saldo insuficiente.', 'error');
+                return;
+            }
+
+            if (!this.currentUser.withdrawPixKey && !this.currentUser.withdrawCardNumber) {
+                this.showNotification('Cadastre seus dados de recebimento antes de sacar.', 'error');
+                return;
+            }
+
+            if (confirm(`Confirmar saque de R$ ${amount.toFixed(2)}?`)) {
+                // Deduz do saldo
+                const newBalance = currentBalance - amount;
+                localStorage.setItem(`user_balance_vanilla_${key}`, newBalance.toFixed(2));
+                
+                // Atualiza na Rede
+                this.currentUser.balance = newBalance;
+                this.syncUserToNetwork(this.currentUser);
+
+                this.showNotification('Solicitação de saque enviada! 🚀', 'success');
+                amountInp.value = '';
+                this.updateWithdrawUI();
+                this.updateBalanceUI();
+            }
         },
 
         registerUser() {
@@ -2815,7 +2978,7 @@
             }
         });
 
-        // Sincroniza com a REDE em tempo real
+        // NOTIFICAÇÕES EM TEMPO REAL
         if (supabase) {
             try {
                 const { error } = await supabase
@@ -2825,6 +2988,12 @@
                 
                 if (!error) {
                     console.log(`👥 [RealTime] Fãs de ${username} atualizados para ${current}`);
+                    
+                    // ENVIA NOTIFICAÇÃO PARA O ALVO
+                    if (current > 0) {
+                        this.sendNetworkNotification(username, 'fan', 'Novo Fã! ✨', `${this.currentUser.username} começou a ser seu fã.`);
+                    }
+
                     this.fetchNetworkUsers(); 
                 }
             } catch (e) {
@@ -2944,6 +3113,158 @@
             results.innerHTML = `<div style="padding:16px; color:#999; text-align:center;">Nenhum produto.</div>`;
             results.style.display = 'block';
         }
+    };
+
+
+    // ==========================================
+    // 🔔 SISTEMA DE NOTIFICAÇÕES (NET)
+    // ==========================================
+
+    app.toggleNotifDrawer = function(show) {
+        const drawer = document.getElementById('notif-drawer');
+        const overlay = document.getElementById('notif-overlay');
+        if (drawer && overlay) {
+            overlay.style.display = show ? 'block' : 'none';
+            drawer.style.right = show ? '0' : '-100%';
+            if (show) this.markNotificationsAsRead();
+        }
+    };
+
+    app.sendNetworkNotification = async function(targetUsername, type, title, message) {
+        if (!supabase) return;
+        try {
+            await supabase.from('dito_notifications').insert([{
+                target_username: targetUsername,
+                type: type,
+                title: title,
+                message: message,
+                sender: this.currentUser?.username || 'Sistema',
+                read: false
+            }]);
+        } catch (e) { console.warn("Erro ao enviar notif:", e); }
+    };
+
+    app.fetchNotifications = async function() {
+        if (!supabase || !this.currentUser) return;
+        try {
+            const { data, error } = await supabase
+                .from('dito_notifications')
+                .select('*')
+                .eq('target_username', this.currentUser.username)
+                .order('created_at', { ascending: false })
+                .limit(20);
+            
+            if (data && !error) {
+                this.notifications = data || [];
+                this.renderNotifications();
+                this.updateNotifBadge();
+            }
+        } catch (e) { console.warn("Erro ao buscar notif:", e); }
+    };
+
+    app.initRealtimeNotifications = function() {
+        if (!supabase || !this.currentUser) return;
+
+        // Escuta novas notificações para MEU usuário
+        supabase
+            .channel('realtime_notifs')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'dito_notifications',
+                filter: `target_username=eq.${this.currentUser.username}` 
+            }, (payload) => {
+                console.log('🔔 Nova notificação em tempo real:', payload.new);
+                if (!this.notifications) this.notifications = [];
+                this.notifications.unshift(payload.new);
+                this.renderNotifications();
+                this.updateNotifBadge(true);
+                this.playNotifSound();
+            })
+            .subscribe();
+    };
+
+    app.renderNotifications = function() {
+        const container = document.getElementById('notif-list-content');
+        if (!container) return;
+
+        const list = this.notifications || [];
+
+        if (list.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; color: #ccc;">
+                    <i data-lucide="bell-off" style="width: 32px; margin-bottom: 12px; opacity: 0.3;"></i>
+                    <p style="font-size: 11px; font-weight: 800;">Silêncio por aqui...</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = list.map(n => {
+                let icon = 'bell';
+                let color = '#000';
+                if (n.type === 'sale') { icon = 'shopping-bag'; color = '#22c55e'; }
+                if (n.type === 'fan') { icon = 'star'; color = '#ff005c'; }
+                
+                return `
+                    <div style="padding: 16px; background: ${n.read ? '#fff' : '#fafafa'}; border-radius: 20px; border: 1px solid ${n.read ? '#eee' : '#f0f0f0'}; display: flex; gap: 14px; position: relative; transition: 0.3s;">
+                        ${!n.read ? `<div style="position: absolute; top: 12px; right: 12px; width: 6px; height: 6px; background: #ff005c; border-radius: 50%;"></div>` : ''}
+                        <div style="width: 44px; height: 44px; background: ${color}10; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="${icon}" style="width: 20px; color: ${color};"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-size: 13px; font-weight: 900; color: #000; margin-bottom: 2px;">${n.title}</h4>
+                            <p style="font-size: 11px; font-weight: 500; color: #666; line-height: 1.4;">${n.message}</p>
+                            <span style="font-size: 8px; font-weight: 800; color: #bbb; text-transform: uppercase; margin-top: 6px; display: block;">${new Date(n.created_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        if (window.lucide) lucide.createIcons();
+    };
+
+    app.updateNotifBadge = function(animate = false) {
+        const badge = document.getElementById('notif-badge');
+        const list = this.notifications || [];
+        const unreadCount = list.filter(n => !n.read).length;
+        
+        if (badge) {
+            badge.style.display = unreadCount > 0 ? 'block' : 'none';
+            if (animate && unreadCount > 0) {
+                const btn = document.getElementById('header-notif-btn');
+                if (btn) {
+                    btn.style.transform = 'scale(1.2) rotate(15deg)';
+                    setTimeout(() => btn.style.transform = 'scale(1) rotate(0deg)', 300);
+                }
+            }
+        }
+    };
+
+    app.markNotificationsAsRead = async function() {
+        if (!supabase || !this.currentUser || !this.notifications) return;
+        const unreadIds = this.notifications.filter(n => !n.read).map(n => n.id);
+        if (unreadIds.length === 0) return;
+
+        try {
+            await supabase.from('dito_notifications').update({ read: true }).in('id', unreadIds);
+            this.notifications.forEach(n => n.read = true);
+            this.updateNotifBadge();
+        } catch (e) { console.warn(e); }
+    };
+
+    app.clearNotifications = async function() {
+        if (!supabase || !this.currentUser) return;
+        if (confirm('Deseja limpar todo o histórico de notificações?')) {
+            try {
+                await supabase.from('dito_notifications').delete().eq('target_username', this.currentUser.username);
+                this.notifications = [];
+                this.renderNotifications();
+                this.updateNotifBadge();
+            } catch (e) { console.warn(e); }
+        }
+    };
+
+    app.playNotifSound = function() {
+        if (navigator.vibrate) navigator.vibrate(100);
     };
 
     window.app = app;
