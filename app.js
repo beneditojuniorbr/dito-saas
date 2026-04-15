@@ -289,12 +289,30 @@
                     this.safeLocalStorageSet('dito_usuarios', JSON.stringify(localProfiles));
                     
                     // Re-render Hall of Fame se estiver na tela dele
-                    if (this.currentView === 'hall') this.renderHallFame();
+                    if (this.currentView === 'hall') this.renderHallOfFame();
                     
                     console.log("✅ [Network] Sincronização global concluída!");
                 }
             } catch (e) {
                 console.warn("⚠️ [Network] Erro na conexão:", e);
+            }
+        },
+
+        safeLocalStorageSet(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    console.warn("⚠️ [Storage] Memória cheia! Limpando cache de rede para liberar espaço...");
+                    // Limpa dados pesados de cache para priorizar os novos
+                    localStorage.removeItem('dito_network_users');
+                    localStorage.removeItem('dito_usuarios');
+                    try {
+                        localStorage.setItem(key, value);
+                    } catch (retryError) {
+                        console.error("❌ [Storage] Falha crítica de memória:", retryError);
+                    }
+                }
             }
         },
 
@@ -439,30 +457,29 @@
 
             const hasPurchased = localStorage.getItem('dito_purchased_products');
             const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
+            const userCoins = parseInt(localStorage.getItem('dito_coins') || '0');
             
+            // Injeta o Slider de Moedas DIRETAMENTE no resumo
             const rewardsSection = document.createElement('div');
-            rewardsSection.style.marginTop = '24px';
+            rewardsSection.style.borderTop = '1px solid #f0f0f0';
+            rewardsSection.style.marginTop = '16px';
+            rewardsSection.style.paddingTop = '16px';
             rewardsSection.innerHTML = `
                 ${isFirstPurchase ? `
-                <div style="background: rgba(34, 197, 94, 0.05); border: 1px dashed #22c55e; padding: 16px; border-radius: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-                    <i data-lucide="zap" style="width: 20px; color: #22c55e;"></i>
-                    <p style="font-size: 11px; font-weight: 900; color: #22c55e;">PRIMEIRA COMPRA: 75% OFF APLICADO!</p>
+                <div style="background: rgba(34, 197, 94, 0.05); border: 1px dashed #22c55e; padding: 12px; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="zap" style="width: 16px; color: #22c55e;"></i>
+                    <p style="font-size: 10px; font-weight: 900; color: #22c55e;">PRIMEIRA COMPRA: 75% OFF!</p>
                 </div>
                 ` : ''}
 
-                <div class="reward-card" style="padding: 20px; border: 1px solid #ffd600; background: rgba(255, 214, 0, 0.02); border-radius: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i>
-                            <span style="font-size: 13px; font-weight: 900;">Usar Moedas Dito</span>
-                        </div>
-                        <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span> moedas</span>
-                    </div>
-                    <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(parseInt(localStorage.getItem('dito_coins') || '0'), 100)}" value="0" oninput="app.applyCoinDiscount(this.value)">
-                    <p style="font-size: 10px; color: #ccc; margin-top: 12px; font-weight: 700;">1 moeda = 1% de desconto EXTRA</p>
+                <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Moedas Dito:</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span>% desconto</span>
                 </div>
+                <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
+                <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com moedas: 75%</p>
             `;
-            list.after(rewardsSection);
+            list.appendChild(rewardsSection);
             
             this.recalculateCheckoutTotal();
             this.generateCheckoutQR();
@@ -599,10 +616,13 @@
         selectPayment(method, btn) {
             this.paymentMethod = method;
             document.querySelectorAll('.payment-opt').forEach(opt => {
-                opt.style.borderColor = '#eee';
                 opt.style.background = '#fff';
+                opt.style.border = '2px solid #eee';
             });
-            btn.style.borderColor = '#ee4d2d';
+            
+            // Aplica borda em degradê premium usando background-clip
+            btn.style.background = 'linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
+            btn.style.border = '2px solid transparent';
             
             // Recarrega o QR Code para o novo método
             const qrImg = document.getElementById('checkout-qr-code');
@@ -1721,9 +1741,9 @@
                 const idx = usuarios.findIndex(u => u.username === this.currentUser.username);
                 if (idx !== -1) {
                     usuarios[idx] = { ...usuarios[idx], ...this.currentUser };
-                    localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(usuarios));
-                    localStorage.setItem('dito_usuarios', JSON.stringify(usuarios));
-                    localStorage.setItem('dito_network_users', JSON.stringify(usuarios));
+                    this.safeLocalStorageSet('dito_usuarios_vanilla', JSON.stringify(usuarios));
+                    this.safeLocalStorageSet('dito_usuarios', JSON.stringify(usuarios));
+                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(usuarios));
                 }
 
                 // Sincroniza com o Supabase
@@ -1928,14 +1948,14 @@
                     
                     if (this.currentUser) {
                         this.currentUser.avatar = avatarData;
-                        localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                        this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(this.currentUser));
                         
                         // Atualiza no Banco de Dados Local (Persistência pós-logout)
                         let localDB = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
                         let dbIdx = localDB.findIndex(u => u.username === this.currentUser.username);
                         if (dbIdx !== -1) {
                             localDB[dbIdx].avatar = avatarData;
-                            localStorage.setItem('dito_users_db', JSON.stringify(localDB));
+                            this.safeLocalStorageSet('dito_users_db', JSON.stringify(localDB));
                         }
 
                         // Garante que o usuário global também tenha o avatar atualizado nas outras listas
@@ -1945,7 +1965,7 @@
                             let idx = list.findIndex(u => u.username === this.currentUser.username);
                             if (idx !== -1) {
                                 list[idx].avatar = avatarData;
-                                localStorage.setItem(listKey, JSON.stringify(list));
+                                this.safeLocalStorageSet(listKey, JSON.stringify(list));
                             }
                         });
 
@@ -2865,7 +2885,11 @@
         const hasP = localStorage.getItem('dito_purchased_products');
         const isFirst = !(hasP && JSON.parse(hasP).length > 0);
         let final = isFirst ? (totalBase * 0.25) : totalBase;
-        const coins = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
+        
+        // Limita o desconto das moedas em no máximo 75%
+        let coins = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
+        if (coins > 75) coins = 75; 
+        
         final -= (final * (coins / 100));
         const disp = document.getElementById('checkout-total-value');
         if (disp) disp.innerText = 'R$ ' + final.toFixed(2);
