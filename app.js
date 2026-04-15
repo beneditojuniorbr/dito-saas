@@ -7,6 +7,9 @@
     const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI';
     
+    // MERCADO PAGO CONFIG
+    const MP_PUBLIC_KEY = 'APP_USR-8ce69cfb-2613-4a57-944d-2521c8f523f0'; // Chave Pública Real
+    
     let supabase = null;
     
     async function initSupabase() {
@@ -177,6 +180,94 @@
             }
         },
 
+        // ==========================================
+        // 💰 MERCADO PAGO REAL PAYMENTS
+        // ==========================================
+
+        async processPaymentMP(method = 'pix') {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification('Faça login para realizar compras reais.', 'error');
+                return;
+            }
+
+            const total = this.recalculateCheckoutTotal();
+            if (total <= 0) return;
+
+            this.showLoading(true, 'Gerando seu código Pix real...');
+
+            try {
+                // URL da sua Edge Function do Supabase
+                const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/mercado-pago-bridge`;
+                
+                const response = await fetch(FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        action: 'create-pix',
+                        amount: total,
+                        description: `Compra no Dito Pro - ${this.cart.length} itens`,
+                        email: this.currentUser.email || `${this.currentUser.username}@dito.app`,
+                        metadata: {
+                            user_id: this.currentUser.id,
+                            cart_items: this.cart.map(p => p.id)
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.qr_code) {
+                    this.showLoading(false);
+                    this.displayPixModal(data.qr_code, total);
+                    this.showNotification('Pix gerado com sucesso! ✨', 'success');
+                } else {
+                    throw new Error('Falha ao obter QR Code');
+                }
+
+            } catch (e) {
+                console.error("Erro no Pagamento:", e);
+                this.showLoading(false);
+                this.showNotification('Erro ao conectar com servidor de pagamento.', 'error');
+            }
+        },
+
+        displayPixModal(qrCode, amount) {
+            const modalBody = document.getElementById('modal-body');
+            const modalContainer = document.getElementById('modal-container');
+            
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 20px;" class="animate-fade">
+                    <div style="width: 70px; height: 70px; background: rgba(0, 153, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                        <i data-lucide="qr-code" style="width: 34px; color: #0099ff;"></i>
+                    </div>
+                    <h3 style="font-weight: 950; font-size: 22px; margin-bottom: 8px; letter-spacing: -1px;">Pix Gerado!</h3>
+                    <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 32px;">Total a pagar: <span style="color: #22c55e;">R$ ${amount.toFixed(2)}</span></p>
+                    
+                    <div style="background: #f8f8f8; padding: 24px; border-radius: 24px; margin-bottom: 24px; border: 1px dashed #ddd;">
+                        <input id="pix-copy-input" readonly value="${qrCode}" style="width: 100%; padding: 14px; border: 1px solid #eee; border-radius: 14px; font-family: monospace; font-size: 11px; color: #666; background: #fff; text-align: center; margin-bottom: 16px;">
+                        <button onclick="app.copyPixCode()" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <i data-lucide="copy" style="width: 18px;"></i> COPIAR PIX
+                        </button>
+                    </div>
+
+                    <p style="font-size: 11px; color: #999; font-weight: 700; line-height: 1.6;">O acesso aos seus produtos é liberado **automaticamente** após a confirmação do pagamento pelo Mercado Pago.</p>
+                </div>
+            `;
+            
+            modalContainer.style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+        },
+
+        copyPixCode() {
+            const input = document.getElementById('pix-copy-input');
+            input.select();
+            document.execCommand('copy');
+            this.showNotification('Copiado! Agora cole no seu App do Banco.', 'success');
+        },
+
         async showOnlineFriends() {
             if (!supabase) return;
             
@@ -234,79 +325,61 @@
         async fetchNetworkUsers() {
             if (!supabase) return;
             try {
-                const { data, error } = await supabase.from('dito_users').select('*');
-                if (error) return;
+                // 1. BUSCA O HALL DA FAMA (Top 20) + MEU PERFIL (Específico)
+                // Isso reduz drasticamente o tráfego e o uso de memória
+                const [hallRes, meRes] = await Promise.all([
+                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen').order('sales', { ascending: false }).limit(20),
+                    this.currentUser ? supabase.from('dito_users').select('*').eq('username', this.currentUser.username).maybeSingle() : Promise.resolve({ data: null })
+                ]);
 
-                if (data) {
-                    let localUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
-                    let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
-
-                    data.forEach(netUser => {
-                        const cleanedPrivate = this.cleanProfile(netUser); 
-                        const cleanedPublic = this.cleanPublicProfile(netUser);
-                        
-                        // Garante que campos numéricos não sejam nulos
-                        cleanedPublic.fans = parseInt(netUser.fans || 0);
-                        cleanedPublic.sales = parseFloat(netUser.sales || 0);
-
-                        const idx = localUsers.findIndex(u => u.username === netUser.username);
-                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...cleanedPrivate };
-                        else localUsers.push(cleanedPrivate);
-
-                        const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
-                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...cleanedPublic };
-                        else localProfiles.push(cleanedPublic);
-
-                        if (this.currentUser && netUser.username === this.currentUser.username) {
-                            // Atualiza meu próprio perfil com os dados da rede (Fãs, Vendas, etc)
-                            this.currentUser.fans = parseInt(netUser.fans || 0);
-                            this.currentUser.sales = parseFloat(netUser.sales || 0);
-                            
-                            let netPosts = [];
-                            let netPurchases = [];
-                            try {
-                                netPosts = netUser.posts ? (typeof netUser.posts === 'string' ? JSON.parse(netUser.posts) : netUser.posts) : [];
-                                netPurchases = netUser.purchases ? (typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases) : [];
-                            } catch (parseErr) {
-                                console.warn("⚠️ [Network] Erro ao processar posts/compras do perfil:", parseErr);
-                            }
-                            
-                            const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                            const localPurchases = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
-
-                            // Sincronização Inteligente
-                            if (netPosts.length >= localPosts.length) {
-                                localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
-                                this.currentUser.posts = netPosts;
-                            }
-                            if (netPurchases.length >= localPurchases.length) {
-                                localStorage.setItem('dito_purchased_products', JSON.stringify(netPurchases));
-                                this.purchasedProducts = netPurchases;
-                            }
-                            
-                            this.currentUser = { ...this.currentUser, ...netUser };
-                            this.currentUser.fans = parseInt(netUser.fans || 0);
-                            this.currentUser.sales = parseFloat(netUser.sales || 0);
-                            this.currentUser.withdrawPixKey = netUser.withdrawPixKey || "";
-                            this.currentUser.withdrawCardNumber = netUser.withdrawCardNumber || "";
-                            this.currentUser.withdrawCardName = netUser.withdrawCardName || "";
-                            
-                            this.saveSession(this.currentUser);
-                            localStorage.setItem('dito_balance', netUser.balance || '0');
-                            localStorage.setItem(`user_balance_vanilla_${this.getUserKey()}`, netUser.balance || '0');
-                        }
-                    });
-
-                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(localProfiles));
-                    this.safeLocalStorageSet('dito_usuarios', JSON.stringify(localProfiles));
+                if (hallRes.data) {
+                    // Consolida em um cache único e limpo
+                    const topUsers = hallRes.data.map(u => this.cleanPublicProfile(u));
+                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(topUsers));
                     
-                    // Re-render Hall of Fame se estiver na tela dele
+                    // Atualiza Hall se visível
                     if (this.currentView === 'hall') this.renderHallOfFame();
+                    console.log("✅ [Network] Hall da Fama sincronizado!");
+                }
+
+                if (meRes.data && this.currentUser) {
+                    const netUser = meRes.data;
+                    console.log("👤 [Network] Sincronizando meu perfil...");
                     
-                    console.log("✅ [Network] Sincronização global concluída!");
+                    // Atualiza apenas dados que mudaram
+                    this.currentUser.fans = parseInt(netUser.fans || 0);
+                    this.currentUser.sales = parseFloat(netUser.sales || 0);
+
+                    // Sincronização de Posts e Compras (Mantém o que for mais novo)
+                    let netPosts = [];
+                    let netPurchases = [];
+                    try {
+                        netPosts = netUser.posts ? (typeof netUser.posts === 'string' ? JSON.parse(netUser.posts) : netUser.posts) : [];
+                        netPurchases = netUser.purchases ? (typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases) : [];
+                    } catch (e) { console.warn("Erro parse net data", e); }
+
+                    const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
+                    const localPurchases = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
+
+                    if (netPosts.length >= localPosts.length) {
+                        localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
+                        this.currentUser.posts = netPosts;
+                    }
+                    if (netPurchases.length >= localPurchases.length) {
+                        localStorage.setItem('dito_purchased_products', JSON.stringify(netPurchases));
+                        this.purchasedProducts = netPurchases;
+                    }
+
+                    // Atualiza Saldo
+                    localStorage.setItem('dito_balance', netUser.balance || '0');
+                    localStorage.setItem(`user_balance_vanilla_${this.getUserKey()}`, netUser.balance || '0');
+                    
+                    // Salva sessão localmente
+                    this.currentUser = { ...this.currentUser, ...netUser };
+                    this.saveSession(this.currentUser);
                 }
             } catch (e) {
-                console.warn("⚠️ [Network] Erro na conexão:", e);
+                console.warn("⚠️ [Network] Erro na conexão segmentada:", e);
             }
         },
 
@@ -366,7 +439,12 @@
         async fetchNetworkProducts() {
             if (!supabase) return;
             try {
-                const { data, error } = await supabase.from('dito_market_products').select('*');
+                // Busca apenas os produtos mais recentes do Mercado (Top 50)
+                const { data, error } = await supabase.from('dito_market_products')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
                 if (data && !error) {
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                     data.forEach(net => {
@@ -375,8 +453,14 @@
                         if (idx !== -1) local[idx] = parsed;
                         else local.push(parsed);
                     });
+                    
+                    // Mantém o cache local limpo (Mínimo de 100 itens no total para não travar)
+                    if (local.length > 100) local = local.slice(0, 100);
+
                     this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
                     this.products = local;
+                    
+                    if (this.currentView === 'mercado') this.renderMarketHome();
                 }
             } catch (e) {
                 console.warn("⚠️ [Network] Erro ao buscar produtos:", e);
@@ -1220,6 +1304,7 @@
                     case 'dashboard': this.updateBalanceUI(); break;
                     case 'mercado': setTimeout(() => this.renderStore(), 10); break;
                     case 'sociedade': this.renderSocieties(); break;
+                case 'sociedade-detalhe': this.renderSocietyDetail(); break;
                     case 'hall': this.renderHallOfFame(); break;
                     case 'perfil': this.renderProfile(); break;
                     case 'vendas': this.renderSales(); break;
@@ -1334,46 +1419,200 @@
             
             if (saved.length === 0) {
                 const initial = [
-                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", admin: "Benedito", entryFee: 0, membersCount: 154 },
-                    { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", admin: "Ana Silva", entryFee: 49.90, membersCount: 42 }
+                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", owner: "benedito_pro", entryFee: 0, membersCount: 154 },
+                    { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", owner: "ana_scaling", entryFee: 49.90, membersCount: 42 }
                 ];
                 localStorage.setItem('dito_societies', JSON.stringify(initial));
                 this.renderSocieties();
                 return;
             }
 
-            list.innerHTML = saved.map(s => `
+            list.innerHTML = saved.map(s => {
+                const isAdmin = this.currentUser && s.owner === this.currentUser.username;
+                return `
                 <div class="society-card">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
                         <div>
-                            <h3 style="font-size: 19px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;">
-                                ${s.name.toLowerCase()} <i data-lucide="shield-check" style="width: 17px; color: #3b82f6;"></i>
+                            <h3 style="font-size: 19px; font-weight: 950; letter-spacing: -1px; display: flex; align-items: center; gap: 8px;">
+                                ${s.name} <i data-lucide="${isAdmin ? 'shield-check' : 'users'}" style="width: 17px; color: ${isAdmin ? '#ff005c' : '#000'};"></i>
                             </h3>
-                            <p style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase;">ADM: ${s.admin}</p>
+                            <p style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase;">GESTOR: ${s.owner}</p>
                         </div>
                         <div style="padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; background: ${s.entryFee === 0 ? '#f0fdf4' : '#f9f9f9'}; color: ${s.entryFee === 0 ? '#16a34a' : '#666'};">
                             ${s.entryFee === 0 ? 'Gratuita' : 'R$ ' + s.entryFee.toFixed(2)}
                         </div>
                     </div>
                     
-                    <p style="font-size: 13px; font-weight: 500; color: #777; line-height: 1.5; margin-bottom: 24px;">${s.description}</p>
+                    <p style="font-size: 13px; font-weight: 500; color: #777; line-height: 1.5; margin-bottom: 24px;">Comunidade exclusiva para membros do ${s.name}.</p>
                     
                     <div style="padding-top: 20px; border-top: 1px solid #f9f9f9; display: flex; justify-content: space-between; align-items: flex-end;">
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <div>
-                                <span style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase; display: block; margin-bottom: 2px;">Membros</span>
-                                <span style="font-size: 14px; font-weight: 900; color: #333;">${s.membersCount}</span>
-                            </div>
+                        <div>
+                            <span style="font-size: 10px; font-weight: 900; color: #ccc; text-transform: uppercase; display: block; margin-bottom: 2px;">Membros</span>
+                            <span style="font-size: 14px; font-weight: 900; color: #333;">${s.membersCount || 0}</span>
                         </div>
-
-                        <button onclick="app.requestEntry('${s.name}')" style="height: 48px; padding: 0 20px; background: var(--surface); border: none; border-radius: 16px; font-size: 11px; font-weight: 900; text-transform: uppercase; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#000'; this.style.color='#fff';" onmouseout="this.style.background='var(--surface)'; this.style.color='#000';">
-                            Solicitar <i data-lucide="arrow-right" style="width: 14px;"></i>
-                        </button>
+                        <button onclick="app.viewSociety('${s.id}')" style="height: 48px; border-radius: 16px; background: #000; color: #fff; padding: 0 24px; font-size: 11px; font-weight: 900; cursor: pointer; border: none; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">ENTRAR</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
 
             if (window.lucide) lucide.createIcons();
+        },
+
+        async viewSociety(id) {
+            this.currentSocietyId = id;
+            this.currentSocietyTab = 'mural';
+            this.navigate('sociedade-detalhe');
+        },
+
+        async renderSocietyDetail() {
+            if (!this.currentSocietyId) return;
+            
+            const societies = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const soc = societies.find(s => s.id === this.currentSocietyId);
+            if (!soc) return;
+
+            document.getElementById('soc-view-name').innerText = soc.name;
+            document.getElementById('soc-view-desc').innerText = `Bem-vindo a ${soc.name}, um ecossistema projetado para o crescimento mútuo e compartilhamento de estratégias pro.`;
+            
+            const isAdmin = this.currentUser && soc.owner === this.currentUser.username;
+            document.getElementById('soc-admin-badge').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('soc-post-input-container').style.display = isAdmin ? 'block' : 'none';
+
+            // Membership logic
+            const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+            const isMember = myGroups.includes(this.currentSocietyId) || isAdmin;
+
+            if (isMember) {
+                document.getElementById('soc-content-mural').style.display = 'block';
+                document.getElementById('soc-content-membros').style.display = 'none';
+                document.getElementById('soc-join-section').style.display = 'none';
+                this.fetchSocietyMural();
+            } else {
+                document.getElementById('soc-content-mural').style.display = 'none';
+                document.getElementById('soc-content-membros').style.display = 'none';
+                document.getElementById('soc-join-section').style.display = 'block';
+            }
+            if (window.lucide) lucide.createIcons();
+        },
+
+        setSocTab(tab) {
+            this.currentSocietyTab = tab;
+            const isMural = tab === 'mural';
+            document.getElementById('soc-content-mural').style.display = isMural ? 'block' : 'none';
+            document.getElementById('soc-content-membros').style.display = isMural ? 'none' : 'block';
+            
+            document.getElementById('tab-soc-mural').classList.toggle('active-tab', isMural);
+            document.getElementById('tab-soc-membros').classList.toggle('active-tab', !isMural);
+            
+            if (tab === 'membros') this.fetchSocietyMembers();
+        },
+
+        async postToMural() {
+            const input = document.getElementById('soc-mural-input');
+            const content = input.value.trim();
+            if (!content) return;
+
+            const newPost = {
+                id: Date.now(),
+                society_id: this.currentSocietyId,
+                author: this.currentUser.username,
+                content: content,
+                created_at: new Date().toISOString()
+            };
+
+            const posts = JSON.parse(localStorage.getItem('society_mural_posts') || '[]');
+            posts.unshift(newPost);
+            localStorage.setItem('society_mural_posts', JSON.stringify(posts));
+            
+            input.value = '';
+            this.fetchSocietyMural();
+            this.showNotification('Aviso publicado no mural!', 'success');
+        },
+
+        fetchSocietyMural() {
+            const feed = document.getElementById('soc-mural-feed');
+            if (!feed) return;
+
+            const posts = JSON.parse(localStorage.getItem('society_mural_posts') || '[]')
+                        .filter(p => p.society_id === this.currentSocietyId);
+
+            if (posts.length > 0) {
+                feed.innerHTML = posts.map(p => `
+                    <div style="background: #fff; border: 1px solid #f0f0f0; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.01);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="width: 32px; height: 32px; background: #000; color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 10px;">${p.author[0].toUpperCase()}</div>
+                            <div>
+                                <h5 style="font-size: 13px; font-weight: 900; color: #000;">${p.author}</h5>
+                                <p style="font-size: 9px; color: #bbb; font-weight: 800; text-transform: uppercase;">GESTOR • ${new Date(p.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <p style="font-size: 14px; font-weight: 500; color: #333; line-height: 1.5;">${p.content}</p>
+                    </div>
+                `).join('');
+            } else {
+                feed.innerHTML = `<div style="text-align: center; padding: 60px 20px; color: #ccc;">
+                                    <i data-lucide="message-square" style="width: 40px; margin-bottom: 16px; opacity: 0.1;"></i>
+                                    <p style="font-size: 12px; font-weight: 800;">O mural está vazio.</p>
+                                  </div>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        },
+
+        fetchSocietyMembers() {
+            const list = document.getElementById('soc-members-list');
+            if (!list) return;
+
+            const societies = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const soc = societies.find(s => s.id === this.currentSocietyId);
+            if (!soc) return;
+
+            const members = [{ username: soc.owner, role: 'Gestor' }, { username: 'Membro Exemplo', role: 'Membro' }];
+            const isAdmin = this.currentUser && soc.owner === this.currentUser.username;
+
+            list.innerHTML = members.map(m => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: #fff; border: 1px solid #f5f5f5; border-radius: 20px;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 40px; height: 40px; background: #f9f9f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #000;">${m.username[0].toUpperCase()}</div>
+                        <div>
+                            <p style="font-size: 13px; font-weight: 900; color: #000;">${m.username}</p>
+                            <p style="font-size: 9px; color: ${m.role === 'Gestor' ? '#ff005c' : '#999'}; font-weight: 900; text-transform: uppercase;">${m.role}</p>
+                        </div>
+                    </div>
+                    ${isAdmin && m.username !== this.currentUser.username ? `
+                        <button onclick="app.kickMember('${m.username}')" style="width: 36px; height: 36px; background: #fff1f2; color: #e11d48; border: none; border-radius: 10px; cursor: pointer;">
+                            <i data-lucide="user-minus" style="width: 16px;"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        },
+
+        handleJoinSociety() {
+            const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+            if (!myGroups.includes(this.currentSocietyId)) {
+                myGroups.push(this.currentSocietyId);
+                localStorage.setItem('my_societies', JSON.stringify(myGroups));
+            }
+            this.showNotification('Entrada aprovada!', 'success');
+            this.renderSocietyDetail();
+        },
+
+        handleLeaveSociety() {
+            if (confirm('Sair desta sociedade?')) {
+                const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+                const filtered = myGroups.filter(id => id !== this.currentSocietyId);
+                localStorage.setItem('my_societies', JSON.stringify(filtered));
+                this.navigate('sociedade');
+                this.showNotification('Você saiu do grupo.');
+            }
+        },
+
+        kickMember(name) {
+            if (confirm(`Expulsar ${name}?`)) {
+                this.showNotification(`${name} removido.`, 'info');
+                this.fetchSocietyMembers();
+            }
         },
 
         toggleCreateSocietyModal(show) {
@@ -2760,6 +2999,22 @@
             if (this.marketView === 'checkout') this.renderMarketCheckout(container);
             
             this.updateCartBadge();
+            if (window.lucide) lucide.createIcons();
+        },
+
+        renderMarketCheckout(container) {
+            const temp = document.getElementById('template-mercado-checkout');
+            if (!temp) return;
+            container.innerHTML = temp.innerHTML;
+
+            const total = this.recalculateCheckoutTotal();
+            
+            // Adiciona listener ao botão de pagamento real
+            const btnPay = document.getElementById('btn-confirm-checkout');
+            if (btnPay) {
+                btnPay.onclick = () => this.processPaymentMP('pix');
+            }
+
             if (window.lucide) lucide.createIcons();
         },
 

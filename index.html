@@ -392,9 +392,66 @@
                         <input id="new-soc-name" type="text" placeholder="Nome da comunidade" style="width: 100%; height: 56px; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 0 20px; font-size: 14px; font-weight: 700;">
                         <input id="new-soc-fee" type="number" placeholder="Valor de entrada (R$)" style="width: 100%; height: 56px; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 0 20px; font-size: 14px; font-weight: 700;">
                         <p style="font-size: 11px; font-weight: 700; color: #856404; background: #fff9f0; padding: 12px; border-radius: 12px;">Taxa única de R$ 15,00 será cobrada do seu saldo.</p>
-                        <button onclick="app.createSociety()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 30px; font-size: 16px; font-weight: 900; cursor: pointer;">Criar produto</button>
+                        <button onclick="app.createSociety()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 30px; font-size: 16px; font-weight: 900; cursor: pointer;">Criar Sociedade</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-sociedade-detalhe">
+        <div style="padding: 24px; padding-bottom: 120px;" class="animate-fade">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px;">
+                <div onclick="app.navigate('sociedade', 'left')" style="width: 44px; height: 44px; background: #f8f8f8; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px; color: #000;"></i>
+                </div>
+                <div id="soc-admin-badge" style="display: none; padding: 8px 16px; background: #000; color: #fff; border-radius: 50px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">⚙️ Gestor</div>
+            </div>
+
+            <header style="margin-bottom: 40px;">
+                <h2 id="soc-view-name" style="font-size: 32px; font-weight: 950; letter-spacing: -1.5px; color: #000; margin-bottom: 8px;">Nome da Sociedade</h2>
+                <p id="soc-view-desc" style="font-size: 14px; color: #777; font-weight: 500; line-height: 1.5;">...</p>
+            </header>
+
+            <!-- TABS INTERNAS -->
+            <div style="display: flex; gap: 8px; margin-bottom: 32px; background: #f5f5f5; padding: 4px; border-radius: 16px;">
+                <button onclick="app.setSocTab('mural')" class="soc-tab active-tab" id="tab-soc-mural" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 11px; font-weight: 900; cursor: pointer; transition: 0.3s;">MURAL</button>
+                <button onclick="app.setSocTab('membros')" class="soc-tab" id="tab-soc-membros" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 11px; font-weight: 900; cursor: pointer; transition: 0.3s; background: transparent; color: #999;">MEMBROS</button>
+            </div>
+
+            <!-- CONTEÚDO MURAL -->
+            <div id="soc-content-mural">
+                <div id="soc-post-input-container" style="display: none; margin-bottom: 32px; background: #fff; border: 1px solid #eee; border-radius: 24px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02);">
+                    <textarea id="soc-mural-input" placeholder="O que deseja avisar para os membros?" style="width: 100%; border: none; resize: none; min-height: 80px; font-weight: 600; font-size: 14px; outline: none; font-family: inherit;"></textarea>
+                    <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #f9f9f9; margin-top: 12px;">
+                        <button onclick="app.postToMural()" style="background: #000; color: #fff; border: none; padding: 10px 24px; border-radius: 50px; font-size: 11px; font-weight: 900; cursor: pointer;">POSTAR NO MURAL</button>
+                    </div>
+                </div>
+
+                <div id="soc-mural-feed" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Posts do Mural -->
+                </div>
+            </div>
+
+            <!-- CONTEÚDO MEMBROS -->
+            <div id="soc-content-membros" style="display: none;">
+                <div id="soc-members-list" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Lista de Membros -->
+                </div>
+                
+                <div style="margin-top: 48px; border-top: 1px solid #eee; padding-top: 24px;">
+                    <button id="btn-leave-soc" onclick="app.handleLeaveSociety()" style="width: 100%; height: 56px; border: 1px solid #fee2e2; background: #fff; color: #ef4444; border-radius: 16px; font-size: 12px; font-weight: 900; cursor: pointer;">SAIR DA SOCIEDADE</button>
+                </div>
+            </div>
+
+            <!-- BOTÃO DE ENTRAR (PARA NÃO MEMBROS) -->
+            <div id="soc-join-section" style="display: none; text-align: center; padding: 40px 20px;">
+                <div style="width: 80px; height: 80px; background: #f9f9f9; border-radius: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                    <i data-lucide="lock" style="width: 32px; color: #ccc;"></i>
+                </div>
+                <h4 style="font-weight: 900; margin-bottom: 12px; font-size: 18px;">Sociedade Privada</h4>
+                <p style="font-size: 13px; color: #999; margin-bottom: 32px; font-weight: 500; padding: 0 20px;">O conteúdo e os membros deste grupo são visíveis apenas para membros ativos.</p>
+                <button id="btn-join-soc" onclick="app.handleJoinSociety()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 950; font-size: 14px; cursor: pointer;">SOLICITAR ENTRADA</button>
             </div>
         </div>
     </template>
