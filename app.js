@@ -51,6 +51,53 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
+        // Helper para salvar no localStorage com segurança (evita QuotaExceeded)
+        safeLocalStorageSet(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    console.error("🚨 [Storage] Limite de espaço atingido! Limpando cache não essencial...");
+                    // Limpa caches que podem ser reconstruídos
+                    localStorage.removeItem('dito_network_users');
+                    localStorage.removeItem('dito_usuarios');
+                    localStorage.removeItem('dito_usuarios_vanilla');
+                    
+                    try {
+                        localStorage.setItem(key, value);
+                        return true;
+                    } catch (retryErr) {
+                        console.error("🚨 [Storage] Falha crítica: Nem mesmo limpando o cache foi possível salvar.", retryErr);
+                        return false;
+                    }
+                }
+                return false;
+            }
+        },
+
+        // Salva a sessão do usuário de forma enxuta
+        saveSession(user) {
+            if (!user) return;
+            // Cria uma cópia sem campos pesados ou sensíveis
+            const cleanUser = { ...user };
+            delete cleanUser.posts;
+            delete cleanUser.purchases;
+            delete cleanUser.password;
+            
+            this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(cleanUser));
+        },
+
+        // Limpa um perfil para armazenamento em listas globais
+        cleanProfile(user) {
+            if (!user) return null;
+            const clean = { ...user };
+            delete clean.posts;
+            delete clean.purchases;
+            delete clean.password;
+            return clean;
+        },
+
         async init() {
             await initSupabase(); 
 
@@ -114,13 +161,15 @@
                     let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
 
                     data.forEach(netUser => {
+                        const cleaned = this.cleanProfile(netUser);
+                        
                         const idx = localUsers.findIndex(u => u.username === netUser.username);
-                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...netUser };
-                        else localUsers.push(netUser);
+                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...cleaned };
+                        else localUsers.push(cleaned);
 
                         const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
-                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...netUser };
-                        else localProfiles.push(netUser);
+                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...cleaned };
+                        else localProfiles.push(cleaned);
 
                         if (this.currentUser && netUser.username === this.currentUser.username) {
                             let netPosts = [];
@@ -146,13 +195,13 @@
                             }
                             
                             this.currentUser = { ...this.currentUser, ...netUser };
-                            localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                            this.saveSession(this.currentUser);
                             localStorage.setItem('dito_balance', netUser.balance || '0');
                         }
                     });
 
-                    localStorage.setItem('dito_network_users', JSON.stringify(localProfiles));
-                    localStorage.setItem('dito_usuarios', JSON.stringify(localProfiles));
+                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(localProfiles));
+                    this.safeLocalStorageSet('dito_usuarios', JSON.stringify(localProfiles));
                     
                     // Re-render Hall of Fame se estiver na tela dele
                     if (this.currentView === 'hall') this.renderHallFame();
@@ -160,7 +209,7 @@
                     console.log("✅ [Network] Sincronização global concluída!");
                 }
             } catch (e) {
-                console.warn("⚠️ [Network] Erro na conexão:");
+                console.warn("⚠️ [Network] Erro na conexão:", e);
             }
         },
 
@@ -207,10 +256,12 @@
                         if (idx !== -1) local[idx] = parsed;
                         else local.push(parsed);
                     });
-                    localStorage.setItem('dito_products_vanilla', JSON.stringify(local));
+                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
                     this.products = local;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("⚠️ [Network] Erro ao buscar produtos:", e);
+            }
         },
 
         async syncProductToNetwork(product) {
@@ -2138,7 +2189,7 @@
                 const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador', sales: 0 };
                 localStorage.setItem('is_logged_in_vanilla', 'true');
                 localStorage.setItem('is_guest_vanilla', 'false');
-                localStorage.setItem('current_user_vanilla', JSON.stringify(loggedUser));
+                this.saveSession(loggedUser);
                 this.currentUser = loggedUser;
                 
                 // Salva ID no cache para manter compras
@@ -2149,7 +2200,7 @@
                 
                 // SEGUNDO: Atualiza a sessão com o que veio da rede
                 if (this.currentUser) {
-                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+                    this.saveSession(this.currentUser);
                 }
 
                 this.navigate('dashboard');
