@@ -31,21 +31,28 @@
         currentView: 'dashboard',
         marketView: 'home',
         selectedProduct: null,
-        cart: JSON.parse(localStorage.getItem('dito_cart') || '[]'),
+        cart: [],
         products: [],
         balance: 0.00,
         showBalance: true,
-        purchasedProducts: JSON.parse(localStorage.getItem('dito_purchased_products') || '[]'),
-        currentLessonId: 1, // Default lesson
+        purchasedProducts: [],
+        
+        // Helper para individualizar o armazenamento
+        getUserKey() {
+            if (!this.currentUser) return 'guest';
+            return this.currentUser.username || 'guest';
+        },
+
+        currentLessonId: 1, 
         courseComments: JSON.parse(localStorage.getItem('dito_course_comments') || '{}'),
         courseRatings: JSON.parse(localStorage.getItem('dito_course_ratings') || '{}'),
         globalRatings: JSON.parse(localStorage.getItem('dito_global_ratings') || '{}'),
         hasSeenCreateProd: false,
-        adminNetworkInfoVisible: false, // Inicia como false
-        courseStructure: [], // {id, title, lessons: [{id, title, fileName}]}
-        openModules: {}, // {moduleId: boolean}
+        adminNetworkInfoVisible: false,
+        courseStructure: [], 
+        openModules: {}, 
         activePlayerTab: 'aulas',
-        paypalLink: 'https://www.paypal.com/checkoutnow?token=LIVE', // Link Real do PayPal ativado
+        paypalLink: 'https://www.paypal.com/checkoutnow?token=LIVE', 
         paymentMethod: 'pix',
         
         toSentenceCase(str) {
@@ -81,13 +88,19 @@
         // Salva a sessão do usuário de forma enxuta
         saveSession(user) {
             if (!user) return;
-            // Cria uma cópia sem campos pesados ou sensíveis
             const cleanUser = { ...user };
             delete cleanUser.posts;
             delete cleanUser.purchases;
             delete cleanUser.password;
             
             this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(cleanUser));
+        },
+
+        loadUserScopedData() {
+            const key = this.getUserKey();
+            this.cart = JSON.parse(localStorage.getItem(`dito_cart_${key}`) || '[]');
+            this.purchasedProducts = JSON.parse(localStorage.getItem(`dito_purchased_products_${key}`) || '[]');
+            this.updateCartBadge();
         },
 
         // Limpa um perfil para armazenamento em listas (remove apenas dados pesados)
@@ -126,6 +139,7 @@
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
+                    this.loadUserScopedData(); // Carrega sacola e compras do usuário
                 }
                 
                 // Conexão Única Inicial
@@ -220,9 +234,13 @@
                     let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
 
                     data.forEach(netUser => {
-                        const cleanedPrivate = this.cleanProfile(netUser); // Com senha para cache de login
-                        const cleanedPublic = this.cleanPublicProfile(netUser); // Sem senha para lista pública
+                        const cleanedPrivate = this.cleanProfile(netUser); 
+                        const cleanedPublic = this.cleanPublicProfile(netUser);
                         
+                        // Garante que campos numéricos não sejam nulos
+                        cleanedPublic.fans = parseInt(netUser.fans || 0);
+                        cleanedPublic.sales = parseFloat(netUser.sales || 0);
+
                         const idx = localUsers.findIndex(u => u.username === netUser.username);
                         if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...cleanedPrivate };
                         else localUsers.push(cleanedPrivate);
@@ -232,6 +250,10 @@
                         else localProfiles.push(cleanedPublic);
 
                         if (this.currentUser && netUser.username === this.currentUser.username) {
+                            // Atualiza meu próprio perfil com os dados da rede (Fãs, Vendas, etc)
+                            this.currentUser.fans = parseInt(netUser.fans || 0);
+                            this.currentUser.sales = parseFloat(netUser.sales || 0);
+                            
                             let netPosts = [];
                             let netPurchases = [];
                             try {
@@ -255,6 +277,9 @@
                             }
                             
                             this.currentUser = { ...this.currentUser, ...netUser };
+                            this.currentUser.fans = parseInt(netUser.fans || 0);
+                            this.currentUser.sales = parseFloat(netUser.sales || 0);
+                            
                             this.saveSession(this.currentUser);
                             localStorage.setItem('dito_balance', netUser.balance || '0');
                         }
@@ -276,19 +301,20 @@
         async syncUserToNetwork(user) {
             if (!supabase) return;
             try {
-                // Removemos o 'id' aqui para o Supabase gerar automaticamente e não dar conflito
+                const key = this.getUserKey();
                 const payload = {
                     username: user.username,
                     password: user.password,
                     name: user.name || user.username,
                     bio: user.bio || "Membro Dito Network",
                     sales: Number(user.sales || 0),
-                    balance: Number(localStorage.getItem('dito_balance') || user.balance || 0),
-                    purchases: JSON.stringify(JSON.parse(localStorage.getItem('dito_purchased_products') || '[]')),
+                    fans: Number(user.fans || 0),
+                    balance: Number(localStorage.getItem(`user_balance_vanilla_${key}`) || user.balance || 0),
+                    purchases: JSON.stringify(this.purchasedProducts),
                     link: user.link || "",
                     avatar: user.avatar || "",
                     posts: JSON.stringify(user.posts || []),
-                    last_seen: new Date().toISOString() // Marca presença real
+                    last_seen: new Date().toISOString()
                 };
                 
                 const { error } = await supabase.from('dito_users').upsert([payload], { onConflict: 'username' });
@@ -388,8 +414,9 @@
         addToCartFromDetail() {
             if (this.selectedProduct) {
                 this.cart.push(this.selectedProduct);
-                localStorage.setItem('dito_cart', JSON.stringify(this.cart));
-                this.showNotification("Adicionado ao carrinho!", "success");
+                localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+                this.updateCartBadge();
+                this.showNotification("Adicionado à sacola!", "success");
                 this.setMarketView('home');
             }
         },
@@ -465,25 +492,34 @@
                 link = "https://dito.app/pix-placeholder-" + Date.now();
                 paymentText.innerText = "Escaneie o QR Code acima para pagar via Pix e receber seu acesso imediato.";
                 copyText.innerText = "Copiar código Pix";
-                if (btnPayPal) btnPayPal.style.display = 'none';
+                
+                // Botão de simulação APENAS para o Ditão (Admin)
                 const ppContainer = document.getElementById('paypal-button-container');
-                if (ppContainer) ppContainer.style.display = 'none';
+                if (ppContainer) {
+                    if (this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro')) {
+                        ppContainer.style.display = 'block';
+                        ppContainer.innerHTML = `
+                            <button onclick="app.processPayment()" style="width: 100%; height: 56px; background: #22c55e; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 20px rgba(34, 197, 94, 0.1);">
+                                <i data-lucide="check-circle" style="width: 18px;"></i> Simular Pagamento Pix (ADM)
+                            </button>
+                        `;
+                    } else {
+                        ppContainer.style.display = 'none'; // Outros usuários não vêem botão de simulação
+                    }
+                    if (window.lucide) lucide.createIcons();
+                }
             } else {
-                // Se for PayPal (Cartão ou outro)
+                // Se for PayPal (Cartão)
                 link = activePayPalLink; 
                 paymentText.innerText = "Use o botão do PayPal abaixo para pagar com cartão em até 12x.";
                 copyText.innerText = "Copiar link de pagamento";
-                if (btnPayPal) {
-                    btnPayPal.style.display = 'flex';
-                    btnPayPal.href = activePayPalLink;
-                }
                 
                 const total = this.cart.reduce((sum, p) => sum + p.price, 0);
                 const productId = productWithLink ? productWithLink.id : 'global';
                 const ppContainer = document.getElementById('paypal-button-container');
                 if (ppContainer) {
                     ppContainer.style.display = 'block';
-                    ppContainer.innerHTML = ''; // Clear previous button
+                    ppContainer.innerHTML = ''; // Limpa botões anteriores
                     this.initPayPalOfficialButton(total.toFixed(2), productId);
                 }
             }
@@ -521,27 +557,36 @@
         async unlockPurchasedProducts(productId) {
             this.showNotification("Pagamento confirmado! Liberando produto...", "success");
             
-            // Simulação local + Supabase se logado
-            const product = this.products.find(p => p.id === productId) || { name: 'Produto Dito', id: productId };
-            
-            if (this.currentUser && supabase) {
-                const { error } = await supabase.from('purchases').insert([{
-                    user_id: this.currentUser.id,
-                    product_id: productId,
-                    amount: product.price || 0
-                }]);
+            const productsToUnlock = productId ? [this.products.find(p => p.id === productId) || { name: 'Produto Dito', id: productId }] : this.cart;
+            const key = this.getUserKey();
+
+            for (let product of productsToUnlock) {
+                if (this.currentUser && supabase) {
+                    const { error } = await supabase.from('purchases').insert([{
+                        user_id: this.currentUser.id,
+                        product_id: product.id,
+                        amount: product.price || 0
+                    }]);
+                    if (error) console.error("Erro ao registrar compra no Supabase:", error);
+                }
                 
-                if (error) console.error("Erro ao registrar compra no Supabase:", error);
+                // Adiciona localmente
+                if (!this.purchasedProducts.find(p => p.id === product.id)) {
+                    this.purchasedProducts.push(product);
+                }
             }
 
-            // Adiciona localmente para feedback imediato
-            this.purchasedProducts.push(product);
-            this.safeLocalStorageSet('dito_purchased_products', JSON.stringify(this.purchasedProducts));
+            this.safeLocalStorageSet(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
+            
+            // Limpa o carrinho
+            this.cart = [];
+            localStorage.setItem(`dito_cart_${key}`, '[]');
+            this.updateCartBadge();
             
             setTimeout(() => {
                 this.navigate('meus-cursos');
-                this.showNotification("Produto liberado! Acesse agora.", "success");
-            }, 1500);
+                this.showNotification("Acesso liberado! Bons estudos.", "success");
+            }, 1000);
         },
 
         copyPaymentCode() {
@@ -566,10 +611,6 @@
             if (qrLoading) qrLoading.style.display = 'flex';
             
             this.generateCheckoutQR();
-            
-            // Antigo Pix details não existe mais, agora é centralizado
-            const cardDetails = document.getElementById('card-details');
-            if (cardDetails) cardDetails.style.display = (method === 'card') ? 'flex' : 'none';
         },
 
         copyPix() {
@@ -577,41 +618,16 @@
         },
 
         processPayment() {
-            const finalAmount = this.recalculateCheckoutTotal();
-            const coinsToUse = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
-            
-            this.showNotification("Processando pagamento...", "centered");
-            
-            setTimeout(() => {
-                this.showNotification("Pagamento aprovado com sucesso!", "success");
-                
-                if (coinsToUse > 0) {
-                    const currentCoins = parseInt(localStorage.getItem('dito_coins') || '0');
-                    localStorage.setItem('dito_coins', (currentCoins - coinsToUse).toString());
-                }
+            // Segurança Extra: Apenas ADMs podem pular o pagamento real de Pix para testes
+            if (!this.currentUser || (this.currentUser.username !== 'Ditão' && this.currentUser.username !== 'benedito_pro')) {
+                this.showNotification("Aguardando confirmação real do Pix...", "error");
+                return;
+            }
 
-                const netAmount = finalAmount * 0.97;
-                const currentBalance = parseFloat(localStorage.getItem('dito_balance') || '0');
-                localStorage.setItem('dito_balance', (currentBalance + netAmount).toString());
-                
-                // Salva produtos comprados LOCAL e prepara para rede
-                const newPurchases = [...this.purchasedProducts, ...this.cart];
-                this.purchasedProducts = newPurchases;
-                localStorage.setItem('dito_purchased_products', JSON.stringify(newPurchases));
-                
-                if (this.currentUser) {
-                    this.currentUser.sales = (this.currentUser.sales || 0) + finalAmount;
-                    localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
-                    
-                    // SYNC TOTAL: Sobe tanto a venda quanto a nova compra para a rede
-                    this.syncUserToNetwork(this.currentUser);
-                }
-                
-                this.cart = [];
-                localStorage.setItem('dito_cart', '[]');
-                
-                this.showNotification(`Venda realizada! Valor final: R$ ${finalAmount.toFixed(2)} (${coinsToUse} moedas usadas)`);
-                this.navigate('dashboard');
+            this.showLoading(true, "Verificando pagamento Pix (Modo ADM)...");
+            setTimeout(() => {
+                this.showLoading(false);
+                this.unlockPurchasedProducts();
             }, 1500);
         },
 
@@ -1354,8 +1370,8 @@
             });
 
             // Geração de dados (Apenas Real)
-            console.log("📊 [Render] Iniciando renderização real...");
-            let realSales = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+            const key = this.getUserKey();
+            let realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
             
             // Soma das vendas REAIS do ciclo (Dia 01 ao 30)
             const cycleTotal = realSales.reduce((acc, s) => {
@@ -1386,9 +1402,10 @@
                 productName: "Venda de Teste"
             };
 
-            const history = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+            const key = this.getUserKey();
+            const history = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
             history.unshift(newSale);
-            localStorage.setItem('dito_real_sales_history', JSON.stringify(history));
+            localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
 
             this.showNotification("Venda simulada com sucesso!", "success");
             this.renderSales(); // Atualiza a tela
@@ -1741,7 +1758,8 @@
                 const fansEl = document.getElementById('count-fans');
                 const friendsEl = document.getElementById('count-friends');
                 
-                const balance = localStorage.getItem('user_balance_vanilla') || '0.00';
+                const key = this.getUserKey();
+                const balance = localStorage.getItem(`user_balance_vanilla_${key}`) || '0.00';
                 if (revEl) {
                     if (this.currentUser && this.currentUser.showRevenue === false) {
                         revEl.innerText = "Privado";
@@ -1912,17 +1930,26 @@
                         this.currentUser.avatar = avatarData;
                         localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
                         
-                        // Garante que o usuário global também tenha o avatar atualizado
-                        const allUsers = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
-                        const uIdx = allUsers.findIndex(u => u.username === this.currentUser.username);
-                        if (uIdx !== -1) {
-                            allUsers[uIdx].avatar = avatarData;
-                            localStorage.setItem('dito_usuarios_vanilla', JSON.stringify(allUsers));
-                            localStorage.setItem('dito_usuarios', JSON.stringify(allUsers));
-                            localStorage.setItem('dito_network_users', JSON.stringify(allUsers));
+                        // Atualiza no Banco de Dados Local (Persistência pós-logout)
+                        let localDB = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                        let dbIdx = localDB.findIndex(u => u.username === this.currentUser.username);
+                        if (dbIdx !== -1) {
+                            localDB[dbIdx].avatar = avatarData;
+                            localStorage.setItem('dito_users_db', JSON.stringify(localDB));
                         }
 
-                        // Sincroniza com o Supabase
+                        // Garante que o usuário global também tenha o avatar atualizado nas outras listas
+                        const allLists = ['dito_usuarios_vanilla', 'dito_usuarios', 'dito_network_users'];
+                        allLists.forEach(listKey => {
+                            let list = JSON.parse(localStorage.getItem(listKey) || '[]');
+                            let idx = list.findIndex(u => u.username === this.currentUser.username);
+                            if (idx !== -1) {
+                                list[idx].avatar = avatarData;
+                                localStorage.setItem(listKey, JSON.stringify(list));
+                            }
+                        });
+
+                        // Sincroniza com o Supabase (Nuvem)
                         await this.syncUserToNetwork(this.currentUser);
                         
                         // Atualiza UI Imediatamente
@@ -1930,7 +1957,7 @@
                         this.updateBalanceUI();
                         if (this.currentView === 'hall') this.renderHallOfFame();
                         
-                        this.showNotification('Avatar atualizado e salvo na nuvem!', 'success');
+                        this.showNotification('Sua foto foi salva permanentemente! ✨', 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -1967,16 +1994,13 @@
         updateBalanceUI() {
             const el = document.getElementById('label-balance');
             if (el) {
-                const baseBalance = parseFloat(localStorage.getItem('user_balance_vanilla') || '0');
-                const realSales = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+                const key = this.getUserKey();
+                const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
+                const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
                 const salesTotal = realSales.reduce((acc, s) => acc + (s.value || 0), 0);
                 
                 const total = baseBalance + salesTotal;
                 el.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
-                
-                if (salesTotal > 0) {
-                    console.log(`💰 [Finance] Salvo: R$ ${baseBalance.toFixed(2)} + Vendas: R$ ${salesTotal.toFixed(2)} = Total: R$ ${total.toFixed(2)}`);
-                }
             }
             
             // Atualiza o nome da saudação
@@ -2404,6 +2428,7 @@
                 localStorage.setItem('is_guest_vanilla', 'false');
                 this.saveSession(loggedUser);
                 this.currentUser = loggedUser;
+                this.loadUserScopedData(); // Carrega dados individuais (sacola/compras)
                 
                 // Salva ID no cache para manter compras
                 localStorage.setItem('dito_user_id', loggedUser.id);
@@ -2443,7 +2468,8 @@
 
         removeFromCart(index) {
             this.cart.splice(index, 1);
-            localStorage.setItem('dito_cart', JSON.stringify(this.cart));
+            localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+            this.updateCartBadge();
             const container = document.getElementById('market-actual-content') || document.getElementById('market-view-container');
             if (container) this.renderMarketCart(container);
         },
@@ -2615,13 +2641,11 @@
 
         addToCartDirectly(id, event) {
             if (event) event.stopPropagation();
-            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            const all = [...p1, ...p2];
-            const product = all.find(p => p.id === id);
+            const product = p2.find(p => p.id === id);
             if (product) {
                 this.cart.push(product);
-                localStorage.setItem('dito_cart', JSON.stringify(this.cart));
+                localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
                 this.updateCartBadge();
                 this.showNotification(`"${product.name}" adicionado à sacola!`, "success");
             }
@@ -2721,7 +2745,7 @@
                 }
                 if (window.lucide) lucide.createIcons();
             }
-        }, 50);
+        }, 150);
     };
 
     app.toggleFan = async function() {
@@ -2756,9 +2780,20 @@
             delete myFans[username];
         }
 
-        // Salva relação localmente
+        // Salva relação localmente (Quem EU sigo)
         localStorage.setItem('dito_my_follows', JSON.stringify(myFans));
         fanCountEl.innerText = current;
+
+        // ATUALIZAÇÃO LOCAL IMEDIATA (Para persistir ao re-entrar no perfil)
+        const allLists = ['dito_usuarios', 'dito_network_users', 'dito_usuarios_vanilla'];
+        allLists.forEach(listKey => {
+            let list = JSON.parse(localStorage.getItem(listKey) || '[]');
+            let idx = list.findIndex(u => u.username === username);
+            if (idx !== -1) {
+                list[idx].fans = current;
+                localStorage.setItem(listKey, JSON.stringify(list));
+            }
+        });
 
         // Sincroniza com a REDE em tempo real
         if (supabase) {
@@ -2770,7 +2805,7 @@
                 
                 if (!error) {
                     console.log(`👥 [RealTime] Fãs de ${username} atualizados para ${current}`);
-                    this.fetchNetworkUsers(); // Força atualização para todos
+                    this.fetchNetworkUsers(); 
                 }
             } catch (e) {
                 console.error("Erro ao sincronizar fãs:", e);
