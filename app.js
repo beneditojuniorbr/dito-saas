@@ -88,13 +88,20 @@
             this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(cleanUser));
         },
 
-        // Limpa um perfil para armazenamento em listas globais
+        // Limpa um perfil para armazenamento em listas (remove apenas dados pesados)
         cleanProfile(user) {
             if (!user) return null;
             const clean = { ...user };
             delete clean.posts;
             delete clean.purchases;
-            delete clean.password;
+            // senha mantida para permitir login offline no cache local
+            return clean;
+        },
+
+        // Limpa um perfil para exibição pública (remove tudo que é privado/pesado)
+        cleanPublicProfile(user) {
+            const clean = this.cleanProfile(user);
+            if (clean) delete clean.password;
             return clean;
         },
 
@@ -161,15 +168,16 @@
                     let localProfiles = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
 
                     data.forEach(netUser => {
-                        const cleaned = this.cleanProfile(netUser);
+                        const cleanedPrivate = this.cleanProfile(netUser); // Com senha para cache de login
+                        const cleanedPublic = this.cleanPublicProfile(netUser); // Sem senha para lista pública
                         
                         const idx = localUsers.findIndex(u => u.username === netUser.username);
-                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...cleaned };
-                        else localUsers.push(cleaned);
+                        if (idx !== -1) localUsers[idx] = { ...localUsers[idx], ...cleanedPrivate };
+                        else localUsers.push(cleanedPrivate);
 
                         const pIdx = localProfiles.findIndex(u => u.username === netUser.username);
-                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...cleaned };
-                        else localProfiles.push(cleaned);
+                        if (pIdx !== -1) localProfiles[pIdx] = { ...localProfiles[pIdx], ...cleanedPublic };
+                        else localProfiles.push(cleanedPublic);
 
                         if (this.currentUser && netUser.username === this.currentUser.username) {
                             let netPosts = [];
@@ -2162,10 +2170,10 @@
             let user = users.find(u => u.username === userInp && u.password === passInp);
 
             // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
-            if (!user && window.supabase) {
+            if (!user && supabase) {
                 console.log("🔍 [Auth] Buscando usuário na nuvem...");
                 try {
-                    const { data, error } = await window.supabase
+                    const { data, error } = await supabase
                         .from('dito_users')
                         .select('*')
                         .eq('username', userInp)
