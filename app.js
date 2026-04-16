@@ -389,21 +389,22 @@
         async fetchNetworkUsers() {
             if (!supabase) return;
             try {
-                // 1. BUSCA O HALL DA FAMA (Top 20) + MEU PERFIL (Específico)
-                // Isso reduz drasticamente o tráfego e o uso de memória
+                // 1. BUSCA O HALL DA FAMA (Aumentado para Top 100 para garantir que novos usuários apareçam)
+                // Se for admin, poderíamos buscar ainda mais.
                 const [hallRes, meRes] = await Promise.all([
-                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen').order('sales', { ascending: false }).limit(20),
+                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen').order('sales', { ascending: false }).limit(100),
                     this.currentUser ? supabase.from('dito_users').select('*').eq('username', this.currentUser.username).maybeSingle() : Promise.resolve({ data: null })
                 ]);
 
                 if (hallRes.data) {
-                    // Consolida em um cache único e limpo
                     const topUsers = hallRes.data.map(u => this.cleanPublicProfile(u));
                     this.safeLocalStorageSet('dito_network_users', JSON.stringify(topUsers));
                     
-                    // Atualiza Hall se visível
+                    // Atualiza Visualizações
                     if (this.currentView === 'hall') this.renderHallOfFame();
-                    console.log("✅ [Network] Hall da Fama sincronizado!");
+                    if (this.currentView === 'admin-contas') this.renderAdminUsers();
+                    
+                    console.log("✅ [Network] Hall da Fama e Rede sincronizados (100 usuários)!");
                 }
 
                 if (meRes.data && this.currentUser) {
