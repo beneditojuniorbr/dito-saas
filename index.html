@@ -53,8 +53,19 @@
 
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW skip link:', err));
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    // Força a verificação de nova versão toda vez que abre
+                    reg.update();
+                    console.log("🚀 Service Worker pronto e atualizado.");
+                }).catch(err => console.warn('SW skip link:', err));
             });
+        }
+        
+        // Limpeza de cache de emergência para versões antigas
+        if (!localStorage.getItem('dito_cache_v2')) {
+            localStorage.clear();
+            localStorage.setItem('dito_cache_v2', 'true');
+            window.location.reload();
         }
     </script>
 </head>
