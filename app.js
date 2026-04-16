@@ -143,6 +143,19 @@
             try {
                 // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                // 🛡️ SEGURANÇA: Verificação de Sessão Expirada (15s)
+                const lastAlive = localStorage.getItem('dito_session_heartbeat');
+                const now = Date.now();
+                if (lastAlive && (now - parseInt(lastAlive)) > 15000) {
+                    console.log("🔐 [Security] Sessão expirada por inatividade (>15s).");
+                    this.logout();
+                }
+
+                // Inicia o Heartbeat (atualiza a cada 2s para garantir que não deslogue no F5)
+                setInterval(() => {
+                    localStorage.setItem('dito_session_heartbeat', Date.now().toString());
+                }, 2000);
+
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
@@ -2806,16 +2819,22 @@
         },
 
         updateBalanceUI() {
-            const el = document.getElementById('label-balance');
-            if (el) {
+            const el = document.getElementById('label-balance'); // ID correto conforme index.html
+            const dashEl = document.getElementById('dash-total-balance'); // ID alternativo usado em alguns templates
+            
+            const updateEl = (target) => {
+                if (!target) return;
                 const key = this.getUserKey();
                 const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
                 const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
-                const salesTotal = realSales.reduce((acc, s) => acc + (s.value || 0), 0);
+                const salesTotal = realSales.reduce((acc, s) => acc + (parseFloat(s.value || s.amount || 0)), 0);
                 
                 const total = baseBalance + salesTotal;
-                el.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
-            }
+                target.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
+            };
+
+            updateEl(el);
+            updateEl(dashEl);
             
             // Atualiza o nome da saudação
             const nameEl = document.getElementById('user-greeting-name');
@@ -3889,9 +3908,31 @@
                 table: 'dito_notifications',
                 filter: `target_username=eq.${this.currentUser.username}` 
             }, (payload) => {
-                console.log('🔔 Nova notificação em tempo real:', payload.new);
+                const notif = payload.new;
+                console.log('🔔 Nova notificação em tempo real:', notif);
+                
+                // Lógica Especial para VENDA (Sincroniza Saldo)
+                if (notif.type === 'venda' || notif.title.toLowerCase().includes('venda')) {
+                    const key = this.getUserKey();
+                    const history = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+                    
+                    // Extrai o valor se estiver na mensagem (ex: "Você recebeu R$ 50.00")
+                    const valueMatch = notif.message.match(/R\$\s?([0-9.,]+)/);
+                    if (valueMatch) {
+                        const val = parseFloat(valueMatch[1].replace(',', '.'));
+                        history.push({
+                            id: notif.id,
+                            value: val,
+                            date: new Date().toISOString(),
+                            product: 'Venda Realizada'
+                        });
+                        localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
+                        this.updateBalanceUI(); // Atualiza o saldo global na hora!
+                    }
+                }
+
                 if (!this.notifications) this.notifications = [];
-                this.notifications.unshift(payload.new);
+                this.notifications.unshift(notif);
                 this.renderNotifications();
                 this.updateNotifBadge(true);
                 this.playNotifSound();
