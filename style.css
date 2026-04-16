@@ -858,15 +858,14 @@ input[type=range].coin-slider::-webkit-slider-thumb {
     left: 0;
     width: 100%;
     background: #fff;
-    border-radius: 0;
-    box-shadow: 0 -20px 40px rgba(0,0,0,0.1);
+    border-radius: 32px 32px 0 0;
+    box-shadow: 0 -20px 40px rgba(0,0,0,0.05);
     transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1);
     z-index: 2000;
     padding: 24px;
     max-height: 85vh;
     overflow-y: auto;
-    border-top: 5px solid;
-    border-image: linear-gradient(to right, #ff005c, #0487ff) 1;
+    border-top: none;
 }
 .friends-drawer.active { bottom: 0; }
 .drawer-overlay {

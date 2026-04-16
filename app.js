@@ -161,13 +161,35 @@
                     this.fetchNetworkProducts();
                 }, 5000);
 
-                // Inicia Canal Realtime (Supabase)
+                // Inicia Canais Realtime (Supabase)
                 if (supabase) {
+                    // 1. Radar de Produtos
                     supabase
                         .channel('public:dito_market_products')
                         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dito_market_products' }, payload => {
                             console.log('✨ Novo produto detectado em tempo real!');
-                            this.fetchNetworkProducts(); // Força a atualização imediata
+                            this.fetchNetworkProducts();
+                        })
+                        .subscribe();
+
+                    // 2. Radar de Usuários (Sincronia de Perfis e Online)
+                    supabase
+                        .channel('public:dito_users')
+                        .on('postgres_changes', { 
+                            event: '*', // Escuta INSERT e UPDATE (Entradas e mudanças de perfil)
+                            schema: 'public', 
+                            table: 'dito_users' 
+                        }, payload => {
+                            console.log('👤 Mudança de perfil detectada na rede!');
+                            this.fetchNetworkUsers(); 
+                        })
+                        .subscribe();
+                    
+                    // 3. Lobby da Rede (DDTank Style)
+                    supabase
+                        .channel('public:dito_world_chat')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dito_world_chat' }, payload => {
+                            this.receiveWorldMessage(payload.new);
                         })
                         .subscribe();
                 }
@@ -176,7 +198,18 @@
                 this.initRealtimeNotifications();
                 this.fetchNotifications();
 
-                this.navigate('login');
+                // RESTAURAÇÃO DE ESTADO (F5 Seguro)
+                const lastView = localStorage.getItem('dito_last_view') || 'dashboard';
+                const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
+
+                if (isLoggedIn && this.currentUser) {
+                    console.log("📍 [System] Restaurando sessão em:", lastView);
+                    this.navigate(lastView);
+                } else {
+                    console.log("👋 [System] Nenhuma sessão ativa, indo para login.");
+                    this.navigate('login');
+                }
+                
                 if (window.lucide) lucide.createIcons();
                 
                 // 🧹 RESET PARA O USUÁRIO (Executa uma vez para limpar os testes anteriores)
@@ -349,14 +382,48 @@
                     const sortedUsers = users.map(u => {
                         const lastSeen = new Date(u.last_seen || 0);
                         const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
-                        return { ...u, isOnline: diffMinutes < 10 };
-                    }).sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
+                        const isOnline = diffMinutes < 10;
+                        const hasUnread = app.unreadMessages && app.unreadMessages[u.username];
+                        
+                        // Busca timestamp da última interação para ordenar
+                        const interactions = JSON.parse(localStorage.getItem('dito_last_interactions') || '{}');
+                        const lastInteraction = interactions[u.username] || 0;
+                        
+                        return { ...u, isOnline, hasUnread, lastInteraction };
+                    }).sort((a, b) => {
+                        // 1. Prioridade para Mensagens Não Lidas (Bolinha Amarela)
+                        if (a.hasUnread && !b.hasUnread) return -1;
+                        if (!a.hasUnread && b.hasUnread) return 1;
+                        
+                        // 2. Prioridade pela ÚLTIMA MENSAGEM (Interação mais recente)
+                        if (b.lastInteraction !== a.lastInteraction) {
+                            return b.lastInteraction - a.lastInteraction;
+                        }
+                        
+                        // 3. Prioridade para quem está Online (Bolinha Verde)
+                        if (a.isOnline && !b.isOnline) return -1;
+                        if (!a.isOnline && b.isOnline) return 1;
+                        
+                        return 0;
+                    });
 
                     container.innerHTML = sortedUsers.map(u => {
                         const isOnline = u.isOnline;
                         const color = isOnline ? '#000' : '#ccc';
+                        
+                        let genderIcon = '';
+                        if (u.gender === 'male') genderIcon = '<i data-lucide="scan-face" style="width: 12px; color: #3b82f6; margin-left: 4px;"></i>';
+                        if (u.gender === 'female') genderIcon = '<i data-lucide="flower-2" style="width: 12px; color: #ec4899; margin-left: 4px;"></i>';
+                        
+                        // Verifica se há mensagens não lidas deste usuário para o usuário atual
+                        let hasUnread = false;
+                        if (app.currentUser && app.unreadMessages && app.unreadMessages[u.username]) {
+                            hasUnread = true;
+                        }
+
                         return `
-                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-radius: 100px; border: 1px solid #f0f0f0; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-radius: 100px; border: 1px solid #f0f0f0; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); position: relative;">
+                                ${hasUnread ? '<div style="position: absolute; top: -2px; left: -2px; width: 14px; height: 14px; background: #FFD600; border-radius: 50%; border: 2px solid #fff; z-index: 10;"></div>' : ''}
                                 <div style="display: flex; align-items: center; gap: 12px; flex: 1;" onclick="app.viewPublicProfile('${u.username}')">
                                     <div style="position: relative;">
                                         <div style="width: 44px; height: 44px; border-radius: 50%; background: #f5f5f5; overflow: hidden; border: 1px solid #eee;">
@@ -365,20 +432,313 @@
                                         ${isOnline ? `<div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid #fff;"></div>` : ''}
                                     </div>
                                     <div>
-                                        <p style="font-weight: 900; font-size: 14px; color: ${color};">${u.name || u.username}</p>
+                                        <p style="font-weight: 900; font-size: 14px; color: ${color}; display: flex; align-items: center;">${u.name || u.username} ${genderIcon}</p>
                                         <p style="font-size: 8px; font-weight: 800; color: #bbb; text-transform: uppercase;">${isOnline ? 'Ativo na Pro' : 'Offline'}</p>
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
-                                    <button onclick="app.showNotification('Em breve: Chat com ${u.username}')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #f8f8f8; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"></path></svg></button>
-                                    <button onclick="app.showNotification('Redirecionando para envio de Moedas...')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #ff005c; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></button>
+                                    <button onclick="app.openChat('${u.username}'); closeFriendsDrawer();" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #f8f8f8; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="message-circle" style="width: 16px;"></i></button>
                                 </div>
                             </div>
                         `;
                     }).join('');
+                    if (window.lucide) lucide.createIcons();
                 }
             } catch (e) {
                 console.error(e);
+            }
+        },
+
+        // --- SISTEMA DE CHAT INSTAGRAM-STYLE ---
+        activeChatUser: null,
+        unreadMessages: JSON.parse(localStorage.getItem('dito_unread_messages') || '{}'),
+
+        openChat(username) {
+            if (!this.currentUser) return this.showNotification("Faça login para usar o chat.", "error");
+            this.activeChatUser = username;
+            
+            // Marca como lido localmente
+            if(this.unreadMessages && this.unreadMessages[username]) {
+                delete this.unreadMessages[username];
+                localStorage.setItem('dito_unread_messages', JSON.stringify(this.unreadMessages));
+                
+                // Atualiza a bolinha no menu se existir
+                this.updateFriendsNotifBadge();
+            }
+
+            document.getElementById('chat-header-username').innerText = username;
+            
+            const allUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
+            const user = allUsers.find(u => u.username === username);
+            const avatarHtml = user && user.avatar ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`;
+            document.getElementById('chat-header-avatar').innerHTML = avatarHtml;
+
+            const chatDrawer = document.getElementById('chat-drawer');
+            chatDrawer.style.bottom = '0';
+            chatDrawer.classList.add('active');
+            
+            if (window.lucide) lucide.createIcons();
+            
+            this.fetchChatMessages();
+        },
+
+        closeChat() {
+            this.activeChatUser = null;
+            const chatDrawer = document.getElementById('chat-drawer');
+            chatDrawer.style.bottom = '-100%';
+            chatDrawer.classList.remove('active');
+        },
+
+        async sendChatMessage() {
+            const inp = document.getElementById('chat-input');
+            const text = inp.value.trim();
+            if(!text || !this.activeChatUser || !this.currentUser) return;
+            
+            inp.value = '';
+            
+            const msg = {
+                sender: this.currentUser.username,
+                receiver: this.activeChatUser,
+                content: text,
+                created_at: new Date().toISOString(),
+                is_read: false
+            };
+            
+            this.appendMessageToChat(msg);
+            
+            // SALVA NO CACHE LOCAL (Persistência imediata)
+            this.saveMessageToLocal(msg);
+            
+            // Marca última interação para ordenação
+            this.markLastInteraction(this.activeChatUser);
+            
+            if(supabase) {
+                const { error } = await supabase.from('dito_messages').insert([msg]);
+                if(error) {
+                    console.error("❌ [Chat] Erro ao enviar:", error.message);
+                    if (error.message.includes('relation "dito_messages" does not exist')) {
+                        this.showNotification('Erro Fatal: Tabela de mensagens não existe no Supabase. Rode o SQL!', 'error');
+                    } else {
+                        this.showNotification('Erro ao enviar mensagem: ' + error.message, 'error');
+                    }
+                } else {
+                    console.log("📨 [Chat] Mensagem enviada para rede!");
+                }
+            }
+        },
+
+        appendMessageToChat(msg) {
+            const container = document.getElementById('chat-messages-content');
+            if (!container) return;
+            const isMe = msg.sender === this.currentUser.username;
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.style.display = 'flex';
+            bubbleDiv.style.justifyContent = isMe ? 'flex-end' : 'flex-start';
+            bubbleDiv.innerHTML = `
+                <div style="max-width: 75%; padding: 12px 16px; border-radius: 20px; font-weight: 700; font-size: 14px; line-height: 1.4; position: relative; ${isMe ? 'background: #ff005c; color: #fff; border-bottom-right-radius: 4px;' : 'background: #fff; border: 1px solid #eee; color: #000; border-bottom-left-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);'}">
+                    ${msg.content}
+                    <div style="font-size: 9px; margin-top: 4px; text-align: right; opacity: 0.6; font-weight: 800;">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                </div>
+            `;
+            container.appendChild(bubbleDiv);
+            container.scrollTop = container.scrollHeight;
+        },
+
+        async fetchChatMessages() {
+            if(!supabase || !this.currentUser || !this.activeChatUser) return;
+            const container = document.getElementById('chat-messages-content');
+            
+            // 1. CARREGA DO CACHE LOCAL PRIMEIRO (INSTANTÂNEO)
+            const cacheKey = `chat_history_${this.currentUser.username}_${this.activeChatUser}`;
+            const localHistory = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+            
+            if (localHistory.length > 0) {
+                container.innerHTML = '';
+                localHistory.forEach(msg => this.appendMessageToChat(msg));
+            } else {
+                container.innerHTML = '<p style="text-align:center;color:#ccc;font-size:12px;margin-top:20px;">Carregando mensagens...</p>';
+            }
+
+            try {
+                // 2. BUSCA NO SUPABASE PARA ATUALIZAR
+                const { data, error } = await supabase.from('dito_messages')
+                    .select('*')
+                    .or(`and(sender.eq.${this.currentUser.username},receiver.eq.${this.activeChatUser}),and(sender.eq.${this.activeChatUser},receiver.eq.${this.currentUser.username})`)
+                    .order('created_at', { ascending: true })
+                    .limit(100);
+                    
+                if(!error && data) {
+                    container.innerHTML = '';
+                    if (data.length === 0) {
+                        container.innerHTML = '<p style="text-align:center;color:#ccc;font-size:12px;margin-top:20px;">Nenhuma mensagem ainda. Envie um oi!</p>';
+                    }
+                    data.forEach(msg => this.appendMessageToChat(msg));
+                    
+                    // 3. ATUALIZA O CACHE LOCAL COM OS DADOS REAIS DO SERVIDOR
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                    
+                    // 4. MARCA COMO LIDO NO SERVIDOR
+                    await supabase.from('dito_messages')
+                        .update({ is_read: true })
+                        .eq('receiver', this.currentUser.username)
+                        .eq('sender', this.activeChatUser)
+                        .eq('is_read', false);
+                }
+            } catch(e) {
+                console.warn("Erro ao buscar histórico:", e);
+            }
+        },
+
+        saveMessageToLocal(msg) {
+            if (!this.currentUser) return;
+            const otherUser = msg.sender === this.currentUser.username ? msg.receiver : msg.sender;
+            const cacheKey = `chat_history_${this.currentUser.username}_${otherUser}`;
+            const history = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+            
+            // Evita duplicatas se já veio via Realtime
+            if (!history.find(m => m.created_at === msg.created_at && m.content === msg.content)) {
+                history.push(msg);
+                // Mantém apenas as últimas 100 mensagens no cache local por chat
+                if (history.length > 100) history.shift();
+                localStorage.setItem(cacheKey, JSON.stringify(history));
+            }
+        },
+
+        updateFriendsNotifBadge() {
+            const dot = document.getElementById('dot-friends');
+            if (!dot) return;
+            
+            // Verifica se há alguma mensagem não lida de QUALQUER pessoa
+            const hasUnread = Object.keys(this.unreadMessages || {}).length > 0;
+            dot.style.display = hasUnread ? 'block' : 'none';
+        },
+
+        markLastInteraction(username) {
+            const interactions = JSON.parse(localStorage.getItem('dito_last_interactions') || '{}');
+            interactions[username] = Date.now();
+            localStorage.setItem('dito_last_interactions', JSON.stringify(interactions));
+        },
+
+        // --- SISTEMA DE CHAT MUNDIAL (DDTANK STYLE) ---
+        worldChatMessages: [],
+        
+        openWorldChat() {
+            if (!this.currentUser) return this.showNotification("Faça login para usar o Chat Global.", "error");
+            document.getElementById('world-chat-drawer').classList.add('active');
+            document.getElementById('world-chat-drawer').style.bottom = '0';
+            
+            // Limpa notificação ao abrir
+            const dot = document.getElementById('dot-world-chat');
+            if (dot) dot.style.display = 'none';
+
+            if (window.lucide) lucide.createIcons();
+            this.fetchWorldChatMessages();
+        },
+
+        closeWorldChat() {
+            document.getElementById('world-chat-drawer').classList.remove('active');
+            document.getElementById('world-chat-drawer').style.bottom = '-100%';
+        },
+
+        async sendWorldMessage() {
+            const inp = document.getElementById('world-chat-input');
+            let text = inp.value.trim();
+            if(!text || !this.currentUser) return;
+            
+            inp.value = '';
+            
+            let receiver = 'GLOBAL';
+            let content = text;
+            
+            // Lógica de Comandos (DDTank Style)
+            if (text.startsWith('/s ')) {
+                receiver = 'SOC_GLOBAL'; // Simplificação temporária: Chat global de soc
+                content = text.replace('/s ', '');
+            } else if (text.startsWith('/p ')) {
+                const parts = text.split(' ');
+                if (parts.length > 2) {
+                    receiver = parts[1]; // O nome do usuário
+                    content = parts.slice(2).join(' ');
+                }
+            }
+            
+            const msg = {
+                sender: this.currentUser.username,
+                receiver: receiver,
+                content: content,
+                created_at: new Date().toISOString(),
+                is_read: false
+            };
+            
+            if(supabase) {
+                const { error } = await supabase.from('dito_messages').insert([msg]);
+                if(error) console.error("❌ [World Chat] Erro ao enviar:", error.message);
+            }
+        },
+
+        appendWorldMessageToChat(msg) {
+            const container = document.getElementById('world-chat-feed');
+            if (!container) return;
+            
+            // Definição das Cores de Alto Contraste (Fundo Branco)
+            let channelColor = '#000000'; // Global (Preto Sólido)
+            let prefix = '[Mundo]';
+            
+            if (msg.receiver === 'SOC_GLOBAL' || msg.receiver.startsWith('SOC_')) {
+                channelColor = '#008f11'; // Sociedade (Verde Escuro)
+                prefix = '[Sociedade]';
+            } else if (msg.receiver !== 'GLOBAL') {
+                channelColor = '#c70097'; // Privado/Sussurro (Rosa Escuro para fundo branco)
+                prefix = `[Sussurro de ${msg.receiver === this.currentUser.username ? 'você' : msg.receiver}]`;
+            }
+            
+            const isMe = msg.sender === this.currentUser?.username;
+            const itemDiv = document.createElement('div');
+            itemDiv.style.padding = '4px 0'; // Mais espaçamento no modo claro
+            itemDiv.style.color = channelColor;
+            itemDiv.style.fontSize = '14px';
+            itemDiv.style.fontWeight = '700';
+            itemDiv.style.fontFamily = "'Inter', sans-serif"; 
+            itemDiv.style.lineHeight = '1.3';
+            itemDiv.style.borderBottom = '1px solid #f9f9f9'; 
+            
+            itemDiv.innerHTML = `
+                <span onclick="app.viewPublicProfile('${msg.sender}')" style="cursor: pointer; color: ${isMe ? '#ff005c' : channelColor}; text-decoration: none;">${msg.sender}</span>
+                <span style="opacity: 0.7;">${prefix}:</span>
+                <span style="font-weight: 500; color: #333;">${msg.content}</span>
+            `;
+            
+            container.appendChild(itemDiv);
+            container.scrollTop = container.scrollHeight;
+        },
+
+        async fetchWorldChatMessages() {
+            if(!supabase || !this.currentUser) return;
+            const container = document.getElementById('world-chat-feed');
+            
+            try {
+                // Traz os últimos avisos globais e mensagens suas do mundo
+                const { data, error } = await supabase.from('dito_messages')
+                    .select('*')
+                    .or(`receiver.eq.GLOBAL,receiver.eq.SOC_GLOBAL,receiver.eq.${this.currentUser.username},sender.eq.${this.currentUser.username}`)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+                    
+                if(!error && data) {
+                    container.innerHTML = '';
+                    // Reverte pois o select order by desc + limit pega os 50 mais recentes mas inverte a cronologia
+                    data.reverse().forEach(msg => {
+                        // Filtro fino: Se for sussurro entre outros, não mostra
+                        if (msg.receiver !== 'GLOBAL' && msg.receiver !== 'SOC_GLOBAL' && msg.receiver !== this.currentUser.username && msg.sender !== this.currentUser.username) {
+                            return;
+                        }
+                        // Não mostra mensagens normais de chat 1:1 no chat global (apenas os puramente enviados via World Chat)
+                        // Para facilitar, por enquanto, mostraremos todas as Dito Messages. A magia está no receiver.
+                        this.appendWorldMessageToChat(msg);
+                    });
+                }
+            } catch(e) {
+                console.warn(e);
             }
         },
 
@@ -392,7 +752,7 @@
                 // 1. BUSCA O HALL DA FAMA (Aumentado para Top 100 para garantir que novos usuários apareçam)
                 // Se for admin, poderíamos buscar ainda mais.
                 const [hallRes, meRes] = await Promise.all([
-                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen').order('sales', { ascending: false }).limit(100),
+                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen, gender').order('sales', { ascending: false }).limit(100),
                     this.currentUser ? supabase.from('dito_users').select('*').eq('username', this.currentUser.username).maybeSingle() : Promise.resolve({ data: null })
                 ]);
 
@@ -474,6 +834,7 @@
                     username: user.username,
                     password: user.password,
                     email: user.email || "",
+                    gender: user.gender || "none",
                     name: user.name || user.username,
                     bio: user.bio || "Membro Dito Network",
                     sales: Number(user.sales || 0),
@@ -495,6 +856,9 @@
                     console.warn("⚠️ [Network] Erro Sync:", error.message);
                     if (error.message.includes('column "email" does not exist')) {
                         this.showNotification('Erro de Banco: E-mail não suportado no Supabase.', 'error');
+                    }
+                    if (error.message.includes('column "gender" does not exist')) {
+                        this.showNotification('Erro de Banco: A coluna "gender" não existe no Supabase', 'error');
                     }
                 } else {
                     console.log("🚀 Sincronizado com sucesso!");
@@ -972,7 +1336,7 @@
                                         <div style="flex: 1;">
                                             <p style="font-size: 12px; font-weight: 900; color: ${this.currentLessonId === l.id ? '#fff' : '#000'};">${l.title}</p>
                                         </div>
-                                        ${this.currentLessonId === l.id ? '<i data-lucide="play" style="width: 14px; color: #fff; fill: #fff;"></i>' : ''}
+                                        ${this.currentLessonId === l.id ? '<i data-lucide="play" style="width: 14px; color: #fff;"></i>' : ''}
                                     </div>
                                 `).join('')}
                             </div>
@@ -1360,6 +1724,11 @@
             try {
                 console.log("Navegando para:", view);
                 this.currentView = view;
+                
+                // Salva o estado para restaurar no F5
+                if (view !== 'login' && view !== 'cadastro') {
+                    localStorage.setItem('dito_last_view', view);
+                }
 
                 const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
                 if (!isLoggedIn && view !== 'login' && view !== 'cadastro') {
@@ -1429,12 +1798,15 @@
                         const icon = item.querySelector('i');
                         if (targetView === view) {
                             item.classList.add('active-nav');
-                            if (icon) icon.style.fill = '#000';
                         } else {
                             item.classList.remove('active-nav');
-                            if (icon) icon.style.fill = 'transparent';
                         }
                     });
+                }
+                
+                const worldChatBtn = document.getElementById('btn-world-chat');
+                if (worldChatBtn) {
+                    worldChatBtn.style.display = isAuthPage ? 'none' : 'flex';
                 }
                 
                 if (header) {
@@ -1941,6 +2313,9 @@
             }
             if (linkInp) linkInp.value = this.currentUser.link || '';
             if (emailInp) emailInp.value = this.currentUser.email || '';
+            
+            const genderInp = document.getElementById('edit-gender');
+            if (genderInp) genderInp.value = this.currentUser.gender || 'none';
         },
 
         saveProfile() {
@@ -1959,6 +2334,9 @@
                 this.currentUser.name = newUsername;
                 this.currentUser.bio = newBio;
                 this.currentUser.link = newLink;
+                
+                const newGender = document.getElementById('edit-gender') ? document.getElementById('edit-gender').value : 'none';
+                this.currentUser.gender = newGender;
                 
                 // Só atualiza o e-mail se o novo não for vazio, 
                 // para nunca deletar o e-mail que já está no banco por engano.
@@ -2092,6 +2470,7 @@
                 if (document.getElementById('edit-profile-bio')) document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
                 if (document.getElementById('edit-profile-link')) document.getElementById('edit-profile-link').value = this.currentUser.link || '';
                 if (document.getElementById('edit-profile-email')) document.getElementById('edit-profile-email').value = this.currentUser.email || '';
+                if (document.getElementById('edit-profile-gender')) document.getElementById('edit-profile-gender').value = this.currentUser.gender || 'none';
                 
                 const showRevInp = document.getElementById('edit-profile-show-revenue');
                 if (showRevInp) {
@@ -2139,6 +2518,10 @@
                 this.currentUser.name = newName;
                 this.currentUser.bio = newBio;
                 this.currentUser.link = newLink;
+                
+                const newGender = document.getElementById('edit-profile-gender') ? document.getElementById('edit-profile-gender').value : 'none';
+                this.currentUser.gender = newGender;
+                
                 if (newEmail) {
                     this.currentUser.email = newEmail;
                 }
@@ -2443,38 +2826,7 @@
             // Exibe as bolinhas de notificação se ainda não viu
             // Status de Conexão (Privado para o Ditão)
             const statusEl = document.getElementById('network-status-indicator');
-            if (statusEl) {
-                if (this.currentUser && this.currentUser.username === 'Ditão') {
-                    const globalUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
-                    const names = globalUsers.map(u => u.username).join(', ');
-                    
-                    if (this.adminNetworkInfoVisible) {
-                        statusEl.innerHTML = `
-                            <div style="text-align: right; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 12px; border: 1px solid #eee;">
-                                <span style="color: #22c55e; display: block; margin-bottom: 4px;">● Online (${globalUsers.length} pessoas)</span>
-                                <div style="font-size: 7px; color: #ccc; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    Projeto: ${SUPABASE_URL.split('//')[1].split('.')[0]}
-                                </div>
-                                <div style="font-size: 7px; color: #999; margin-top: 2px;">
-                                    [ ${names || 'carregando...'} ]
-                                </div>
-                                <div style="display: flex; gap: 4px; margin-top: 8px; justify-content: flex-end;">
-                                    <button onclick="app.forceSyncAll()" style="font-size: 6px; background: #000; color: #fff; border: none; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-weight: 900;">SINCRONIZAR</button>
-                                    <button onclick="app.toggleNetworkStatus()" style="font-size: 6px; background: #eee; color: #000; border: none; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-weight: 900;">OCULTAR</button>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        statusEl.innerHTML = `
-                            <button onclick="app.toggleNetworkStatus()" style="background: #f5f5f5; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; font-size: 8px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                                <span style="color: #22c55e;">●</span> REDE PRO
-                            </button>
-                        `;
-                    }
-                } else {
-                    statusEl.innerHTML = ''; // Esconde para outros usuários
-                }
-            }
+            if (statusEl) statusEl.innerHTML = '';
         },
 
         toggleNetworkStatus() {
@@ -3545,6 +3897,67 @@
                 this.playNotifSound();
             })
             .subscribe();
+            
+        // Escuta novas MENSAGENS DE CHAT (Sistema mais resiliente sem filtros pesados)
+        supabase
+            .channel('realtime_chat_resilient')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'dito_messages' 
+            }, (payload) => {
+                const msg = payload.new;
+                
+                // 1. Injeta sempre na Rádio Global se estiver aberta (e se for relevante)
+                const worldDrawer = document.getElementById('world-chat-drawer');
+                if (worldDrawer) {
+                    const isActive = worldDrawer.classList.contains('active');
+                    const isGlobalMsg = msg.receiver === 'GLOBAL' || msg.receiver === 'SOC_GLOBAL' || msg.receiver === this.currentUser.username || msg.sender === this.currentUser.username;
+                    
+                    if (isGlobalMsg) {
+                        if (isActive) {
+                            this.appendWorldMessageToChat(msg);
+                        } else if (msg.sender !== this.currentUser.username) {
+                            // Se estiver fechado e não fui eu quem mandou, mostra a bolinha amarela
+                            const dot = document.getElementById('dot-world-chat');
+                            if (dot) dot.style.display = 'block';
+                        }
+                    }
+                }
+                
+                // 2. Não processa notificação de chat direto se não for pra mim (Ou se for Global)
+                if (msg.receiver !== this.currentUser.username || msg.receiver === 'GLOBAL' || msg.receiver === 'SOC_GLOBAL') return;
+
+                console.log('📨 Nova mensagem recebida:', msg);
+                
+                // Se o chat com essa pessoa está aberto, adiciona na tela
+                if (this.activeChatUser === msg.sender) {
+                    this.appendMessageToChat(msg);
+                    this.saveMessageToLocal(msg); // Salva no cache mesmo aberto
+                } else {
+                    // Senão, marca como não lida
+                    if (!this.unreadMessages) this.unreadMessages = {};
+                    this.unreadMessages[msg.sender] = true;
+                    localStorage.setItem('dito_unread_messages', JSON.stringify(this.unreadMessages));
+                    
+                    this.saveMessageToLocal(msg); // Salva no cache em background
+                    this.markLastInteraction(msg.sender); // Registra interação para organizar lista
+                    
+                    // Atualiza o ponto no menu principal
+                    this.updateFriendsNotifBadge();
+                    
+                    this.showNotification(`Mensagem de ${msg.sender}: ${msg.content.substring(0, 20)}...`, 'info');
+                    this.playNotifSound();
+                    
+                    // Se for na tela de amigos, atualiza visualmente para mostrar a bolinha amarela
+                    if (this.currentView === 'friends' || document.getElementById('friends-drawer').classList.contains('active')) {
+                        this.showOnlineFriends(); 
+                    }
+                }
+            })
+            .subscribe((status) => {
+                console.log("📡 [Chat] Status da conexão Realtime:", status);
+            });
     };
 
     app.renderNotifications = function() {

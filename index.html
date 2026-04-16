@@ -136,7 +136,7 @@
 
     <nav id="global-nav" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; display: none; justify-content: space-around; align-items: center; background: #fff; border-top: 1px solid #f0f0f0; box-shadow: 0 -5px 20px rgba(0,0,0,0.02); z-index: 1000; padding-bottom: env(safe-area-inset-bottom);">
         <div class="nav-item active-nav" data-view="dashboard" onclick="app.navigate('dashboard')" style="cursor: pointer; padding: 10px;">
-            <i data-lucide="home" style="width: 24px; height: 24px; color: #000; fill: #000; transition: 0.3s;"></i>
+            <i data-lucide="home" style="width: 24px; height: 24px; color: #000; transition: 0.3s;"></i>
         </div>
         <div class="nav-item" data-view="mercado" onclick="app.navigate('mercado')" style="position: relative; cursor: pointer; padding: 10px;">
             <i data-lucide="store" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
@@ -150,13 +150,18 @@
         </div>
         <div id="nav-friends" class="nav-item" onclick="app.showOnlineFriends()" style="position: relative; cursor: pointer; padding: 10px;">
             <i data-lucide="users" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
-            <span id="dot-friends" style="position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; background: #FFD600; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 2px 8px rgba(255, 214, 0, 0.4);"></span>
+            <span id="dot-friends" style="position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; background: #FFD600; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 2px 8px rgba(255, 214, 0, 0.4); display: none;"></span>
         </div>
         <div class="nav-item" data-view="perfil" onclick="app.navigate('perfil')" style="cursor: pointer; padding: 10px;">
             <i data-lucide="user" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
         </div>
     </nav>
 
+    <!-- Botão Flutuante do Chat Global (Acima do Menu Home) -->
+    <div id="btn-world-chat" onclick="app.openWorldChat()" style="position: fixed; bottom: 85px; left: 16px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
+        <i data-lucide="message-square" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
+        <span id="dot-world-chat" style="position: absolute; top: 0; right: 0; width: 14px; height: 14px; background: #FFD600; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 10px rgba(255, 214, 0, 0.4); display: none;"></span>
+    </div>
 
     <!-- Templates Section -->
     <template id="template-produtos">
@@ -552,9 +557,17 @@
             <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #fff; cursor: pointer; margin-bottom: 24px;">
                 <i data-lucide="arrow-left" style="width: 20px;"></i>
             </div>
-            <header style="margin-bottom: 32px; text-align: center;">
-                <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -2px; color: #fff; italic; margin: 0;">Mercado</h2>
-                <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;">Onde você encontra o que ama.</p>
+            <header style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;"></div>
+                <div style="flex: 2; text-align: center;">
+                    <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -2px; color: #fff; italic; margin: 0;">Mercado</h2>
+                    <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;">Encontre o que ama.</p>
+                </div>
+                <div style="flex: 1; display: flex; justify-content: flex-end;">
+                    <button onclick="app.fetchNetworkProducts()" style="background: rgba(255,255,255,0.1); border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px);">
+                        <i data-lucide="refresh-cw" style="width: 20px; color: #fff;"></i>
+                    </button>
+                </div>
             </header>
             
             <div style="margin-bottom: 32px; display: flex; gap: 12px; position: relative;">
@@ -1104,6 +1117,13 @@
                     <div style="margin-bottom: 12px;">
                         <input type="text" id="edit-profile-link" placeholder="Link (ex: dito.app/voce)" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 13px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; color: #000; font-family: inherit;">
                     </div>
+                    <div style="margin-bottom: 12px;">
+                        <select id="edit-profile-gender" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #000; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 8px 0; font-family: inherit; cursor: pointer;">
+                            <option value="none">Gênero: Não informar</option>
+                            <option value="male">Homem</option>
+                            <option value="female">Mulher</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Botões -->
@@ -1187,6 +1207,15 @@
                     <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ccc; margin-bottom: 8px;">Link do seu site</label>
                     <input type="url" id="edit-link" placeholder="https://..." style="width: 100%; border: none; background: transparent; font-weight: 800; font-size: 15px; outline: none; padding: 0; color: #00376b;">
                 </div>
+
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ccc; margin-bottom: 8px;">Gênero</label>
+                    <select id="edit-gender" style="width: 100%; border: none; background: transparent; font-weight: 800; font-size: 15px; outline: none; padding: 0; color: #000; cursor: pointer;">
+                        <option value="none">Não informar</option>
+                        <option value="male">Homem</option>
+                        <option value="female">Mulher</option>
+                    </select>
+                </div>
             </div>
         </div>
     </template>
@@ -1226,7 +1255,7 @@
 
                 <div style="display: flex; gap: 8px; margin-bottom: 32px;">
                     <button id="btn-fan" onclick="app.toggleFan()" style="flex: 1; height: 44px; border-radius: 12px; border: none; background: #000; color: #fff; font-weight: 900; font-size: 13px; cursor: pointer; transition: 0.3s;">Tornar-se Fã</button>
-                    <button onclick="app.showNotification('Recurso de chat em breve na pro!')" style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid #ddd; background: #fff; color: #000; font-weight: 900; font-size: 13px; cursor: pointer;">Mensagem</button>
+                    <button onclick="app.openChat(document.getElementById('public-username-header').innerText)" style="flex: 1; height: 44px; border-radius: 12px; border: 1px solid #ddd; background: #fff; color: #000; font-weight: 900; font-size: 13px; cursor: pointer;">Mensagem</button>
                 </div>
             </div>
 
@@ -1248,7 +1277,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AWfoxAPMJjl08COTGAE8evpaW_A-ADz1oLDrHjXuoBnmCa1SFnGlpYFnG5II2dKe-cQkZ2Ht_dRO64jG&currency=BRL"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=2.1"></script>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeFriendsDrawer()"></div>
     <div id="friends-drawer" class="friends-drawer">
@@ -1257,6 +1286,52 @@
             <button onclick="closeFriendsDrawer()" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #f5f5f5; cursor: pointer; color: #000; font-weight: 900;">✕</button>
         </div>
         <div id="friends-list-content"></div>
+    </div>
+
+    <div id="chat-drawer" class="friends-drawer" style="height: 100%; border-radius: 0; padding: 0; display: flex; flex-direction: column; z-index: 2001;">
+        <div style="padding: 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div onclick="app.closeChat()" style="cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="arrow-left" style="width: 20px;"></i>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="chat-header-avatar" style="width: 36px; height: 36px; border-radius: 50%; background: #f5f5f5; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="user" style="width: 18px; color: #ccc;"></i>
+                    </div>
+                    <h3 id="chat-header-username" style="font-weight: 900; font-size: 16px; color: #000; letter-spacing: -0.5px;">...</h3>
+                </div>
+            </div>
+        </div>
+        <div id="chat-messages-content" style="flex: 1; padding: 20px; overflow-y: auto; background: #fafafa; display: flex; flex-direction: column; gap: 12px;">
+            <!-- Mensagens injetadas -->
+        </div>
+        <div style="padding: 16px 20px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="chat-input" placeholder="Mensagem..." style="flex: 1; height: 44px; border-radius: 50px; border: 1px solid #eee; background: #f5f5f5; padding: 0 20px; font-weight: 700; font-size: 14px; outline: none;">
+            <button onclick="app.sendChatMessage()" style="width: 44px; height: 44px; border-radius: 50%; border: none; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i data-lucide="send" style="width: 18px;"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- CHAT MUNDIAL (DDTANK STYLE) -->
+    <div id="world-chat-drawer" class="friends-drawer" style="height: 85%; border-radius: 32px 32px 0 0; padding: 0; display: flex; flex-direction: column; z-index: 2002; bottom: -100%;">
+        <div style="padding: 20px; background: #fff; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-weight: 900; font-size: 18px; display:flex; align-items:center; gap:8px;">
+                <i data-lucide="globe" style="width: 20px; color:#000;"></i> Chat Global
+            </h3>
+            <button onclick="app.closeWorldChat()" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #f5f5f5; cursor: pointer; color: #000; font-weight: 900;">✕</button>
+        </div>
+        <div id="world-chat-feed" style="flex: 1; padding: 16px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; gap: 4px;">
+            <!-- feed -->
+        </div>
+        <div style="padding: 16px; background: #fff;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="world-chat-input" placeholder="Comando ou mensagem..." onkeypress="if(event.key === 'Enter') app.sendWorldMessage()" style="flex: 1; height: 50px; border-radius: 12px; border: none; background: #f9f9f9; padding: 0 20px; font-weight: 700; font-size: 15px; outline: none;">
+                <button onclick="app.sendWorldMessage()" style="width: 50px; height: 50px; border-radius: 12px; border: none; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="send" style="width: 20px;"></i>
+                </button>
+            </div>
+        </div>
     </div>
     
     <!-- DRAWER DE NOTIFICAÇÕES -->
