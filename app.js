@@ -155,11 +155,22 @@
                     this.fetchNetworkProducts()
                 ]);
                 
-                // Polling otimizado (10s em vez de 5s para economizar bateria/processamento)
+                // Polling de segurança (mais rápido para testes: 5s)
                 setInterval(() => {
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
-                }, 10000);
+                }, 5000);
+
+                // Inicia Canal Realtime (Supabase)
+                if (supabase) {
+                    supabase
+                        .channel('public:dito_market_products')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dito_market_products' }, payload => {
+                            console.log('✨ Novo produto detectado em tempo real!');
+                            this.fetchNetworkProducts(); // Força a atualização imediata
+                        })
+                        .subscribe();
+                }
 
                 // Inicia Notificações Realtime
                 this.initRealtimeNotifications();
