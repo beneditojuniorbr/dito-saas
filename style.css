@@ -227,42 +227,45 @@ body {
     margin-bottom: 16px;
 }
 
-/* Sistema de Notificações Centralizado Embaixo */
 .notification-container {
     position: fixed;
-    bottom: 40px; /* Um pouco acima da barra de navegação */
+    top: 40px; 
     left: 50%;
     transform: translateX(-50%);
-    z-index: 9999;
+    z-index: 10000;
     display: flex;
-    flex-direction: column-reverse; /* Novas notificações empurram as velhas para cima */
-    gap: 10px;
+    flex-direction: column;
+    gap: 12px;
     pointer-events: none;
     align-items: center;
 }
 
-.toast {
-    padding: 14px 28px;
-    border-radius: 50px; /* Estilo pílula para combinar com o app */
+.notif-pill {
+    padding: 12px 24px;
+    border-radius: 50px;
+    background: #000;
     color: #fff;
     font-weight: 800;
     font-size: 13px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     white-space: nowrap;
-    animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     pointer-events: auto;
+    transform: translateY(-50px);
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
-.toast.success {
-    background: #22c55e; /* Verde */
+.notif-pill.show {
+    transform: translateY(0);
+    opacity: 1;
 }
 
-.toast.error {
-    background: #ef4444; /* Vermelho */
-}
+.notif-pill.success { background: #000; color: #fff; border: 1px solid #22c55e33; }
+.notif-pill.error { background: #ef4444; color: #fff; }
+.notif-pill.info { background: #0099ff; color: #fff; }
 
 @keyframes slideUp {
     from { transform: translateY(100px); opacity: 0; }

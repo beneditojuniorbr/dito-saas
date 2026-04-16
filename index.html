@@ -237,6 +237,12 @@
                         <input type="text" id="reg-username" placeholder="Crie seu nome de usuário" style="padding: 18px 18px 18px 54px; border-radius: 50px; background: var(--surface); border: 1px solid var(--border); width: 100%;">
                     </div>
                 </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <div style="position: relative;">
+                        <i data-lucide="mail" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); width: 20px;"></i>
+                        <input type="email" id="reg-email" placeholder="Seu melhor e-mail" style="padding: 18px 18px 18px 54px; border-radius: 50px; background: var(--surface); border: 1px solid var(--border); width: 100%;">
+                    </div>
+                </div>
                 <div class="form-group" style="margin-bottom: 30px;">
                     <div style="position: relative;">
                         <i data-lucide="key" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); width: 20px;"></i>
@@ -881,8 +887,8 @@
                 <div onclick="app.selectPayment('pix', this)" class="payment-opt active" style="padding: 20px; border-radius: 16px; border: 2px solid transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box; display: flex; align-items: center; gap: 16px; cursor: pointer;">
                     <div style="width: 44px; height: 44px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;"><i data-lucide="diamond" stroke="url(#dito-gradient)" style="width: 22px;"></i></div>
                     <div>
-                        <p style="font-weight: 900; font-size: 15px;">Pix</p>
-                        <p style="font-size: 10px; color: #999; font-weight: 700;">Aprovação imediata</p>
+                        <p style="font-weight: 900; font-size: 15px;">Pix Instantâneo</p>
+                        <p style="font-size: 10px; color: #999; font-weight: 700;">Liberação imediata</p>
                     </div>
                 </div>
 
@@ -895,39 +901,20 @@
                     </div>
                     <div>
                         <p style="font-weight: 900; font-size: 15px;">Cartão de Crédito</p>
-                        <p style="font-size: 10px; color: #999; font-weight: 700;">Em até 12x</p>
+                        <p style="font-size: 10px; color: #999; font-weight: 700;">Até 12x via PayPal</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Payment Details (Pix or Stripe) -->
-            <div id="payment-details-container" style="display: block; text-align: center;">
-                <div id="qr-container" style="width: 240px; height: 240px; background: #fff; border-radius: 32px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; border: 1px solid #f0f0f0; box-shadow: 0 10px 40px rgba(0,0,0,0.03); overflow: hidden; position: relative;">
-                    <!-- QR Code será injetado aqui via JS -->
-                    <div id="qr-loading" style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
-                        <div class="loading-spinner"></div>
-                        <p style="font-size: 8px; font-weight: 900; color: #ccc; text-transform: uppercase;">Gerando QR Code...</p>
-                    </div>
-                    <img id="checkout-qr-code" style="width: 200px; height: 200px; display: none;">
-                </div>
-                
-                <div id="payment-instructions" style="margin-bottom: 24px; padding: 0 20px;">
-                    <p style="font-size: 11px; font-weight: 800; color: #ccc; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Instruções</p>
-                    <p id="payment-text" style="font-size: 13px; font-weight: 700; color: #666; line-height: 1.4;">Escaneie o QR Code acima para Pix ou use o botão do PayPal abaixo para cartão.</p>
-                </div>
-
-                <div id="paypal-button-container" style="margin-bottom: 24px; display: none;"></div>
-
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <button id="btn-copy-payment" onclick="app.copyPaymentCode()" style="width: 100%; height: 56px; background: #f9f9f9; border: none; border-radius: 16px; font-weight: 900; font-size: 12px; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <i data-lucide="copy" style="width: 18px;"></i> <span id="btn-copy-text">Copiar link de pagamento</span>
-                    </button>
-                    
-                    <a id="btn-paypal-direct" href="#" target="_blank" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 12px; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 10px; text-decoration: none;">
-                        <i data-lucide="external-link" style="width: 18px;"></i> Pagar no site oficial
-                    </a>
-                </div>
+            <div id="payment-status-message" style="padding: 24px; text-align: center; background: #fdfdfd; border-radius: 24px; border: 1px solid #f0f0f0; margin-bottom: 24px;">
+                <i data-lucide="shield-check" style="width: 32px; color: #22c55e; margin-bottom: 12px;"></i>
+                <p style="font-size: 11px; font-weight: 800; color: #999; line-height: 1.4;">Pagamento processado de forma segura. Seus dados estão protegidos.</p>
             </div>
+            
+            <div id="paypal-button-container" style="display: none; margin-bottom: 32px;"></div>
+
+        </div>
+    </template>
 
         </div>
     </template>
@@ -1095,12 +1082,15 @@
 
                 <div id="profile-info-edit" style="display: none; margin-bottom: 24px;">
                     <div style="margin-bottom: 12px;">
-                        <input type="text" id="edit-profile-name" placeholder="Nome" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 16px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; letter-spacing: -0.5px; font-family: inherit;">
+                         <input type="text" id="edit-profile-name" placeholder="Nome" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 16px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; letter-spacing: -0.5px; font-family: inherit;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <input type="email" id="edit-profile-email" placeholder="Seu e-mail de recebimento" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #000; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 8px 0; font-family: inherit;">
                     </div>
                     <div style="margin-bottom: 12px;">
                         <textarea id="edit-profile-bio" placeholder="Sua bio..." style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 13px; color: #666; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 8px 0; resize: none; min-height: 50px; line-height: 1.5; font-family: inherit;"></textarea>
                     </div>
-                    <div>
+                    <div style="margin-bottom: 12px;">
                         <input type="text" id="edit-profile-link" placeholder="Link (ex: dito.app/voce)" style="width: 100%; border: none; background: transparent; font-weight: 900; font-size: 13px; outline: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 4px 0; color: #000; font-family: inherit;">
                     </div>
                 </div>
@@ -1178,6 +1168,11 @@
                 </div>
 
                 <div style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                    <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ccc; margin-bottom: 8px;">E-mail (para receber pagamentos)</label>
+                    <input type="email" id="edit-email" placeholder="seuemail@exemplo.com" style="width: 100%; border: none; background: transparent; font-weight: 800; font-size: 15px; outline: none; padding: 0; color: #000;">
+                </div>
+
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 12px;">
                     <label style="display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ccc; margin-bottom: 8px;">Link do seu site</label>
                     <input type="url" id="edit-link" placeholder="https://..." style="width: 100%; border: none; background: transparent; font-weight: 800; font-size: 15px; outline: none; padding: 0; color: #00376b;">
                 </div>
@@ -1243,12 +1238,6 @@
     <script src="https://www.paypal.com/sdk/js?client-id=AWfoxAPMJjl08COTGAE8evpaW_A-ADz1oLDrHjXuoBnmCa1SFnGlpYFnG5II2dKe-cQkZ2Ht_dRO64jG&currency=BRL"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
-
-    <div id="modal-container" class="modal-overlay" onclick="app.closeModal(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div id="modal-body"></div>
-        </div>
-    </div>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeFriendsDrawer()"></div>
     <div id="friends-drawer" class="friends-drawer">

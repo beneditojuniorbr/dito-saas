@@ -185,21 +185,40 @@
         // ==========================================
 
         async processPaymentMP(method = 'pix') {
+            console.log("🚀 [Debug] Iniciando processPaymentMP...");
+            
             if (!this.currentUser || this.currentUser.isGuest) {
-                this.showNotification('Faça login para realizar compras reais.', 'error');
+                this.showNotification('Você precisa estar LOGADO para gerar um Pix real.', 'error');
                 return;
             }
 
             const total = this.recalculateCheckoutTotal();
-            if (total <= 0) return;
+            console.log("💰 [Debug] Valor total calculado:", total);
+
+            if (total <= 0) {
+                this.showNotification('Carrinho vazio ou valor zerado.', 'error');
+                return;
+            }
+
+            if (!this.currentUser.email) {
+                this.showNotification('Cadastre seu e-mail no perfil antes de comprar!', 'error');
+                this.navigate('perfil');
+                return;
+            }
 
             this.showLoading(true, 'Gerando seu código Pix real...');
 
             try {
-                // URL da sua Edge Function do Supabase
                 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/mercado-pago-bridge`;
                 
-                const response = await fetch(FUNCTION_URL, {
+                // Sanitiza o email (Mercado Pago exige um email válido e sem espaços)
+                let email = this.currentUser.email;
+                if (!email || !email.includes('@')) {
+                    const cleanUsername = (this.currentUser.username || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
+                    email = `${cleanUsername}@dito.app`;
+                }
+
+                const resp = await fetch(FUNCTION_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -209,7 +228,7 @@
                         action: 'create-pix',
                         amount: total,
                         description: `Compra no Dito Pro - ${this.cart.length} itens`,
-                        email: this.currentUser.email || `${this.currentUser.username}@dito.app`,
+                        email: email,
                         metadata: {
                             user_id: this.currentUser.id,
                             cart_items: this.cart.map(p => p.id)
@@ -217,20 +236,29 @@
                     })
                 });
 
-                const data = await response.json();
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    console.error("❌ [Pagamento] Erro na Resposta:", errorText);
+                    throw new Error(`Servidor retornou erro ${resp.status}: ${errorText}`);
+                }
+
+                const data = await resp.json();
+                console.log("✅ [Pagamento] Resposta recebida:", data);
                 
                 if (data.qr_code) {
+                    this.showNotification('Pix recebido com sucesso!', 'success');
                     this.showLoading(false);
                     this.displayPixModal(data.qr_code, total);
                     this.showNotification('Pix gerado com sucesso! ✨', 'success');
                 } else {
-                    throw new Error('Falha ao obter QR Code');
+                    console.error("❌ [Pagamento] Falha: qr_code não encontrado no JSON", data);
+                    throw new Error(data.error || data.message || 'O servidor de pagamento não retornou um código Pix válido.');
                 }
 
             } catch (e) {
-                console.error("Erro no Pagamento:", e);
+                console.error("🚨 [Pagamento] Erro Crítico:", e);
                 this.showLoading(false);
-                this.showNotification('Erro ao conectar com servidor de pagamento.', 'error');
+                this.showNotification(`Erro ao gerar Pix: ${e.message}`, 'error');
             }
         },
 
@@ -238,15 +266,26 @@
             const modalBody = document.getElementById('modal-body');
             const modalContainer = document.getElementById('modal-container');
             
+            if (!modalContainer || !modalBody) {
+                this.showNotification('Erro na estrutura da janela. Atualize a página.', 'error');
+                return;
+            }
+
             modalBody.innerHTML = `
-                <div style="text-align: center; padding: 20px;" class="animate-fade">
-                    <div style="width: 70px; height: 70px; background: rgba(0, 153, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
-                        <i data-lucide="qr-code" style="width: 34px; color: #0099ff;"></i>
+                <div style="text-align: center; padding: 20px; position: relative;" class="animate-fade">
+                    <!-- Botão Voltar -->
+                    <button onclick="app.closeModal(event)" style="position: absolute; top: 0; left: 0; width: 40px; height: 40px; border-radius: 50%; border: none; background: #f5f5f5; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#eee'" onmouseout="this.style.background='#f5f5f5'">
+                        <i data-lucide="chevron-left" style="width: 20px; color: #000;"></i>
+                    </button>
+
+                    <div style="width: 70px; height: 70px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+                        <i data-lucide="qr-code" style="width: 34px; stroke: url(#dito-gradient);"></i>
                     </div>
                     <h3 style="font-weight: 950; font-size: 22px; margin-bottom: 8px; letter-spacing: -1px;">Pix Gerado!</h3>
-                    <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 32px;">Total a pagar: <span style="color: #22c55e;">R$ ${amount.toFixed(2)}</span></p>
+                    <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 32px;">Total a pagar: <span style="font-weight: 900; color: #000;">R$ ${amount.toFixed(2)}</span></p>
                     
                     <div style="background: #f8f8f8; padding: 24px; border-radius: 24px; margin-bottom: 24px; border: 1px dashed #ddd;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}" style="width: 180px; height: 180px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                         <input id="pix-copy-input" readonly value="${qrCode}" style="width: 100%; padding: 14px; border: 1px solid #eee; border-radius: 14px; font-family: monospace; font-size: 11px; color: #666; background: #fff; text-align: center; margin-bottom: 16px;">
                         <button onclick="app.copyPixCode()" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                             <i data-lucide="copy" style="width: 18px;"></i> COPIAR PIX
@@ -257,8 +296,22 @@
                 </div>
             `;
             
+            // Força a exibição
             modalContainer.style.display = 'flex';
+            modalContainer.style.opacity = '1';
+            modalContainer.style.pointerEvents = 'auto';
+            modalContainer.classList.add('active'); // CSS hook
+            
             if (window.lucide) lucide.createIcons();
+        },
+
+        closeModal(e) {
+            if (e) e.stopPropagation();
+            const modal = document.getElementById('modal-container');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('active');
+            }
         },
 
         copyPixCode() {
@@ -408,6 +461,7 @@
                 const payload = {
                     username: user.username,
                     password: user.password,
+                    email: user.email || "",
                     name: user.name || user.username,
                     bio: user.bio || "Membro Dito Network",
                     sales: Number(user.sales || 0),
@@ -427,8 +481,11 @@
                 
                 if (error) {
                     console.warn("⚠️ [Network] Erro Sync:", error.message);
+                    if (error.message.includes('column "email" does not exist')) {
+                        this.showNotification('Erro de Banco: E-mail não suportado no Supabase.', 'error');
+                    }
                 } else {
-                    console.log("🚀 Sincronizado!");
+                    console.log("🚀 Sincronizado com sucesso!");
                     this.updateBalanceUI();
                 }
             } catch (e) {
@@ -540,9 +597,9 @@
 
 
         renderMarketCheckout(container) {
-            const temp = document.getElementById('template-checkout');
-            if (!temp) return;
-            container.innerHTML = temp.innerHTML;
+            const template = document.getElementById('template-checkout'); 
+            if (!template) return;
+            container.innerHTML = template.innerHTML;
             
             const list = document.getElementById('checkout-items-list');
             if (!list) return;
@@ -558,7 +615,6 @@
             const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
             const userCoins = parseInt(localStorage.getItem('dito_coins') || '0');
             
-            // Injeta o Slider de Moedas DIRETAMENTE no resumo
             const rewardsSection = document.createElement('div');
             rewardsSection.style.borderTop = '1px solid #f0f0f0';
             rewardsSection.style.marginTop = '16px';
@@ -577,15 +633,18 @@
                 </div>
                 <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
                 <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com moedas: 75%</p>
+                
+                <div id="pix-payment-actions">
+                    <button onclick="app.processPaymentMP('pix')" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; margin-top: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                        <i data-lucide="diamond" style="width: 18px;"></i> GERAR PIX REAL
+                    </button>
+                </div>
             `;
             list.appendChild(rewardsSection);
             
+            this.paymentMethod = 'pix'; // Reset para Pix
             this.recalculateCheckoutTotal();
-            this.generateCheckoutQR();
-            
-            setTimeout(() => {
-                if (window.lucide) lucide.createIcons();
-            }, 50);
+            if (window.lucide) lucide.createIcons();
         },
 
         generateCheckoutQR() {
@@ -761,17 +820,28 @@
                 opt.style.border = '2px solid #eee';
             });
             
-            // Aplica borda em degradê premium usando background-clip
             btn.style.background = 'linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
             btn.style.border = '2px solid transparent';
             
-            // Recarrega o QR Code para o novo método
-            const qrImg = document.getElementById('checkout-qr-code');
-            const qrLoading = document.getElementById('qr-loading');
-            if (qrImg) qrImg.style.display = 'none';
-            if (qrLoading) qrLoading.style.display = 'flex';
-            
-            this.generateCheckoutQR();
+            const pixActions = document.getElementById('pix-payment-actions');
+            const ppContainer = document.getElementById('paypal-button-container');
+            const statusMsg = document.getElementById('payment-status-message');
+
+            if (method === 'pix') {
+                if (pixActions) pixActions.style.display = 'block';
+                if (ppContainer) ppContainer.style.display = 'none';
+                if (statusMsg) statusMsg.innerHTML = `<i data-lucide="shield-check" style="width: 32px; color: #22c55e; margin-bottom: 12px;"></i><p style="font-size: 11px; font-weight: 800; color: #999; line-height: 1.4;">Clique no botão abaixo para gerar seu QR Code Pix real via Mercado Pago.</p>`;
+            } else {
+                if (pixActions) pixActions.style.display = 'none';
+                if (ppContainer) {
+                    ppContainer.style.display = 'block';
+                    ppContainer.innerHTML = ''; // Limpa anterior
+                    const total = this.recalculateCheckoutTotal();
+                    this.initPayPalOfficialButton(total.toFixed(2), 'cart');
+                }
+                if (statusMsg) statusMsg.innerHTML = `<i data-lucide="credit-card" style="width: 32px; color: #0487ff; margin-bottom: 12px;"></i><p style="font-size: 11px; font-weight: 800; color: #999; line-height: 1.4;">Finalize seu pagamento com segurança usando seu cartão via PayPal.</p>`;
+            }
+            if (window.lucide) lucide.createIcons();
         },
 
         copyPix() {
@@ -1231,15 +1301,34 @@
 
 
         showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = message;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.classList.add('show'), 100);
+            let container = document.querySelector('.notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'notification-container';
+                document.body.appendChild(container);
+            }
+
+            const pill = document.createElement('div');
+            pill.className = `notif-pill ${type}`;
+            
+            let icon = 'check-circle';
+            if (type === 'error') icon = 'alert-circle';
+            if (type === 'info') icon = 'info';
+
+            pill.innerHTML = `
+                <i data-lucide="${icon}" style="width: 16px;"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(pill);
+            if (window.lucide) lucide.createIcons();
+
+            setTimeout(() => pill.classList.add('show'), 10);
+            
             setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
+                pill.classList.remove('show');
+                setTimeout(() => pill.remove(), 500);
+            }, 4000);
         },
 
 
@@ -1827,6 +1916,7 @@
             const userInp = document.getElementById('edit-username');
             const bioInp = document.getElementById('edit-bio');
             const linkInp = document.getElementById('edit-link');
+            const emailInp = document.getElementById('edit-email');
             const counter = document.getElementById('bio-counter');
 
             if (userInp) userInp.value = this.currentUser.username;
@@ -1838,12 +1928,14 @@
                 };
             }
             if (linkInp) linkInp.value = this.currentUser.link || '';
+            if (emailInp) emailInp.value = this.currentUser.email || '';
         },
 
         saveProfile() {
             const newUsername = document.getElementById('edit-username').value.trim();
             const newBio = document.getElementById('edit-bio').value.trim();
             const newLink = document.getElementById('edit-link').value.trim();
+            const newEmail = document.getElementById('edit-email') ? document.getElementById('edit-email').value.trim() : '';
 
             if (!newUsername) {
                 this.showNotification('O nome de usuário não pode ficar vazio.', 'error');
@@ -1852,9 +1944,15 @@
 
             if (this.currentUser) {
                 this.currentUser.username = newUsername;
-                this.currentUser.name = newUsername; // Mantendo o nome sincronizado para simplicidade
+                this.currentUser.name = newUsername;
                 this.currentUser.bio = newBio;
                 this.currentUser.link = newLink;
+                
+                // Só atualiza o e-mail se o novo não for vazio, 
+                // para nunca deletar o e-mail que já está no banco por engano.
+                if (newEmail) {
+                    this.currentUser.email = newEmail;
+                }
 
                 // Salva no localStorage principal de usuários
                 const usuarios = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
@@ -1981,6 +2079,7 @@
                 if (document.getElementById('edit-profile-name')) document.getElementById('edit-profile-name').value = this.currentUser.name || '';
                 if (document.getElementById('edit-profile-bio')) document.getElementById('edit-profile-bio').value = this.currentUser.bio || '';
                 if (document.getElementById('edit-profile-link')) document.getElementById('edit-profile-link').value = this.currentUser.link || '';
+                if (document.getElementById('edit-profile-email')) document.getElementById('edit-profile-email').value = this.currentUser.email || '';
                 
                 const showRevInp = document.getElementById('edit-profile-show-revenue');
                 if (showRevInp) {
@@ -2024,9 +2123,13 @@
 
             setTimeout(async () => {
                 // Atualiza o objeto do usuário
+                const newEmail = document.getElementById('edit-profile-email') ? document.getElementById('edit-profile-email').value.trim() : this.currentUser.email;
                 this.currentUser.name = newName;
                 this.currentUser.bio = newBio;
                 this.currentUser.link = newLink;
+                if (newEmail) {
+                    this.currentUser.email = newEmail;
+                }
                 this.currentUser.showRevenue = showRev;
 
                 // Salva Localmente
@@ -2650,9 +2753,15 @@
         registerUser() {
             const username = document.getElementById('reg-username').value.trim();
             const password = document.getElementById('reg-password').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
 
-            if (!username || !password) {
-                this.showNotification('Preencha todos os campos.', 'error');
+            if (!username || !password || !email) {
+                this.showNotification('Preencha todos os campos, incluindo o e-mail.', 'error');
+                return;
+            }
+
+            if (!email.includes('@')) {
+                this.showNotification('Insira um e-mail válido.', 'error');
                 return;
             }
 
@@ -2666,6 +2775,7 @@
                 id: Date.now(),
                 username: username,
                 password: password,
+                email: email,
                 name: username,
                 bio: "Novo Infoprodutor Dito",
                 avatar: "",
@@ -2811,7 +2921,7 @@
             const passInp = document.getElementById('password').value.trim();
 
             if (!userInp || !passInp) {
-                alert('Preencha os campos.');
+                this.showNotification('Preencha os campos de login.', 'error');
                 this.showLoading(false);
                 return;
             }
@@ -2866,7 +2976,7 @@
                 this.navigate('dashboard');
                 console.log("🚀 Login realizado e dados sincronizados da nuvem!");
             } else {
-                alert('Usuário ou senha incorretos.');
+                this.showNotification('Usuário ou senha incorretos.', 'error');
             }
             this.showLoading(false);
         },
@@ -3002,21 +3112,7 @@
             if (window.lucide) lucide.createIcons();
         },
 
-        renderMarketCheckout(container) {
-            const temp = document.getElementById('template-mercado-checkout');
-            if (!temp) return;
-            container.innerHTML = temp.innerHTML;
-
-            const total = this.recalculateCheckoutTotal();
-            
-            // Adiciona listener ao botão de pagamento real
-            const btnPay = document.getElementById('btn-confirm-checkout');
-            if (btnPay) {
-                btnPay.onclick = () => this.processPaymentMP('pix');
-            }
-
-            if (window.lucide) lucide.createIcons();
-        },
+        // Placeholder removido para evitar sobreposição - funcionalidade real movida para renderMarketCheckout consolidado acima
 
         renderMarketHome(container) {
             const temp = document.getElementById('template-mercado-home');
@@ -3520,6 +3616,23 @@
 
     app.playNotifSound = function() {
         if (navigator.vibrate) navigator.vibrate(100);
+    };
+
+    app.flushStorage = function() {
+        this.showLoading(true, 'Limpando sistema...');
+        const essentialKeys = ['dito_users_db', 'is_logged_in_vanilla', 'is_guest_vanilla', 'dito_session_vanilla', 'dito_user_id'];
+        let count = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!essentialKeys.includes(key) && !key.includes('balance') && !key.includes('cart')) {
+                localStorage.removeItem(key);
+                count++;
+            }
+        }
+        setTimeout(() => {
+            this.showNotification(`Sistema otimizado! ${count} caches removidos.`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        }, 1500);
     };
 
     window.app = app;
