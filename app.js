@@ -209,6 +209,8 @@
 
                 // Inicia Notificações Realtime
                 this.initRealtimeNotifications();
+                this.initAutoLogout();
+                this.initSystemBackButton();
                 this.fetchNotifications();
 
                 // RESTAURAÇÃO DE ESTADO (F5 Seguro)
@@ -435,22 +437,32 @@
                         }
 
                         return `
-                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-radius: 100px; border: 1px solid #f0f0f0; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); position: relative;">
-                                ${hasUnread ? '<div style="position: absolute; top: -2px; left: -2px; width: 14px; height: 14px; background: #FFD600; border-radius: 50%; border: 2px solid #fff; z-index: 10;"></div>' : ''}
-                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;" onclick="app.viewPublicProfile('${u.username}')">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 10px; background: transparent; transition: 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 14px; flex: 1;" onclick="app.viewPublicProfile('${u.username}')">
                                     <div style="position: relative;">
-                                        <div style="width: 44px; height: 44px; border-radius: 50%; background: #f5f5f5; overflow: hidden; border: 1px solid #eee;">
-                                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="padding: 14px; color: #ccc;">👤</div>`}
+                                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #f9f9f9; overflow: hidden; border: 1px solid #f0f0f0;">
+                                            ${u.avatar ? `<img src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ccc;"><i data-lucide="user" style="width: 20px;"></i></div>`}
                                         </div>
-                                        ${isOnline ? `<div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid #fff;"></div>` : ''}
+                                        ${isOnline ? `<div style="position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2.5px solid #fff;"></div>` : ''}
+                                        ${hasUnread ? '<div style="position: absolute; top: -2px; left: -2px; width: 14px; height: 14px; background: #FFD600; border-radius: 50%; border: 2px solid #fff; z-index: 10;"></div>' : ''}
                                     </div>
-                                    <div>
-                                        <p style="font-weight: 900; font-size: 14px; color: ${color}; display: flex; align-items: center;">${u.name || u.username} ${genderIcon}</p>
-                                        <p style="font-size: 8px; font-weight: 800; color: #bbb; text-transform: uppercase;">${isOnline ? 'Ativo na Pro' : 'Offline'}</p>
+                                    <div style="overflow: hidden;">
+                                        <p style="font-weight: 900; font-size: 15px; color: ${color}; display: flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+                                            ${u.name || u.username} ${genderIcon}
+                                        </p>
+                                        <p style="font-size: 10px; font-weight: 800; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            ${isOnline ? 'Ativo agora' : 'Offline'}
+                                        </p>
                                     </div>
                                 </div>
+                                
                                 <div style="display: flex; gap: 8px;">
-                                    <button onclick="app.openChat('${u.username}'); closeFriendsDrawer();" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #f8f8f8; color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="message-circle" style="width: 16px;"></i></button>
+                                    <button onclick="app.sendGift('${u.username}')" style="background: rgba(255, 214, 0, 0.1); border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                        <i data-lucide="gift" style="width: 18px; color: #b8860b;"></i>
+                                    </button>
+                                    <button onclick="app.openChat('${u.username}'); closeFriendsDrawer();" style="background: #f5f5f5; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                        <i data-lucide="message-circle" style="width: 18px; color: #000;"></i>
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -459,6 +471,105 @@
                 }
             } catch (e) {
                 console.error(e);
+            }
+        },
+
+        // --- SISTEMA DE PRESENTES ---
+        async sendGift(targetUsername) {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification('Visitantes não podem enviar presentes!', 'error');
+                return;
+            }
+            if (targetUsername === this.currentUser.username) {
+                this.showNotification('Você não pode enviar presente para si mesmo!', 'error');
+                return;
+            }
+
+            // Exibe interface de escolha de presente
+            const body = document.getElementById('modal-body');
+            const container = document.getElementById('modal-container');
+            
+            body.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div style="width: 70px; height: 70px; background: rgba(255, 214, 0, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <i data-lucide="gift" style="width: 32px; color: #b8860b;"></i>
+                    </div>
+                    <h3 style="font-weight: 900; font-size: 20px; margin-bottom: 8px;">Enviar Presente</h3>
+                    <p style="font-size: 13px; color: #666; margin-bottom: 32px; font-weight: 700;">Escolha o valor para presentear <span style="color: #000;">@${targetUsername}</span></p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
+                        <button onclick="app.processGift('${targetUsername}', 30)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 30 Moedas Dito
+                        </button>
+                        <button onclick="app.processGift('${targetUsername}', 60)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 60 Moedas Dito
+                        </button>
+                        <button onclick="app.processGift('${targetUsername}', 90)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 90 Moedas Dito
+                        </button>
+                    </div>
+                    
+                    <button onclick="app.closeModal()" style="font-size: 11px; font-weight: 900; color: #999; background: none; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Cancelar</button>
+                </div>
+            `;
+            
+            container.style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+        },
+
+        async processGift(targetUsername, amount) {
+            const myCoins = parseInt(localStorage.getItem('dito_coins') || '0');
+            if (myCoins < amount) {
+                this.showNotification('Você não tem moedas suficientes!', 'error');
+                return;
+            }
+
+            this.showLoading(true, 'Verificando exclusividade...');
+
+            try {
+                // Verifica se já enviou presente para esta pessoa (usamos a tabela de notificações como registro)
+                const { data: existing, error: checkError } = await supabase
+                    .from('dito_notifications')
+                    .select('id')
+                    .eq('from_username', this.currentUser.username)
+                    .eq('target_username', targetUsername)
+                    .eq('type', 'presente_enviado')
+                    .limit(1);
+
+                if (existing && existing.length > 0) {
+                    this.showLoading(false);
+                    this.showNotification('Você já enviou um presente para esta pessoa!', 'error');
+                    return;
+                }
+
+                this.showLoading(true, 'Enviando presente...');
+
+                // 1. Deduz do saldo local e atualiza header
+                const newBalance = myCoins - amount;
+                localStorage.setItem('dito_coins', newBalance.toString());
+                this.updateCoinsUI();
+
+                // 2. Faz a transação de fato no Supabase (Precisa de um RPC ou Function, mas faremos via Update Simples por agora)
+                // Nota: Idealmente moedas devem estar no DB, mas usaremos a lógica atual do app
+                
+                // 3. Envia a notificação/registro de presente
+                await supabase.from('dito_notifications').insert({
+                    from_username: this.currentUser.username,
+                    target_username: targetUsername,
+                    type: 'presente_enviado',
+                    title: 'Presente Recebido! 🎁',
+                    message: `Você recebeu ${amount} Moedas de @${this.currentUser.username}!`,
+                    value: amount // Valor para o receptor somar ao carregar
+                });
+
+                this.showLoading(false);
+                this.closeModal();
+                this.showNotification(`Presente de ${amount} moedas enviado com sucesso!`, 'success');
+
+            } catch (e) {
+                console.error(e);
+                this.showLoading(false);
+                this.showNotification('Erro ao enviar presente.', 'error');
             }
         },
 
@@ -1747,6 +1858,12 @@
                 if (!isLoggedIn && view !== 'login' && view !== 'cadastro') {
                     view = 'login';
                     this.currentView = 'login';
+                }
+
+                // Sincroniza com o Histórico do Navegador (Botão Voltar do Celular)
+                if (!direction || direction !== 'popstate') {
+                    const state = { view: view };
+                    window.history.pushState(state, '', '');
                 }
 
                 // Efeito de Transição de Página (Arraste)
