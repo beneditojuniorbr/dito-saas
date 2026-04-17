@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/convite/:code",
+      "destination": "/?ref=:code"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

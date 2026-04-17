@@ -141,6 +141,22 @@
             }, 300);
 
             try {
+                // Captura Link de Convite (Suporta ?ref=CODE e /convite/CODE)
+                const urlParams = new URLSearchParams(window.location.search);
+                let refCode = urlParams.get('ref');
+                
+                // Se não estiver no parâmetro, tenta pegar do caminho da URL (/convite/ABC)
+                if (!refCode && window.location.pathname.includes('/convite/')) {
+                    const parts = window.location.pathname.split('/');
+                    refCode = parts[parts.length - 1];
+                }
+
+                if (refCode) {
+                    localStorage.setItem('dito_pending_ref', refCode);
+                    // Limpa a URL para o usuário não ver o código técnico
+                    window.history.replaceState({}, document.title, '/');
+                }
+
                 // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 // Iniciado via initAutoLogout embaixo
@@ -201,15 +217,10 @@
 
                 // Inicia Notificações Realtime
                 this.initRealtimeNotifications();
-
-                // GATILHO DE TESTE: Dispara uma notificação de venda após 3 segundos
-                setTimeout(() => {
-                    this.showSystemNotification('Venda Realizada! 🚀', 'Você acabou de vender um produto por R$ 97,00', 'sale');
-                }, 3000);
-
                 this.initAutoLogout();
                 this.initSystemBackButton();
                 this.fetchNotifications();
+                this.checkMissionsNotification();
 
                 // RESTAURAÇÃO DE ESTADO (F5 Seguro)
                 const lastView = localStorage.getItem('dito_last_view') || 'dashboard';
@@ -929,6 +940,29 @@
             }
         },
 
+        checkMissionsNotification() {
+            if (!this.currentUser) return;
+            const key = this.getUserKey();
+            const storageKey = `dito_missions_${key}`;
+            
+            // Tenta carregar. Se não existir, gera o checklist inicial para poder alertar
+            let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            if (checklist.length === 0 || checklist[0].week !== this.getWeekNumber()) {
+                const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                checklist = days.map((d, i) => ({ dayName: d, index: i, checked: false, week: this.getWeekNumber() }));
+                localStorage.setItem(storageKey, JSON.stringify(checklist));
+            }
+
+            const todayIndex = new Date().getDay(); // getDay() retorna 0 para Domingo, 1 para Segunda...
+            
+            const dot = document.getElementById('dot-missions');
+            if (dot) {
+                // A lógica de index na renderMissions é: 0=Dom, 1=Seg...
+                const hasPending = checklist[todayIndex] && !checklist[todayIndex].checked;
+                dot.style.display = hasPending ? 'block' : 'none';
+            }
+        },
+
         checkMissionDay(dayIndex) {
             const key = this.getUserKey();
             const storageKey = `dito_missions_${key}`;
@@ -943,8 +977,9 @@
                 currentCoins += 30;
                 localStorage.setItem(`dito_coins_${key}`, currentCoins.toString());
                 
-                this.showNotification('Check-in realizado! +30 Cupons!', 'success');
-                this.renderMissions(); // Atualiza a renderização na hora
+                this.showSystemNotification('Check-in Realizado! ✅', 'Você ganhou 30 cupons de desconto.', 'success');
+                this.renderMissions(); 
+                this.checkMissionsNotification(); // Apaga o ponto amarelo na hora
             }
         },
 
@@ -1168,65 +1203,35 @@
         // 🌐 SISTEMA DE REDE MULTIPLAYER
         // ==========================================
         
+        networkUsers: [], // Cache em memória (RAM) para evitar estourar o localStorage
+
         async fetchNetworkUsers() {
-            if (!supabase) return;
+            if (!supabase || this.isFetchingUsers) return;
+            this.isFetchingUsers = true;
             try {
-                // 1. BUSCA O HALL DA FAMA (Aumentado para Top 100 para garantir que novos usuários apareçam)
-                // Se for admin, poderíamos buscar ainda mais.
                 const [hallRes, meRes] = await Promise.all([
-                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen, gender').order('sales', { ascending: false }).limit(100),
+                    supabase.from('dito_users').select('username, name, bio, fans, sales, avatar, last_seen, gender').order('sales', { ascending: false }).limit(80), 
                     this.currentUser ? supabase.from('dito_users').select('*').eq('username', this.currentUser.username).maybeSingle() : Promise.resolve({ data: null })
                 ]);
 
                 if (hallRes.data) {
-                    const topUsers = hallRes.data.map(u => this.cleanPublicProfile(u));
-                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(topUsers));
+                    this.networkUsers = hallRes.data.map(u => this.cleanPublicProfile(u));
                     
-                    // Atualiza Visualizações
+                    // Atualiza apenas se a view for a correta
                     if (this.currentView === 'hall') this.renderHallOfFame();
-                    if (this.currentView === 'admin-contas') this.renderAdminUsers();
-                    
-                    console.log("✅ [Network] Hall da Fama e Rede sincronizados (100 usuários)!");
+                    if (this.currentView === 'admin-contas') this.renderAdminUsers(true); 
                 }
 
                 if (meRes.data && this.currentUser) {
                     const netUser = meRes.data;
-                    console.log("👤 [Network] Sincronizando meu perfil...");
-                    
-                    // Atualiza apenas dados que mudaram
-                    this.currentUser.fans = parseInt(netUser.fans || 0);
                     this.currentUser.sales = parseFloat(netUser.sales || 0);
-
-                    // Sincronização de Posts e Compras (Mantém o que for mais novo)
-                    let netPosts = [];
-                    let netPurchases = [];
-                    try {
-                        netPosts = netUser.posts ? (typeof netUser.posts === 'string' ? JSON.parse(netUser.posts) : netUser.posts) : [];
-                        netPurchases = netUser.purchases ? (typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases) : [];
-                    } catch (e) { console.warn("Erro parse net data", e); }
-
-                    const localPosts = JSON.parse(localStorage.getItem('dito_profile_posts') || '[]');
-                    const localPurchases = JSON.parse(localStorage.getItem('dito_purchased_products') || '[]');
-
-                    if (netPosts.length >= localPosts.length) {
-                        localStorage.setItem('dito_profile_posts', JSON.stringify(netPosts));
-                        this.currentUser.posts = netPosts;
-                    }
-                    if (netPurchases.length >= localPurchases.length) {
-                        localStorage.setItem('dito_purchased_products', JSON.stringify(netPurchases));
-                        this.purchasedProducts = netPurchases;
-                    }
-
-                    // Atualiza Saldo
                     localStorage.setItem('dito_balance', netUser.balance || '0');
-                    localStorage.setItem(`user_balance_vanilla_${this.getUserKey()}`, netUser.balance || '0');
-                    
-                    // Salva sessão localmente
-                    this.currentUser = { ...this.currentUser, ...netUser };
                     this.saveSession(this.currentUser);
                 }
             } catch (e) {
-                console.warn("⚠️ [Network] Erro na conexão segmentada:", e);
+                console.warn("⚠️ [Network] Erro na rede:", e);
+            } finally {
+                this.isFetchingUsers = false;
             }
         },
 
@@ -1235,14 +1240,15 @@
                 localStorage.setItem(key, value);
             } catch (e) {
                 if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                    console.warn("⚠️ [Storage] Memória cheia! Limpando cache de rede para liberar espaço...");
-                    // Limpa dados pesados de cache para priorizar os novos
-                    localStorage.removeItem('dito_network_users');
-                    localStorage.removeItem('dito_usuarios');
+                    console.warn("⚠️ [Storage] Memória cheia! Fazendo faxina total...");
+                    // Limpa absolutamente tudo que é cache não essencial
+                    const keysToRemove = ['dito_network_users', 'dito_usuarios', 'dito_market_products', 'dito_last_p_hash', 'dito_profile_posts'];
+                    keysToRemove.forEach(k => localStorage.removeItem(k));
+                    
                     try {
                         localStorage.setItem(key, value);
                     } catch (retryError) {
-                        console.error("❌ [Storage] Falha crítica de memória:", retryError);
+                        console.error("❌ [Storage] Espaço insuficiente mesmo após limpeza.");
                     }
                 }
             }
@@ -2194,20 +2200,19 @@
 
         renderHallOfFame() {
             const listTop = document.getElementById('hall-top-others');
-            const pod1 = document.getElementById('hall-1st-podium'); // Preciso garantir que o container do 1º seja clicável
+            const pod1 = document.getElementById('hall-1st-podium'); 
             const firstAvatar = document.getElementById('hall-1st-avatar');
             const firstName = document.getElementById('hall-1st-name');
             const firstSales = document.getElementById('hall-1st-sales');
             
             if (!listTop) return;
 
-            // Carrega usuários reais da REDE (Sincronizados via Supabase)
-            const users = JSON.parse(localStorage.getItem('dito_network_users') || localStorage.getItem('dito_usuarios') || '[]');
+            // Prioriza Memória (Sincronia RAM)
+            const users = this.networkUsers && this.networkUsers.length > 0 ? this.networkUsers : JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
             
             if (users.length === 0) {
-                if (firstName) firstName.innerText = "Conectando à rede...";
-                listTop.innerHTML = `<div style="text-align: center; padding: 40px;"><div class="loading-spinner" style="margin: 0 auto 16px;"></div><p style="color: #ccc; font-weight: 800; font-size: 11px; text-transform: uppercase;">Buscando competidores reais...</p></div>`;
-                // Tenta buscar agora se estiver vazio
+                if (firstName) firstName.innerText = "Conectando...";
+                listTop.innerHTML = `<div style="text-align: center; padding: 40px;"><p style="color: #ccc; font-weight: 800; font-size: 11px;">Buscando competidores...</p></div>`;
                 this.fetchNetworkUsers();
                 return;
             }
@@ -2315,16 +2320,19 @@
             const notif = document.createElement('div');
             notif.className = 'system-notif';
             
-            let icon = 'bell';
-            let iconBg = '#000';
-            if (type === 'sale') { icon = 'shopping-bag'; iconBg = '#22c55e'; }
-            if (type === 'fan') { icon = 'star'; iconBg = '#ff005c'; }
-            if (type === 'error') { icon = 'alert-circle'; iconBg = '#ef4444'; }
-            if (type === 'success') { icon = 'check-circle'; iconBg = '#22c55e'; }
+            let badgeIcon = 'bell';
+            let badgeBg = '#000';
+            if (type === 'sale') { badgeIcon = 'shopping-bag'; badgeBg = '#22c55e'; }
+            if (type === 'fan') { badgeIcon = 'star'; badgeBg = '#ff005c'; }
+            if (type === 'error') { badgeIcon = 'alert-circle'; badgeBg = '#ef4444'; }
+            if (type === 'success') { badgeIcon = 'check-circle'; badgeBg = '#22c55e'; }
 
             notif.innerHTML = `
-                <div class="system-notif-icon" style="background: ${iconBg};">
-                    <i data-lucide="${icon}" style="width: 20px; color: #fff;"></i>
+                <div class="system-notif-icon" style="position: relative; background: transparent; overflow: visible;">
+                    <img src="D.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid #f0f0f0;">
+                    <div style="position: absolute; bottom: -4px; right: -4px; width: 22px; height: 22px; background: ${badgeBg}; border-radius: 50%; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <i data-lucide="${badgeIcon}" style="width: 12px; color: #fff;"></i>
+                    </div>
                 </div>
                 <div class="system-notif-content">
                     <div class="system-notif-title">${title}</div>
@@ -3028,14 +3036,14 @@
             }
         },
 
-        renderAdminUsers() {
+        renderAdminUsers(skipFetch = false) {
             const list = document.getElementById('admin-users-list');
             if (!list) return;
 
-            // Busca todos os usuários sincronizados da REDE
-            const usuarios = JSON.parse(localStorage.getItem('dito_network_users') || localStorage.getItem('dito_usuarios') || '[]');
+            // Usa a lista em memória (muito mais rápido e sem bug de Quota)
+            const usuarios = this.networkUsers && this.networkUsers.length > 0 ? this.networkUsers : JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
             
-            if (usuarios.length === 0) {
+            if (usuarios.length === 0 && !skipFetch) {
                 list.innerHTML = `<p style="text-align: center; color: #999; font-weight: 800; padding: 40px;">Buscando usuários na rede...</p>`;
                 this.fetchNetworkUsers();
                 return;
@@ -3918,6 +3926,34 @@
 
             this.syncUserToNetwork(newUser); // Joga pra rede!
 
+            // Processa Recompensa de Indicação (+225 Cupons) baseada no CÓDIGO CURTO
+            const refCode = localStorage.getItem('dito_pending_ref'); // Agora é um código tipo "L1L2LFL"
+            if (refCode && supabase) {
+                // 1. RECOMPENSA O PADRINHO (VIA REDE)
+                const targetId = parseInt(refCode, 36);
+                supabase.from('dito_users').select('username').eq('id', targetId).maybeSingle().then(({ data }) => {
+                    if (data && data.username) {
+                        const rewardMessage = {
+                            target_username: data.username,
+                            type: 'referral_225',
+                            title: 'Indicação de Sucesso! 🎁',
+                            message: `O usuário @${username} entrou pelo seu link! Você ganhou +225 cupons.`,
+                            sender: 'Sistema',
+                            read: false
+                        };
+                        supabase.from('dito_notifications').insert([rewardMessage]);
+                    }
+                });
+
+                // 2. RECOMPENSA O NOVO USUÁRIO (LOCALMENTE)
+                // Usamos o prefixo do novo usuário para salvar suas moedas iniciais
+                const userKey = `${username}_${password}`;
+                localStorage.setItem(`dito_coins_${userKey}`, "225");
+                
+                localStorage.removeItem('dito_pending_ref');
+                this.showSystemNotification('Bem-vindo à Dito! 🎁', 'Você ganhou +225 cupons por entrar pelo convite de um amigo!', 'success');
+            }
+
             this.showNotification('Cadastro realizado com sucesso! Agora você já pode fazer login.');
             this.navigate('login');
         },
@@ -4470,8 +4506,12 @@
     app.viewPublicProfile = function(username) {
         this.toggleSocialSearch(false);
         this.navigate('perfil-publico');
-        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const user = realUsers.find(u => u.username === username) || { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
+        
+        // Busca priorizando a memória (RAM)
+        const user = (this.networkUsers && this.networkUsers.find(u => u.username === username)) || 
+                     JSON.parse(localStorage.getItem('dito_usuarios') || '[]').find(u => u.username === username) || 
+                     { username, name: username, bio: 'Membro da Dito Pro', fans: 0, sales: 0 };
+                     
         setTimeout(() => {
             const userDisp = document.getElementById('public-username-header');
             if (userDisp) {
@@ -4486,7 +4526,12 @@
                 if (nameEl) nameEl.innerText = user.name || user.username;
                 if (bioEl) bioEl.innerText = user.bio || 'Membro da Dito Pro';
                 if (fansEl) fansEl.innerText = parseInt(user.fans) || 0;
-                if (revEl) revEl.innerText = (user.showRevenue === false) ? "Privado" : `R$ ${parseFloat(user.sales || 0).toLocaleString()}`;
+                
+                if (revEl) {
+                    const salesVal = parseFloat(user.sales || 0);
+                    revEl.innerText = (user.showRevenue === false) ? "Privado" : `R$ ${salesVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+
                 if (avatarEl) avatarEl.innerHTML = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" style="width: 40px; color: #ccc;"></i>`;
                 
                 // Atualiza estado do botão Fã
@@ -4516,6 +4561,52 @@
                 if (window.lucide) lucide.createIcons();
             }
         }, 150);
+    };
+
+    app.getUserReferralCode = function() {
+        if (!app.currentUser) return '';
+        // Gera um código de 6 caracteres baseado no ID para ser curto e profissional
+        const id = app.currentUser.id || Date.now();
+        const fullCode = id.toString(36).toUpperCase();
+        return fullCode.slice(-6); // Pega apenas os últimos 6 caracteres
+    };
+
+    app.shareReferralLink = function() {
+        if (!app.currentUser) {
+            app.showNotification('Faça login para pegar seu link de indicação!', 'error');
+            return;
+        }
+
+        const code = app.getUserReferralCode();
+        // Domínio oficial e profissional solicitado
+        const domain = "dito-saas.vercel.app";
+        const prettyLink = `https://${domain}/convite/${code}`;
+        
+        // Link técnico que o navegador entende (fallback caso o Vercel não tenha redirecionamento)
+        const realLink = `https://${domain}/?ref=${code}`;
+        
+        const modal = document.getElementById('referral-modal');
+        const textEl = document.getElementById('referral-link-text');
+        
+        if (modal && textEl) {
+            textEl.innerText = prettyLink; 
+            modal.style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+        }
+    };
+
+    app.copyReferralLink = function() {
+        const textEl = document.getElementById('referral-link-text');
+        if (!textEl) return;
+
+        const workingLink = textEl.innerText;
+
+        navigator.clipboard.writeText(workingLink).then(() => {
+            app.showSystemNotification('Link Copiado! 📋', 'Mande para seus amigos e garanta suas moedas.', 'success');
+            document.getElementById('referral-modal').style.display = 'none';
+        }).catch(err => {
+            app.showNotification('Erro ao copiar.', 'error');
+        });
     };
 
     app.toggleFan = async function() {
@@ -4627,10 +4718,7 @@
         if (window.lucide) lucide.createIcons();
     };
 
-    app.copyReferralLink = function() {
-        const user = this.currentUser || { username: 'usuario' };
-        navigator.clipboard.writeText(`dito.app/ref/${user.username}`).then(() => this.showNotification('Link copiado!', 'success'));
-    };
+
 
     app.addRewardCoins = function(amount, reason) {
         const current = parseInt(localStorage.getItem('dito_coins') || '0');
@@ -4753,6 +4841,26 @@
             
             if (data && !error) {
                 this.notifications = data || [];
+                
+                // Processa Recompensas de Indicação Pendentes
+                let processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
+                let coinsToAdd = 0;
+                
+                this.notifications.forEach(n => {
+                    if (n.type === 'referral_225' && !processedRefs.includes(n.id)) {
+                        coinsToAdd += 225;
+                        processedRefs.push(n.id);
+                    }
+                });
+                
+                if (coinsToAdd > 0) {
+                    const key = this.getUserKey();
+                    let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                    localStorage.setItem(`dito_coins_${key}`, (currentCoins + coinsToAdd).toString());
+                    localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
+                    this.showSystemNotification('Você ganhou Moedas! 💰', `Resgate de Indicações recebido: +${coinsToAdd} cupons!`, 'success');
+                }
+
                 this.renderNotifications();
                 this.updateNotifBadge();
             }
@@ -4791,6 +4899,19 @@
                         });
                         localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
                         this.updateBalanceUI(); // Atualiza o saldo global na hora!
+                    }
+                }
+
+                // Processa Recompensa de Indicação TIME REAL
+                if (notif.type === 'referral_225') {
+                    let processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
+                    if (!processedRefs.includes(notif.id)) {
+                        const key = this.getUserKey();
+                        let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                        localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
+                        processedRefs.push(notif.id);
+                        localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
+                        this.showSystemNotification('Ca-Ching! 💰', 'Um amigo entrou! +225 cupons creditados!', 'success');
                     }
                 }
 

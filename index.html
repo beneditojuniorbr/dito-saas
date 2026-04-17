@@ -159,16 +159,17 @@
 
     <div id="btn-world-chat" onclick="app.openWorldChat()" style="position: fixed; bottom: 85px; left: 16px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
         <i data-lucide="message-square" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
-        <span id="dot-world-chat" style="position: absolute; top: 0; right: 0; width: 14px; height: 14px; background: #FFD600; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 10px rgba(255, 214, 0, 0.4); display: none;"></span>
+        <span id="dot-world-chat" style="position: absolute; top: 0; right: 0; width: 12px; height: 12px; background: #FFD600; border-radius: 50%; display: none;"></span>
     </div>
 
     <div id="btn-live-admin" onclick="app.openLiveAdmin()" style="position: fixed; bottom: 85px; left: 148px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
         <i data-lucide="cast" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
     </div>
-
+ 
     <!-- Botão de Missões (Gamificação) -->
     <div id="btn-missions" onclick="app.openMissions()" style="position: fixed; bottom: 85px; left: 82px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
         <i data-lucide="scroll-text" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
+        <span id="dot-missions" style="position: absolute; top: 0; right: 0; width: 12px; height: 12px; background: #FFD600; border-radius: 50%; display: none;"></span>
     </div>
 
     <!-- Templates Section -->
@@ -353,10 +354,15 @@
                 <h3 style="font-size: 18px; font-weight: 900; margin-bottom: 16px;">Descubra novas possibilidades</h3>
                 <div class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x mandatory;">
                     
-                    <div style="min-width: 240px; background: #f5f5f5; border-radius: 16px; padding: 24px; scroll-snap-align: start;">
-                        <h4 style="font-size: 14px; font-weight: 900; margin-bottom: 8px;">Convide amigos</h4>
-                        <p style="font-size: 12px; color: #666; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Indique a Dito para parceiros e ganhe comissões exclusivas de pro.</p>
-                        <button style="padding: 10px 20px; background: #fff; border: none; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer;">Saiba mais</button>
+                    <div style="min-width: 240px; background: linear-gradient(135deg, #111, #000); border-radius: 16px; padding: 24px; scroll-snap-align: start; color: #fff; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -10px; right: -10px; opacity: 0.1;">
+                            <i data-lucide="ticket" style="width: 80px; height: 80px;"></i>
+                        </div>
+                        <h4 style="font-size: 14px; font-weight: 900; margin-bottom: 8px;">Compartilhe Dito</h4>
+                        <p style="font-size: 13px; color: #ccc; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Ganhe <span style="background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900;">+225 cupons</span> por cada indicação!</p>
+                        <button onclick="app.shareReferralLink()" style="padding: 10px 20px; background: #fff; color: #000; border: none; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="share-2" style="width: 14px;"></i> Compartilhar Link
+                        </button>
                     </div>
 
                     <div style="min-width: 240px; background: #f5f5f5; border-radius: 16px; padding: 24px; scroll-snap-align: start;">
@@ -1307,9 +1313,12 @@
                             <p id="public-fans-count" style="font-weight: 900; font-size: 16px;">0</p>
                             <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Fãs</p>
                         </div>
-                        <div>
-                            <p id="public-revenue" style="font-weight: 900; font-size: 16px; color: #ee4d2d;">--</p>
-                            <p style="font-size: 10px; font-weight: 800; color: #ccc; text-transform: uppercase;">Faturamento</p>
+                        <div style="background: #fafafa; padding: 10px 15px; border-radius: 16px; min-width: 100px;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 2px;">
+                                <i data-lucide="gem" style="width: 14px; color: #000;"></i>
+                                <p id="public-revenue" style="font-weight: 900; font-size: 16px; color: #000; letter-spacing: -0.5px;">--</p>
+                            </div>
+                            <p style="font-size: 9px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">Vendas Totais</p>
                         </div>
                     </div>
                 </div>
@@ -1536,5 +1545,33 @@
             </div>
         </div>
     </template>
+    <!-- Referral Modal -->
+    <div id="referral-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 24px;">
+        <div style="background: #fff; width: 100%; max-width: 340px; border-radius: 32px; padding: 32px; text-align: center; position: relative; animation: modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+            <button onclick="document.getElementById('referral-modal').style.display = 'none'" style="position: absolute; top: 20px; right: 20px; background: #f5f5f5; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <i data-lucide="x" style="width: 16px; color: #000;"></i>
+            </button>
+            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #ff005c, #0487ff); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
+                <i data-lucide="gift" style="width: 32px; color: #fff;"></i>
+            </div>
+            <h3 style="font-weight: 900; font-size: 20px; color: #000; margin-bottom: 8px;">Convidar Amigos</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 24px; font-weight: 500; line-height: 1.5;">Copie seu link abaixo e ganhe <span style="color: #ff005c; font-weight: 900;">+225 cupons</span> por cada amigo que entrar!</p>
+            
+            <div style="background: #f8f8f8; border: 1px dashed #ddd; padding: 16px; border-radius: 16px; margin-bottom: 24px; word-break: break-all;">
+                <p id="referral-link-text" style="font-family: monospace; font-size: 11px; color: #333; margin: 0;"></p>
+            </div>
+
+            <button onclick="app.copyReferralLink()" style="width: 100%; background: #000; color: #fff; border: none; padding: 16px; border-radius: 16px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+                <i data-lucide="copy" style="width: 18px;"></i> Copiar Link
+            </button>
+        </div>
+    </div>
+
+    <style>
+        @keyframes modalSlideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
 </body>
 </html>
