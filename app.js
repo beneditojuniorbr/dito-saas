@@ -168,11 +168,9 @@
                     this.loadUserScopedData(); // Carrega sacola e compras do usuário
                 }
                 
-                // Conexão Única Inicial
-                await Promise.all([
-                    this.fetchNetworkUsers(),
-                    this.fetchNetworkProducts()
-                ]);
+                // Conexão Única Inicial (Não bloqueante para mobile voar 🚀)
+                this.fetchNetworkUsers();
+                this.fetchNetworkProducts();
 
                 this.checkLiveAdminStatus(); // Radar Automático ao Iniciar
                 
@@ -4126,10 +4124,10 @@
                 // Salva ID no cache para manter compras
                 localStorage.setItem('dito_user_id', loggedUser.id);
                 
-                // PRIMEIRO: Puxa os dados mais recentes da rede (Foto, Bio, etc)
-                await this.fetchNetworkUsers(); 
+                // PRIMEIRO: Puxa os dados em background (Sem bloquear o login! 🚀)
+                this.fetchNetworkUsers(); 
                 
-                // SEGUNDO: Atualiza a sessão com o que veio da rede
+                // SEGUNDO: Atualiza a sessão silenciosamente assim que o dashboard abrir
                 if (this.currentUser) {
                     this.saveSession(this.currentUser);
                 }
