@@ -46,6 +46,7 @@ body {
     color: var(--text);
     line-height: 1.5;
     overflow-x: hidden;
+    overscroll-behavior-x: none; /* Desativa o 'arrastar para voltar' do navegador */
 }
 
 /* Animations */
@@ -130,6 +131,7 @@ body {
     display: flex;
     flex-direction: column;
     padding-bottom: 80px; /* Spacer for bottom nav */
+    overscroll-behavior-x: none;
 }
 
 /* Login Screen */
@@ -615,6 +617,67 @@ body {
     }
 }
 /* Societies */
+.system-notif-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100000;
+    width: 90%;
+    max-width: 400px;
+    pointer-events: none;
+}
+
+.system-notif {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.05);
+    transform: translateY(-100px);
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    pointer-events: auto;
+    margin-bottom: 10px;
+}
+
+.system-notif.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.system-notif-icon {
+    width: 44px;
+    height: 44px;
+    background: #000;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.system-notif-content {
+    flex: 1;
+}
+
+.system-notif-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #000;
+    margin-bottom: 2px;
+}
+
+.system-notif-desc {
+    font-size: 11px;
+    font-weight: 500;
+    color: #666;
+}
+
 .societies-list {
     display: flex;
     flex-direction: column;
@@ -796,7 +859,48 @@ input:checked + .slider:before {
 input[type=range].coin-slider {
   -webkit-appearance: none;
   width: 100%;
-  background: transparent;
+  background: transparent; /* Fundo do input transparente, quem manda é a track */
+  outline: none;
+  margin: 20px 0;
+  cursor: pointer;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input[type=range].coin-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 12px;
+  cursor: pointer;
+  background: linear-gradient(to right, #ff005c 0%, #0487ff var(--range-progress, 0%), #eee var(--range-progress, 0%), #eee 100%);
+  border-radius: 20px;
+  border: none;
+}
+
+/* Firefox */
+input[type=range].coin-slider::-moz-range-track {
+  width: 100%;
+  height: 12px;
+  cursor: pointer;
+  background: linear-gradient(to right, #ff005c 0%, #0487ff var(--range-progress, 0%), #eee var(--range-progress, 0%), #eee 100%);
+  border-radius: 20px;
+  border: none;
+}
+
+input[type=range].coin-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  background: #fff;
+  border: 4px solid #000;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  margin-top: -8px; /* Centraliza o botão na trilha de 12px */
+  transition: 0.1s;
+}
+
+input[type=range].coin-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.05); /* Apenas um leve aumento, sem luz */
 }
 
 input[type=range].coin-slider:focus {

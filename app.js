@@ -143,18 +143,8 @@
             try {
                 // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                // 🛡️ SEGURANÇA: Verificação de Sessão Expirada (15s)
-                const lastAlive = localStorage.getItem('dito_session_heartbeat');
-                const now = Date.now();
-                if (lastAlive && (now - parseInt(lastAlive)) > 15000) {
-                    console.log("🔐 [Security] Sessão expirada por inatividade (>15s).");
-                    this.logout();
-                }
+                // Iniciado via initAutoLogout embaixo
 
-                // Inicia o Heartbeat (atualiza a cada 2s para garantir que não deslogue no F5)
-                setInterval(() => {
-                    localStorage.setItem('dito_session_heartbeat', Date.now().toString());
-                }, 2000);
 
                 const savedUser = localStorage.getItem('current_user_vanilla');
                 if (savedUser) {
@@ -167,12 +157,14 @@
                     this.fetchNetworkUsers(),
                     this.fetchNetworkProducts()
                 ]);
+
+                this.checkLiveAdminStatus(); // Radar Automático ao Iniciar
                 
-                // Polling de segurança (mais rápido para testes: 5s)
+                // Polling de segurança (20s - mais suave para não resetar scroll)
                 setInterval(() => {
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
-                }, 5000);
+                }, 20000);
 
                 // Inicia Canais Realtime (Supabase)
                 if (supabase) {
@@ -209,6 +201,12 @@
 
                 // Inicia Notificações Realtime
                 this.initRealtimeNotifications();
+
+                // GATILHO DE TESTE: Dispara uma notificação de venda após 3 segundos
+                setTimeout(() => {
+                    this.showSystemNotification('Venda Realizada! 🚀', 'Você acabou de vender um produto por R$ 97,00', 'sale');
+                }, 3000);
+
                 this.initAutoLogout();
                 this.initSystemBackButton();
                 this.fetchNotifications();
@@ -237,6 +235,71 @@
             } catch (err) {
                 console.error("Erro no INIT:", err);
             }
+        },
+
+        initSystemBackButton() {
+            // Inicializa o primeiro estado
+            if (!window.history.state) {
+                window.history.replaceState({ view: 'dashboard' }, '', '');
+            }
+
+            window.onpopstate = (event) => {
+                // 1. Prioridade: Fechar Modais e Drawers se estiverem abertos
+                const modal = document.getElementById('modal-container');
+                if (modal && modal.style.display === 'flex') {
+                    this.closeModal();
+                    window.history.pushState({ view: this.currentView }, '', '');
+                    return;
+                }
+
+                const friendsDrawer = document.getElementById('friends-drawer');
+                if (friendsDrawer && friendsDrawer.classList.contains('active')) {
+                    if (typeof closeFriendsDrawer === 'function') closeFriendsDrawer();
+                    window.history.pushState({ view: this.currentView }, '', '');
+                    return;
+                }
+
+                const worldChat = document.getElementById('world-chat-drawer');
+                if (worldChat && (worldChat.style.bottom === '0px' || worldChat.classList.contains('active'))) {
+                    this.closeWorldChat();
+                    window.history.pushState({ view: this.currentView }, '', '');
+                    return;
+                }
+
+                const chatDrawer = document.getElementById('chat-drawer');
+                if (chatDrawer && chatDrawer.classList.contains('active')) {
+                    this.closeChat();
+                    window.history.pushState({ view: this.currentView }, '', '');
+                    return;
+                }
+
+                const notifDrawer = document.getElementById('notif-drawer');
+                if (notifDrawer && notifDrawer.style.right === '0px') {
+                    this.toggleNotifDrawer(false);
+                    window.history.pushState({ view: this.currentView }, '', '');
+                    return;
+                }
+
+                // 2. Se nada estiver aberto, navega de volta
+                if (event.state && event.state.view) {
+                    this.navigate(event.state.view, 'popstate');
+                }
+            };
+        },
+
+        initAutoLogout() {
+            // 🛡️ SEGURANÇA: Verificação de Sessão Expirada (15s)
+            const lastAlive = localStorage.getItem('dito_session_heartbeat');
+            const now = Date.now();
+            if (lastAlive && (now - parseInt(lastAlive)) > 15000) {
+                console.log("🔐 [Security] Sessão expirada por inatividade (>15s).");
+                this.logout();
+            }
+
+            // Inicia o Heartbeat (atualiza a cada 2s para garantir que não deslogue no F5)
+            setInterval(() => {
+                localStorage.setItem('dito_session_heartbeat', Date.now().toString());
+            }, 2000);
         },
 
         // ==========================================
@@ -499,13 +562,13 @@
                     
                     <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
                         <button onclick="app.processGift('${targetUsername}', 30)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 30 Moedas Dito
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 30 Cupons
                         </button>
                         <button onclick="app.processGift('${targetUsername}', 60)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 60 Moedas Dito
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 60 Cupons
                         </button>
                         <button onclick="app.processGift('${targetUsername}', 90)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 90 Moedas Dito
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 90 Cupons
                         </button>
                     </div>
                     
@@ -520,7 +583,7 @@
         async processGift(targetUsername, amount) {
             const myCoins = parseInt(localStorage.getItem('dito_coins') || '0');
             if (myCoins < amount) {
-                this.showNotification('Você não tem moedas suficientes!', 'error');
+                this.showNotification('Você não tem cupons suficientes!', 'error');
                 return;
             }
 
@@ -550,7 +613,7 @@
                 this.updateCoinsUI();
 
                 // 2. Faz a transação de fato no Supabase (Precisa de um RPC ou Function, mas faremos via Update Simples por agora)
-                // Nota: Idealmente moedas devem estar no DB, mas usaremos a lógica atual do app
+                // Nota: Idealmente cupons devem estar no DB, mas usaremos a lógica atual do app
                 
                 // 3. Envia a notificação/registro de presente
                 await supabase.from('dito_notifications').insert({
@@ -558,13 +621,13 @@
                     target_username: targetUsername,
                     type: 'presente_enviado',
                     title: 'Presente Recebido! 🎁',
-                    message: `Você recebeu ${amount} Moedas de @${this.currentUser.username}!`,
+                    message: `Você recebeu ${amount} Cupons de @${this.currentUser.username}!`,
                     value: amount // Valor para o receptor somar ao carregar
                 });
 
                 this.showLoading(false);
                 this.closeModal();
-                this.showNotification(`Presente de ${amount} moedas enviado com sucesso!`, 'success');
+                this.showNotification(`Presente de ${amount} cupons enviado com sucesso!`, 'success');
 
             } catch (e) {
                 console.error(e);
@@ -746,8 +809,19 @@
         // --- SISTEMA DE CHAT MUNDIAL (DDTANK STYLE) ---
         worldChatMessages: [],
         
-        openWorldChat() {
-            if (!this.currentUser) return this.showNotification("Faça login para usar o Chat Global.", "error");
+        openWorldChat(roomId = 'GLOBAL', roomTitle = 'Chat Global') {
+            if (!this.currentUser) return this.showNotification("Faça login para usar o Chat.", "error");
+
+            this.activeWorldRoom = roomId;
+            const headerTitle = document.querySelector('#world-chat-drawer h3');
+            if (headerTitle) {
+                const icon = roomId === 'GLOBAL' ? 'globe' : 'video';
+                headerTitle.innerHTML = `<i data-lucide="${icon}" style="width: 20px; color:#000;"></i> ${roomTitle}`;
+            }
+
+            // Limpa o feed para carregar apenas mensagens da sala atual (Se necessário, filtragem no append)
+            document.getElementById('world-chat-feed').innerHTML = '';
+
             document.getElementById('world-chat-drawer').classList.add('active');
             document.getElementById('world-chat-drawer').style.bottom = '0';
             
@@ -756,7 +830,217 @@
             if (dot) dot.style.display = 'none';
 
             if (window.lucide) lucide.createIcons();
-            this.fetchWorldChatMessages();
+            
+            this.checkLiveAdminStatus();
+        },
+
+        accessLiveDirectly(productId) {
+            const p = this.products.find(p => String(p.id) === String(productId));
+            if (!p) return;
+            
+            this.showNotification("Acesso Verificado! Abrindo sala...", "success");
+            
+            // Define o produto ativo e vai para a sala live interna
+            this.selectedProduct = p;
+            this.setMarketView('live-room');
+        },
+
+        checkLiveAdminStatus() {
+            const btn = document.getElementById('btn-live-admin');
+            if (!btn) return;
+            
+            if (!this.currentUser) {
+                btn.style.display = 'none';
+                return;
+            }
+
+            const isAdmin = this.currentUser.username === 'Ditão' || this.currentUser.username === 'Visitante'; // Visitante temporário para teste
+            const isAuthPage = this.currentView === 'login' || this.currentView === 'cadastro';
+            
+            // Verifica se o produtor tem alguma MENTORIA ATIVA
+            const activeLive = this.products && this.products.find(p => 
+                p.type === 'Mentoria' && 
+                p.seller === this.currentUser.username && 
+                (p.visible === true || p.visible === 'true' || p.visible === undefined)
+            );
+
+            if (!isAuthPage && (isAdmin || activeLive)) {
+                this.adminLiveProduct = activeLive;
+                btn.style.display = 'flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        },
+
+        openMissions() {
+            this.navigate('missoes');
+        },
+
+        renderMissions() {
+            const container = document.getElementById('weekly-checklist-container');
+            const balanceEl = document.getElementById('missions-coin-balance');
+            if(!container) return;
+
+            const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            const today = new Date().getDay();
+            const key = this.getUserKey();
+            const storageKey = `dito_missions_${key}`;
+            
+            // Calcula o reset semanal inteligente
+            let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            if (checklist.length === 0 || checklist[0].week !== this.getWeekNumber()) {
+                checklist = days.map((d, i) => ({ dayName: d, index: i, checked: false, week: this.getWeekNumber() }));
+                localStorage.setItem(storageKey, JSON.stringify(checklist));
+            }
+
+            // Atualiza saldo de cupons na barra superior
+            const currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+            if (balanceEl) balanceEl.innerText = currentCoins.toLocaleString();
+
+            container.innerHTML = checklist.map((item, i) => {
+                const isToday = i === today;
+                const past = i < today;
+                const statusColor = item.checked ? '#10b981' : (past ? '#ef4444' : (isToday ? '#f59e0b' : '#e4e4e7'));
+                const statusIcon = item.checked ? 'check-circle-2' : (past ? 'x-circle' : 'circle');
+                const canCheck = isToday && !item.checked;
+
+                return `
+                <div style="scroll-snap-align: start; min-width: 130px; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; padding: 20px 14px; border-radius: 16px; border: ${isToday ? '2px solid transparent' : '1px solid #f0f0f0'}; background: ${isToday ? 'linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ff005c 0%, #0487ff 100%) border-box' : '#fff'}; transition: 0.3s; ${canCheck ? '' : 'opacity: 1;'} box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                    <p style="font-weight: 900; font-size: 16px; margin-bottom: 8px; color: ${past && !item.checked ? '#ccc' : '#000'};">${item.dayName}</p>
+                    
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: ${past && !item.checked ? 'transparent' : '#f9f9f9'}; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: ${past && !item.checked ? '1px dashed #eee' : 'none'};">
+                        <i data-lucide="${statusIcon}" style="color: ${past && !item.checked ? 'rgba(0,0,0,0.1)' : '#000'}; width: 22px; height: 22px; stroke-width: 3px;"></i>
+                    </div>
+
+                    <p style="font-size: 9px; font-weight: 800; color: #a1a1aa; text-transform: uppercase; margin-bottom: 12px;">${item.checked ? 'Completado' : (isToday ? 'Hoje' : (past ? 'Expirado' : 'Em breve'))}</p>
+                    ${canCheck ? `<button onclick="app.checkMissionDay(${i})" style="width: 100%; background: #000; color: white; border: none; padding: 10px 0; border-radius: 12px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Receber</button>` : `<div style="width: 100%; background: #f9f9f9; padding: 8px 0; border-radius: 12px; font-size: 11px; font-weight: 900; color: ${past && !item.checked ? '#ccc' : '#000'}; display: flex; align-items: center; justify-content: center; gap: 4px;">+30 <i data-lucide="ticket" style="width: 14px;"></i></div>`}
+                </div>
+                `;
+            }).join('');
+
+            // Título de missão inteligente
+            const txt = document.getElementById('daily-mission-text');
+            if(txt) txt.innerText = isTodayMissionCompleted(today, checklist) ? "Parabéns! Você já cumpriu a missão de hoje, volte amanhã!" : "Faça o seu check-in diário e garanta suas cupons!";
+
+            if (window.lucide) lucide.createIcons();
+            
+            function isTodayMissionCompleted(dayIndex, list) {
+                return list[dayIndex] && list[dayIndex].checked;
+            }
+        },
+
+        checkMissionDay(dayIndex) {
+            const key = this.getUserKey();
+            const storageKey = `dito_missions_${key}`;
+            let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            
+            if (checklist[dayIndex] && !checklist[dayIndex].checked) {
+                checklist[dayIndex].checked = true;
+                localStorage.setItem(storageKey, JSON.stringify(checklist));
+                
+                // +30 cupons
+                let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                currentCoins += 30;
+                localStorage.setItem(`dito_coins_${key}`, currentCoins.toString());
+                
+                this.showNotification('Check-in realizado! +30 Cupons!', 'success');
+                this.renderMissions(); // Atualiza a renderização na hora
+            }
+        },
+
+        getWeekNumber() {
+            const d = new Date();
+            const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
+            const pastDaysOfYear = (d - firstDayOfYear) / 86400000;
+            return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        },
+
+        openLiveAdmin() {
+            const actions = [
+                { icon: 'pause-circle', label: 'Pausar Live', color: '#f59e0b', call: "app.updateLiveStatus('PAUSADO')" },
+                { icon: 'play-circle', label: 'Retomar Live', color: '#10b981', call: "app.updateLiveStatus('AO VIVO')" },
+                { icon: 'x-circle', label: 'Encerrar Live', color: '#ef4444', call: "app.updateLiveStatus('ENCERRADO')" },
+                { icon: 'refresh-ccw', label: 'Remover Mentoria da Vitrine', color: '#6366f1', call: "app.updateLiveVisibility(false)" }
+            ];
+
+            const html = actions.map(a => `
+                <button onclick="${a.call}; this.parentElement.parentElement.remove()" style="width: 100%; padding: 16px; border-radius: 12px; border: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; cursor: pointer; text-align: left; font-family: inherit;">
+                    <i data-lucide="${a.icon}" style="width: 18px; color: ${a.color};"></i>
+                    <span style="font-weight: 800; font-size: 13px;">${a.label}</span>
+                </button>
+            `).join('');
+
+            // Cria um modal temporário simples
+            const modal = document.createElement('div');
+            modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;";
+            modal.innerHTML = `
+                <div style="background:#fff; border-radius:30px; width:100%; max-width:350px; padding:24px; animation: slideBottom 0.3s ease;">
+                    <h3 style="font-weight:900; margin-bottom:20px; text-align:center;">Controle da transmissão</h3>
+                    ${html}
+                    <button onclick="this.parentElement.parentElement.remove()" style="width:100%; padding:15px; background:#f5f5f5; border:none; border-radius:15px; font-weight:900; margin-top:10px; cursor:pointer;">Fechar</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            if (window.lucide) lucide.createIcons();
+        },
+
+        async updateLiveStatus(status) {
+            const msg = `📢 [SISTEMA] O status da transmissão mudou para: ${status}`;
+            this.showNotification(msg, 'info');
+            
+            // Envia mensagem global do sistema
+            if (supabase) {
+                await supabase.from('dito_messages').insert([{
+                    sender: 'Dito System',
+                    receiver: 'GLOBAL',
+                    content: msg
+                }]);
+            }
+            alert(`Status alterado para ${status}! Todos os usuários no chat foram notificados.`);
+        },
+
+        async updateLiveVisibility(visible) {
+            let targetId = this.selectedProduct?.id || this.adminLiveProduct?.id;
+            let targetName = this.selectedProduct?.name || this.adminLiveProduct?.name || "Mentoria";
+
+            // Prioridade para a sala de chat ativa se estiver em uma Live
+            if (this.activeWorldRoom && this.activeWorldRoom.startsWith('LIVE_')) {
+                targetId = this.activeWorldRoom.replace('LIVE_', '');
+            }
+
+            if (!targetId) return this.showNotification("Identificador da mentoria não encontrado.", "error");
+
+            if (confirm(`Deseja alterar a visibilidade de "${targetName}" no mercado?`)) {
+                if (supabase) {
+                    // Tenta atualizar no Supabase (String ou Number)
+                    const { error } = await supabase.from('dito_market_products')
+                        .update({ visible: visible })
+                        .eq('id', String(targetId));
+                    
+                    if (error) {
+                        await supabase.from('dito_market_products').update({ visible: visible }).eq('id', Number(targetId));
+                    }
+                    
+                    // LIMPEZA LOCAL IMEDIATA (Faxina em todos os buffers)
+                    const cacheKeys = ['dito_products', 'dito_products_vanilla', 'dito_market_products'];
+                    cacheKeys.forEach(key => {
+                        let list = JSON.parse(localStorage.getItem(key) || '[]');
+                        list = list.map(p => {
+                            if (String(p.id) === String(targetId)) return { ...p, visible: visible };
+                            return p;
+                        });
+                        localStorage.setItem(key, JSON.stringify(list));
+                    });
+
+                    localStorage.removeItem('dito_last_p_hash'); 
+                    this.showNotification(`Mentoria ${visible ? 'ativada' : 'removida'} com sucesso!`);
+                    
+                    // Se ocultou, fecha o chat para limpar o contexto
+                    if (!visible) this.closeWorldChat();
+                    
+                    this.fetchNetworkProducts(); 
+                }
+            }
         },
 
         closeWorldChat() {
@@ -767,11 +1051,6 @@
         async sendWorldMessage() {
             const inp = document.getElementById('world-chat-input');
             let text = inp.value.trim();
-            if(!text || !this.currentUser) return;
-            
-            inp.value = '';
-            
-            let receiver = 'GLOBAL';
             let content = text;
             
             // Lógica de Comandos (DDTank Style)
@@ -797,6 +1076,25 @@
             if(supabase) {
                 const { error } = await supabase.from('dito_messages').insert([msg]);
                 if(error) console.error("❌ [World Chat] Erro ao enviar:", error.message);
+            }
+        },
+
+        receiveWorldMessage(msg) {
+            // Se for para mim ou Global/Sociedade, adiciona ao feed
+            const isForMe = msg.receiver === 'GLOBAL' || 
+                            msg.receiver === 'SOC_GLOBAL' || 
+                            msg.receiver === this.currentUser?.username ||
+                            msg.sender === this.currentUser?.username;
+
+            if (isForMe) {
+                this.appendWorldMessageToChat(msg);
+                
+                // Notifica se o chat estiver fechado
+                const drawer = document.getElementById('world-chat-drawer');
+                if (drawer && !drawer.classList.contains('active')) {
+                    const dot = document.getElementById('dot-world-chat');
+                    if (dot) dot.style.display = 'block';
+                }
             }
         },
 
@@ -1003,6 +1301,12 @@
                     .limit(50);
 
                 if (data && !error) {
+                    const currentHash = JSON.stringify(data);
+                    const lastHash = localStorage.getItem('dito_last_p_hash');
+                    if (currentHash === lastHash) return; // Nada mudou, mantém o scroll!
+                    
+                    localStorage.setItem('dito_last_p_hash', currentHash);
+
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                     data.forEach(net => {
                         const idx = local.findIndex(p => p.id === net.id);
@@ -1011,7 +1315,6 @@
                         else local.push(parsed);
                     });
                     
-                    // Mantém o cache local limpo (Mínimo de 100 itens no total para não travar)
                     if (local.length > 100) local = local.slice(0, 100);
 
                     this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
@@ -1057,32 +1360,124 @@
             container.innerHTML = temp.innerHTML;
             const p = this.selectedProduct;
             if (!p) return;
+            
+            const isMentoria = p.type === 'Mentoria';
+
+            // Customizar capa ou foto de perfil (Live)
+            const coverContainer = document.getElementById('product-cover-container');
+            if (coverContainer) {
+                if (isMentoria) {
+                    coverContainer.style.borderRadius = '50%';
+                    coverContainer.style.border = '4px solid #ff005c';
+                    coverContainer.style.boxShadow = '0 0 30px rgba(255,0,92,0.4)';
+                    coverContainer.style.padding = '4px';
+                    coverContainer.innerHTML = p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<div style="width: 100%; height: 100%; background: #ff005c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 40px; font-weight: 900;">${(p.seller || p.name)[0].toUpperCase()}</div>`;
+                    
+                    const badge = document.createElement('div');
+                    badge.innerHTML = `<span style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 12px; border: 2px solid #fff; letter-spacing: 1px; z-index: 12;">AO VIVO</span>`;
+                    coverContainer.appendChild(badge);
+                } else {
+                    coverContainer.style.borderRadius = '40px';
+                    coverContainer.style.border = 'none';
+                    coverContainer.style.boxShadow = '0 20px 40px rgba(0,0,0,0.03)';
+                    coverContainer.style.padding = '0';
+                    coverContainer.innerHTML = p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="shopping-bag" style="width: 60px; color: #eee;"></i>`;
+                }
+            }
+
+            // Customizar Botões de Ação
+            const actionsContainer = document.getElementById('product-actions');
+            if (actionsContainer) {
+                const hasAccess = this.purchasedProducts && this.purchasedProducts.some(pp => String(pp.id) === String(p.id));
+
+                if (isMentoria) {
+                    if (hasAccess) {
+                        actionsContainer.innerHTML = `
+                            <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
+                                <i data-lucide="check-circle" style="width: 20px;"></i>
+                                VOCÊ JÁ POSSUI ACESSO - ENTRAR
+                            </button>
+                            <button onclick="app.openWorldChat('LIVE_${p.id}', 'Chat da Mentoria')" style="width: 64px; height: 64px; background: #f5f5f5; color: #000; border: none; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="message-square" style="width: 24px;"></i>
+                            </button>
+                        `;
+                    } else {
+                        actionsContainer.innerHTML = `
+                            <button onclick="app.ingressLive('${p.id}')" style="flex: 1; height: 64px; background: linear-gradient(90deg, #ff005c, #ff3366); color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,0,92,0.3);">
+                                <i data-lucide="video" style="width: 20px;"></i>
+                                INGRESSAR NA LIVE - R$ ${p.price.toFixed(2)}
+                            </button>
+                        `;
+                    }
+                } else {
+                    actionsContainer.innerHTML = `
+                        <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <i data-lucide="shopping-bag" style="width: 18px;"></i> ADICIONAR À SACOLA
+                        </button>
+                    `;
+                }
+            }
 
             document.getElementById('product-detail-content').innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                    <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1px; width: 70%;">${p.name.toLowerCase()}</h1>
+                    <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1px; width: 70%;">${isMentoria ? 'Sala de Transmissão VIP' : p.name.toLowerCase()}</h1>
                     <div style="text-align: right;">
                         <span style="display: block; font-size: 22px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
                         ${p.oldPrice ? `<span style="font-size: 12px; font-weight: 700; color: #ccc; text-decoration: line-through;">R$ ${p.oldPrice.toFixed(2)}</span>` : ''}
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 24px;">
-                     <i data-lucide="star" style="width: 14px; color: #facc15; fill: #facc15;"></i>
-                     <span style="font-size: 12px; font-weight: 800; color: #bbb;">${p.rating} (${p.sales} avaliações)</span>
+
+                <div id="product-rating-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px;">
+                     <div style="display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="star" style="width: 14px; color: #facc15; fill: #facc15;"></i>
+                        <span id="product-avg-rating" style="font-size: 12px; font-weight: 800; color: #bbb;">Carregando nota...</span>
+                     </div>
+                     <div id="product-interactive-stars" style="display: flex; gap: 4px;">
+                        <i data-pstar="1" onclick="app.rateProduct('${p.id}', 1)" data-lucide="star" style="width: 20px; color: #eee; cursor: pointer;"></i>
+                        <i data-pstar="2" onclick="app.rateProduct('${p.id}', 2)" data-lucide="star" style="width: 20px; color: #eee; cursor: pointer;"></i>
+                        <i data-pstar="3" onclick="app.rateProduct('${p.id}', 3)" data-lucide="star" style="width: 20px; color: #eee; cursor: pointer;"></i>
+                        <i data-pstar="4" onclick="app.rateProduct('${p.id}', 4)" data-lucide="star" style="width: 20px; color: #eee; cursor: pointer;"></i>
+                        <i data-pstar="5" onclick="app.rateProduct('${p.id}', 5)" data-lucide="star" style="width: 20px; color: #eee; cursor: pointer;"></i>
+                     </div>
                 </div>
+
                 <p style="font-size: 14px; color: #666; font-weight: 500; line-height: 1.6; margin-bottom: 32px;">${p.description || 'Sem descrição detalhada disponível para este produto no momento.'}</p>
                 
-                <div style="background: #fdfdfd; padding: 20px; border-radius: 20px; border: 1px solid #f5f5f5; display: flex; justify-content: space-between; align-items: center;">
+                <div style="background: transparent; padding: 10px 0; display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 44px; height: 44px; background: #000; color: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 900;">${p.seller[0]}</div>
+                        <div style="width: 44px; height: 44px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; overflow: hidden;">
+                            ${p.seller_avatar ? `<img src="${p.seller_avatar}" style="width:100%; height:100%; object-fit:cover;">` : (p.seller ? p.seller[0] : 'U')}
+                        </div>
                         <div>
-                            <p style="font-size: 12px; font-weight: 900;">${p.seller}</p>
+                            <p style="font-size: 12px; font-weight: 900;">${p.seller || 'Membro'}</p>
                             <p style="font-size: 10px; color: #ccc; font-weight: 700;">Loja Oficial</p>
                         </div>
                     </div>
-                    <button onclick="app.navigate('perfil')" style="font-size: 10px; font-weight: 900; text-transform: uppercase; background: transparent; border: 1px solid #ddd; padding: 10px 16px; border-radius: 30px; cursor: pointer;">Ver perfil</button>
+                    <button onclick="app.navigate('perfil')" style="font-size: 10px; font-weight: 900; text-transform: uppercase; background: transparent; border: 1px solid #eee; padding: 10px 16px; border-radius: 30px; cursor: pointer; color: #ccc;">Ver perfil</button>
                 </div>
             `;
+
+            if (window.lucide) lucide.createIcons();
+            this.fetchAndRenderProductRating(p.id); 
+        },
+
+        ingressLive(productId) {
+            // Busca o produto real
+            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
+            const product = [...p1, ...p2, ...p3].find(p => String(p.id) === String(productId));
+
+            if (!product) return this.showNotification("Erro ao localizar ingressos da Live.", "error");
+
+            // Limpa o carrinho atual para focar apenas na Live (Venda direta)
+            this.cart = [product];
+            localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+            this.updateCartBadge();
+
+            // Vai direto para o Checkout
+            this.setMarketView('checkout');
+            this.showNotification("Ingresso adicionado! Escolha a forma de pagamento para entrar na Live.", "info");
         },
 
         addToCartFromDetail() {
@@ -1092,6 +1487,92 @@
                 this.updateCartBadge();
                 this.showNotification("Adicionado à sacola!", "success");
                 this.setMarketView('home');
+            }
+        },
+
+        async fetchAndRenderProductRating(productId) {
+            if (!supabase || this._ratingTableMissing) return; 
+            try {
+                const { data, error } = await supabase
+                    .from('dito_product_ratings')
+                    .select('score, username')
+                    .eq('product_id', productId);
+
+                const el = document.getElementById('product-avg-rating');
+                if (!el) return;
+
+                if (error && (error.status === 404 || error.code === 'PGRST116')) {
+                    this._ratingTableMissing = true;
+                    el.innerText = "5.0 (Novo Produto)";
+                    return;
+                }
+
+                const prodRatings = (data || []).map(r => r.score);
+                
+                // Highlight current user's rating if exists
+                if (this.currentUser) {
+                    const myRating = (data || []).find(r => r.username === this.currentUser.username);
+                    if (myRating) {
+                        this.updateStarsUI(myRating.score);
+                    }
+                }
+
+                if (prodRatings.length > 0) {
+                    const avg = (prodRatings.reduce((a, b) => a + b, 0) / prodRatings.length).toFixed(1);
+                    el.innerText = `${avg} (${prodRatings.length} avaliações)`;
+                } else {
+                    el.innerText = "5.0 (Novo Produto)";
+                }
+            } catch (e) {
+                console.warn("Erro ao buscar avaliações:", e);
+            }
+        },
+
+        updateStarsUI(score) {
+            const stars = document.querySelectorAll('[data-pstar]');
+            stars.forEach(s => {
+                const sVal = parseInt(s.getAttribute('data-pstar'));
+                if (sVal <= score) {
+                    s.style.color = '#facc15';
+                    s.style.fill = '#facc15';
+                } else {
+                    s.style.color = '#eee';
+                    s.style.fill = 'transparent';
+                }
+            });
+        },
+
+        async rateProduct(productId, score) {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification('Faça login para avaliar!', 'error');
+                return;
+            }
+
+            // Se clicar na mesma nota, a intenção é "desmarcar" (nota 0)
+            const currentSelected = document.querySelectorAll('[data-pstar][style*="facc15"]').length;
+            const newScore = (currentSelected === score) ? 0 : score;
+
+            // Feedback visual imediato (Optimistic UI)
+            this.updateStarsUI(newScore);
+
+            try {
+                const { error } = await supabase
+                    .from('dito_product_ratings')
+                    .upsert({
+                        product_id: productId,
+                        username: this.currentUser.username,
+                        score: newScore
+                    }, { onConflict: 'product_id,username' });
+
+                if (!error) {
+                    this.showNotification(newScore === 0 ? 'Avaliação removida.' : 'Avaliado com sucesso!', 'success');
+                    this.fetchAndRenderProductRating(productId);
+                } else {
+                    // Reverte se der erro
+                    this.fetchAndRenderProductRating(productId);
+                }
+            } catch (e) {
+                console.error(e);
             }
         },
 
@@ -1113,7 +1594,8 @@
 
             const hasPurchased = localStorage.getItem('dito_purchased_products');
             const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
-            const userCoins = parseInt(localStorage.getItem('dito_coins') || '0');
+            const key = this.getUserKey();
+            const userCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
             
             const rewardsSection = document.createElement('div');
             rewardsSection.style.borderTop = '1px solid #f0f0f0';
@@ -1128,11 +1610,11 @@
                 ` : ''}
 
                 <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Moedas Dito:</span>
+                    <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Cupons:</span>
                     <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span>% desconto</span>
                 </div>
                 <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
-                <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com moedas: 75%</p>
+                <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com cupons: 75%</p>
                 
                 <div id="pix-payment-actions">
                     <button onclick="app.processPaymentMP('pix')" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; margin-top: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
@@ -1144,6 +1626,15 @@
             
             this.paymentMethod = 'pix'; // Reset para Pix
             this.recalculateCheckoutTotal();
+
+            // Sincroniza o preenchimento inicial do slider
+            const initSlider = document.getElementById('coin-discount-slider');
+            if (initSlider) {
+                const max = parseInt(initSlider.max) || 1;
+                const pct = (parseInt(initSlider.value) / max) * 100;
+                initSlider.style.setProperty('--range-progress', pct + '%');
+            }
+
             if (window.lucide) lucide.createIcons();
         },
 
@@ -1257,52 +1748,65 @@
             this.updateCartBadge();
             
             setTimeout(() => {
-                this.navigate('meus-cursos');
-                this.showNotification("Obrigado pela compra! Acesso liberado.", "success");
+                const wasMentoria = productsToUnlock.some(p => p.type === 'Mentoria');
+                if (wasMentoria) {
+                    const mentorProduct = productsToUnlock.find(p => p.type === 'Mentoria');
+                    this.showNotification("Acesso Liberado!", "success");
+                    this.selectedProduct = mentorProduct;
+                    setTimeout(() => {
+                        this.setMarketView('live-room');
+                    }, 1500);
+                } else {
+                    this.navigate('meus-cursos');
+                    this.showNotification("Obrigado pela compra! Acesso liberado.", "success");
+                }
             }, 1000);
         },
 
         async creditSeller(sellerUsername, amount, productName) {
             if (!supabase) return;
             try {
-                // Busca o vendedor na rede
-                const { data: sellerData, error } = await supabase
-                    .from('dito_users')
-                    .select('*')
-                    .eq('username', sellerUsername)
-                    .maybeSingle();
+                const totalAmount = parseFloat(amount);
+                const appFee = totalAmount * 0.03;
+                const sellerNet = totalAmount - appFee;
 
-                if (sellerData && !error) {
-                    const newBalance = (parseFloat(sellerData.balance || 0) + parseFloat(amount)).toFixed(2);
-                    const newSalesTotal = (parseFloat(sellerData.sales || 0) + parseFloat(amount)).toFixed(2);
-                    
-                    // Adiciona ao histórico de vendas do vendedor (json column 'purchases' or similar)
+                // 1. CREDITA O VENDEDOR (97%)
+                const { data: sellerData } = await supabase.from('dito_users').select('*').eq('username', sellerUsername).maybeSingle();
+                if (sellerData) {
+                    const newBalance = (parseFloat(sellerData.balance || 0) + sellerNet).toFixed(2);
+                    const newSalesTotal = (parseFloat(sellerData.sales || 0) + sellerNet).toFixed(2);
                     let history = [];
-                    try {
-                        history = sellerData.purchases ? (typeof sellerData.purchases === 'string' ? JSON.parse(sellerData.purchases) : sellerData.purchases) : [];
-                    } catch(e) {}
-                    
-                    history.push({
-                        item: productName,
-                        value: parseFloat(amount),
-                        timestamp: new Date().toISOString(),
-                        type: 'sale'
-                    });
+                    try { history = sellerData.purchases ? (typeof sellerData.purchases === 'string' ? JSON.parse(sellerData.purchases) : sellerData.purchases) : []; } catch(e) {}
+                    history.push({ item: productName, value: sellerNet, timestamp: new Date().toISOString(), type: 'sale', fee_deducted: appFee.toFixed(2) });
 
-                    // Atualiza na Rede
                     await supabase.from('dito_users').update({
                         balance: newBalance,
                         sales: newSalesTotal,
                         purchases: JSON.stringify(history)
                     }).eq('username', sellerUsername);
 
-                    console.log(`✅ [Financeiro] R$ ${amount} creditados com sucesso para ${sellerUsername}`);
-                    
-                    // ENVIA NOTIFICAÇÃO DE VENDA PARA O VENDEDOR
-                    this.sendNetworkNotification(sellerUsername, 'sale', 'Venda Realizada! 💰', `Você vendeu "${productName}" por R$ ${amount}.`);
+                    this.sendNetworkNotification(sellerUsername, 'sale', 'Venda Realizada! 💰', `Você vendeu "${productName}". Valor líquido: R$ ${sellerNet.toFixed(2)} (Taxa app: 3%)`);
                 }
+
+                // 2. CREDITA O ADMIN DITÃO (3%)
+                const adminUsername = 'Ditão'; // Nome da sua conta mestre
+                const { data: adminData } = await supabase.from('dito_users').select('*').eq('username', adminUsername).maybeSingle();
+                if (adminData) {
+                    const newAdminBalance = (parseFloat(adminData.balance || 0) + appFee).toFixed(2);
+                    let adminHistory = [];
+                    try { adminHistory = adminData.purchases ? (typeof adminData.purchases === 'string' ? JSON.parse(adminData.purchases) : adminData.purchases) : []; } catch(e) {}
+                    adminHistory.push({ item: `Taxa App: ${productName}`, value: appFee, seller: sellerUsername, timestamp: new Date().toISOString(), type: 'commission' });
+
+                    await supabase.from('dito_users').update({
+                        balance: newAdminBalance,
+                        purchases: JSON.stringify(adminHistory)
+                    }).eq('username', adminUsername);
+                    
+                    console.log(`💎 [Taxa Dito] R$ ${appFee.toFixed(2)} creditados na conta mestre.`);
+                }
+
             } catch (e) {
-                console.error("❌ [Financeiro] Erro ao creditar vendedor:", e);
+                console.error("❌ [Financeiro] Erro no Split de comissão:", e);
             }
         },
 
@@ -1399,6 +1903,10 @@
         openCourse(id) {
             this.activeCourse = this.purchasedProducts.find(p => p.id === id);
             if (this.activeCourse) {
+                if (this.activeCourse.type === 'Mentoria') {
+                    this.accessLiveDirectly(id);
+                    return;
+                }
                 this.activePlayerTab = 'aulas';
                 this.openModules = {}; // Reseta acordeão
                 
@@ -1732,7 +2240,7 @@
             }).sort((a,b) => b.sales - a.sales);
 
             const winner = sortedRank[0];
-            const others = sortedRank.slice(1, 6); // Pega do 2º ao 6º (5 itens)
+            const others = sortedRank.slice(1, 100); // Exibe do 2º ao 100º lugar!
 
             // Renderiza o 1º Lugar
             if (winner) {
@@ -1787,7 +2295,6 @@
                 if (myRankPos > 0) {
                     rankLabel.innerText = `Você é o ${myRankPos}º`;
                 } else if (this.currentUser) {
-                    // Se não estiver no Top 6, mas já tiver vendas, ou apenas for um novo membro
                     rankLabel.innerText = `Você é o ${sortedRank.length + 1}º (Novo Membro)`;
                 } else {
                     rankLabel.innerText = 'Entre para entrar no ranking';
@@ -1797,38 +2304,49 @@
             if (window.lucide) lucide.createIcons();
         },
 
-
-
-
-        showNotification(message, type = 'success') {
-            let container = document.querySelector('.notification-container');
+        showSystemNotification(title, message, type = 'info') {
+            let container = document.querySelector('.system-notif-container');
             if (!container) {
                 container = document.createElement('div');
-                container.className = 'notification-container';
+                container.className = 'system-notif-container';
                 document.body.appendChild(container);
             }
 
-            const pill = document.createElement('div');
-            pill.className = `notif-pill ${type}`;
+            const notif = document.createElement('div');
+            notif.className = 'system-notif';
             
-            let icon = 'check-circle';
-            if (type === 'error') icon = 'alert-circle';
-            if (type === 'info') icon = 'info';
+            let icon = 'bell';
+            let iconBg = '#000';
+            if (type === 'sale') { icon = 'shopping-bag'; iconBg = '#22c55e'; }
+            if (type === 'fan') { icon = 'star'; iconBg = '#ff005c'; }
+            if (type === 'error') { icon = 'alert-circle'; iconBg = '#ef4444'; }
+            if (type === 'success') { icon = 'check-circle'; iconBg = '#22c55e'; }
 
-            pill.innerHTML = `
-                <i data-lucide="${icon}" style="width: 16px;"></i>
-                <span>${message}</span>
+            notif.innerHTML = `
+                <div class="system-notif-icon" style="background: ${iconBg};">
+                    <i data-lucide="${icon}" style="width: 20px; color: #fff;"></i>
+                </div>
+                <div class="system-notif-content">
+                    <div class="system-notif-title">${title}</div>
+                    <div class="system-notif-desc">${message}</div>
+                </div>
             `;
 
-            container.appendChild(pill);
+            container.appendChild(notif);
             if (window.lucide) lucide.createIcons();
 
-            setTimeout(() => pill.classList.add('show'), 10);
+            setTimeout(() => notif.classList.add('show'), 10);
             
+            if (type === 'sale' && navigator.vibrate) {
+                navigator.vibrate([100, 50, 200]);
+            } else if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+
             setTimeout(() => {
-                pill.classList.remove('show');
-                setTimeout(() => pill.remove(), 500);
-            }, 4000);
+                notif.classList.remove('show');
+                setTimeout(() => notif.remove(), 500);
+            }, 6000);
         },
 
 
@@ -1848,6 +2366,7 @@
             try {
                 console.log("Navegando para:", view);
                 this.currentView = view;
+                this.checkLiveAdminStatus(); // Atualiza status ao trocar de tela
                 
                 // Salva o estado para restaurar no F5
                 if (view !== 'login' && view !== 'cadastro') {
@@ -1910,9 +2429,11 @@
                     case 'vendas': this.renderSales(); break;
                     case 'sacar': this.updateWithdrawUI(); break;
                     case 'admin-contas': this.renderAdminUsers(); break;
+                    case 'admin-produtos': this.renderAdminProducts(); break;
                     case 'produtos': this.renderMyProducts(); break;
                     case 'meus-cursos': this.renderPurchasedProducts(); break;
                     case 'curso-player': this.renderCoursePlayer(); break;
+                    case 'missoes': this.renderMissions(); break;
                 }
 
                 // Atualiza Barra de Navegação Global e Header
@@ -1935,9 +2456,14 @@
                 }
                 
                 const worldChatBtn = document.getElementById('btn-world-chat');
-                if (worldChatBtn) {
-                    worldChatBtn.style.display = isAuthPage ? 'none' : 'flex';
-                }
+                const missionsBtn = document.getElementById('btn-missions');
+                const liveBtn = document.getElementById('btn-live-admin');
+
+                if (worldChatBtn) worldChatBtn.style.display = isAuthPage ? 'none' : 'flex';
+                if (missionsBtn) missionsBtn.style.display = isAuthPage ? 'none' : 'flex';
+                
+                // Re-calcula status do admin para o botão de live
+                this.checkLiveAdminStatus();
                 
                 if (header) {
                     const isMercado = view === 'mercado';
@@ -2565,6 +3091,105 @@
                 } catch (e) {
                     console.error("Erro ao deletar usuário:", e);
                     this.showNotification('Erro ao excluir conta da rede.', 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+        },
+
+        renderAdminProducts() {
+            const list = document.getElementById('admin-products-list');
+            if (!list) return;
+
+            // Busca produtos usando a mesma lógica consolidada da vitrine para garantir sincronia
+            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
+            let allProducts = [...p1, ...p2, ...p3].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+            
+            if (allProducts.length === 0) {
+                list.innerHTML = `<p style="text-align: center; color: #999; font-weight: 800; padding: 40px;">Buscando produtos na rede...</p>`;
+                this.fetchNetworkProducts();
+                return;
+            }
+
+            list.innerHTML = allProducts.map(p => {
+                const safeName = (p.name || '').replace(/'/g, "\\'");
+                // Garantimos que o ID seja passado como string segura
+                const pId = String(p.id);
+                return `
+                <div id="admin-prod-${pId}" style="background: #fff; border: 1px solid #f2f2f2; border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display: flex; gap: 14px; align-items: center;">
+                        <div style="width: 54px; height: 54px; border-radius: 12px; overflow: hidden; background: #f9f9f9; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" style="width: 20px; color: #ccc;"></i>`}
+                        </div>
+                        <div style="max-width: 180px;">
+                            <h4 style="font-weight: 900; font-size: 13px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                            <p style="font-size: 10px; font-weight: 800; color: #ccc; margin-top: 2px;">Vendedor: @${p.seller || 'admin'} • R$ ${(parseFloat(p.price || 0)).toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <button onclick="app.deleteProduct('${pId}', '${safeName}')" style="width: 40px; height: 40px; background: #fee2e2; color: #ef4444; border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                        <i data-lucide="trash-2" style="width: 18px;"></i>
+                    </button>
+                </div>
+            `}).join('');
+            if (window.lucide) lucide.createIcons();
+        },
+
+        async deleteProduct(id, name) {
+            console.log("🗑️ Tentando deletar produto ID:", id);
+            
+            if (confirm(`Ditão, tem certeza que deseja EXCLUIR permanentemente o produto "${name}" da loja?`)) {
+                this.showLoading(true, 'Removendo da loja...');
+                
+                try {
+                    // 1. OTIMISTA: Remove instantaneamente da interface e do cache local
+                    const allKeys = ['dito_products', 'dito_products_vanilla', 'dito_market_products', 'dito_network_products'];
+                    allKeys.forEach(key => {
+                        try {
+                            let listString = localStorage.getItem(key);
+                            if (listString) {
+                                let list = JSON.parse(listString);
+                                if (Array.isArray(list)) {
+                                    const newList = list.filter(p => p && String(p.id) !== String(id));
+                                    localStorage.setItem(key, JSON.stringify(newList));
+                                }
+                            }
+                        } catch(e) { console.error("Erro ao limpar key:", key, e); }
+                    });
+
+                    // Limpa do estado em memória
+                    if (Array.isArray(this.products)) {
+                        this.products = this.products.filter(p => String(p.id) !== String(id));
+                    }
+                    
+                    // Esconde o elemento da tela na hora pelo ID manual para garantir visibilidade
+                    const card = document.getElementById(`admin-prod-${id}`);
+                    if (card) card.style.display = 'none';
+
+                    // Força redesenho instantâneo
+                    if (this.currentView === 'mercado') this.renderMarketHome();
+                    if (this.currentView === 'admin-produtos') this.renderAdminProducts();
+
+                    // 2. Exclui de forma verdadeira no Servidor Supabase
+                    if (supabase) {
+                        const { error } = await supabase
+                            .from('dito_market_products')
+                            .delete()
+                            .eq('id', id);
+                        
+                        if (error) {
+                            console.error("Erro Supabase na exclusão:", error);
+                            alert("Erro no servidor ao apagar: " + error.message);
+                        }
+                    }
+
+                    this.showNotification(`O produto "${name}" foi apagado.`);
+                    localStorage.setItem('dito_last_p_hash', ''); // Reseta hash para forçar refresh limpo
+
+                } catch (e) {
+                    console.error("Erro fatal ao deletar:", e);
+                    alert("Erro interno: " + e.message);
                 } finally {
                     this.showLoading(false);
                 }
@@ -3607,6 +4232,7 @@
             if (this.marketView === 'product') this.renderMarketProduct(container);
             if (this.marketView === 'cart') this.renderMarketCart(container);
             if (this.marketView === 'checkout') this.renderMarketCheckout(container);
+            if (this.marketView === 'live-room') this.renderMarketLiveRoom(container);
             
             this.updateCartBadge();
             if (window.lucide) lucide.createIcons();
@@ -3614,7 +4240,54 @@
 
         // Placeholder removido para evitar sobreposição - funcionalidade real movida para renderMarketCheckout consolidado acima
 
+        renderMarketLiveRoom(container) {
+            const p = this.selectedProduct;
+            if (!p) return this.setMarketView('home');
+
+            const temp = document.getElementById('template-live-room');
+            container.innerHTML = temp.innerHTML;
+
+            document.getElementById('live-room-title').innerText = p.name;
+            document.getElementById('live-host-name').innerText = p.seller || p.author || 'Mestre Dito';
+            document.getElementById('live-description').innerText = p.description || "Bem-vindo à transmissão exclusiva.";
+
+            const playerContainer = document.getElementById('live-player-container');
+            const chatBtn = document.getElementById('btn-open-live-chat');
+
+            if (chatBtn) {
+                chatBtn.onclick = () => this.openWorldChat(`LIVE_${p.id}`, `Chat: ${p.name}`);
+            }
+
+            // Converter link de vendas em Player (YouTube/Vimeo)
+            if (p.sales_link) {
+                let embedUrl = p.sales_link;
+                if (p.sales_link.includes('youtube.com/watch?v=')) {
+                    embedUrl = p.sales_link.replace('watch?v=', 'embed/');
+                } else if (p.sales_link.includes('youtu.be/')) {
+                    embedUrl = p.sales_link.replace('youtu.be/', 'youtube.com/embed/');
+                } else if (p.sales_link.includes('vimeo.com/')) {
+                    embedUrl = p.sales_link.replace('vimeo.com/', 'player.vimeo.com/video/');
+                }
+
+                playerContainer.innerHTML = `
+                    <iframe src="${embedUrl}" style="width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                `;
+            } else {
+                playerContainer.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <i data-lucide="video-off" style="width: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
+                        <p style="font-size: 12px; font-weight: 700;">Aguardando início da transmissão pelo mentor...</p>
+                    </div>
+                `;
+            }
+
+            if (window.lucide) lucide.createIcons();
+        },
+        
         renderMarketHome(container) {
+            if (!container) container = document.getElementById('market-actual-content');
+            if (!container) return; // Aborta se não houver onde renderizar
+
             const temp = document.getElementById('template-mercado-home');
             if (!temp) return;
             container.innerHTML = temp.innerHTML;
@@ -3630,45 +4303,108 @@
             const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
             const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
-            let all = [...p1, ...p2, ...p3].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+            let all = [...p1, ...p2, ...p3]
+                .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+                .filter(p => p.visible !== false && p.visible !== 'false');
             
             if (all.length === 0) {
                 // Mercado começa vazio para os usuários cadastrarem seus produtos
                 localStorage.setItem('dito_products', '[]');
             }
 
-            // 1. DESTAQUES: Novos primeiro (Horizontal)
-            const arrival = [...all].sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+            // 0. LIVES AO VIVO (Stories Style)
+            const liveContainer = document.getElementById('live-horizontal-list');
+            const liveWrapper = document.getElementById('live-carousel-container');
+            const activeLives = all.filter(p => p.type === 'Mentoria');
 
-            if (hContainer && hWrapper) {
-                hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
-                hContainer.innerHTML = arrival.map(p => `
-                    <div onclick="app.viewProduct('${p.id}')" style="width: 140px; min-width: 140px; height: 210px; flex-shrink: 0; background: #fff; padding: 10px; border-radius: 12px; border: 1px solid #eee; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column;">
-                        <div style="width: 100%; height: 120px; background: #f9f9f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; flex-shrink: 0;">
-                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
+            if (liveContainer && liveWrapper) {
+                liveWrapper.style.display = activeLives.length > 0 ? 'block' : 'none';
+                liveContainer.innerHTML = activeLives.map(p => `
+                    <div onclick="app.viewProduct('${p.id}')" style="display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; width: 72px;">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3);">
+                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
+                                ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                            </div>
                         </div>
-                        <h4 style="font-weight: 900; font-size: 10px; color: #000; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: auto;">${p.name}</h4>
-                        <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 900; font-size: 13px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                        </div>
+                        <span style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; line-height: 1.2;">${p.name}</span>
                     </div>
                 `).join('');
             }
 
-            // 2. TODOS (Grid Vertical com Gap Reduzido)
-            feed.style.gap = '10px';
-            feed.innerHTML = all.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="background: #fff; padding: 12px; border-radius: 12px; border: 1px solid #f0f0f0; cursor: pointer;">
-                    <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; overflow: hidden;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="layers" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
+            // 1. DESTAQUES: Novos primeiro (Horizontal) (Excluindo Mentorias para não repetir)
+            const arrival = [...all].filter(p => p.type !== 'Mentoria').sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+            if (hContainer && hWrapper) {
+                hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
+                hContainer.innerHTML = arrival.map(p => {
+                    const isMentoria = p.type === 'Mentoria';
+                    const imgContainer = isMentoria ? `
+                        <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible; flex-shrink: 0;">
+                            <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
+                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
+                                ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden; flex-shrink: 0;">
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
+                        </div>
+                    `;
+                    
+                    return `
+                    <div onclick="app.viewProduct('${p.id}')" style="width: 151px; min-width: 151px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                        ${imgContainer}
+                        <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                        <div style="display: flex; gap: 2px; margin-bottom: 6px;">
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                            <span style="font-weight: 900; font-size: 14px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                        </div>
                     </div>
-                    <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                        <span style="font-weight: 900; font-size: 14px;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                        <span style="font-size: 8px; font-weight: 800; color: #ccc;">${p.salesCount || 0} v.</span>
+                `}).join('');
+            }
+
+            // 2. TODOS (Grid Vertical Justo)
+            feed.style.gap = '6px';
+            feed.style.background = 'transparent'; 
+            feed.innerHTML = all.map(p => {
+                const isMentoria = p.type === 'Mentoria';
+                const imgContainer = isMentoria ? `
+                    <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible;">
+                        <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
+                        <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
+                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden;">
+                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="layers" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
+                    </div>
+                `;
+
+                return `
+                <div onclick="app.viewProduct('${p.id}')" style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    ${imgContainer}
+                    <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; color: #000;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                    <div style="display: flex; gap: 2px; margin-bottom: 6px;">
+                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                        <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                        <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
 
             if (window.lucide) lucide.createIcons();
         },
@@ -3855,7 +4591,16 @@
 
     app.calculateNetProfit = function(value) {
         const label = document.getElementById('profit-calc-label');
-        if (label) label.innerText = `Você receberá: R$ ${(parseFloat(value) * 0.97 || 0).toFixed(2)}`;
+        if (label) {
+            const brute = parseFloat(value) || 0;
+            const net = brute * 0.93; // 3% Dito + 4% MP = 7% total
+            label.innerHTML = `
+                <div style="margin-top: 10px; margin-left: 12px;">
+                    <p style="font-size: 14px; font-weight: 900; color: #22c55e; margin-bottom: 2px;">Você receberá: R$ ${net.toFixed(2)}</p>
+                    <p style="font-size: 9px; color: #999; font-weight: 600;">(Já descontando 3% da Dito + taxas do Mercado Pago)</p>
+                </div>
+            `;
+        }
     };
 
     app.updateCartBadge = function() {
@@ -3890,13 +4635,22 @@
     app.addRewardCoins = function(amount, reason) {
         const current = parseInt(localStorage.getItem('dito_coins') || '0');
         localStorage.setItem('dito_coins', (current + amount).toString());
-        this.showNotification(`+${amount} Moedas Dito! (${reason})`, 'success');
+        this.showNotification(`+${amount} Cupons! (${reason})`, 'success');
         this.initRewards();
     };
 
     app.applyCoinDiscount = function(sliderValue) {
+        const slider = document.getElementById('coin-discount-slider');
         const label = document.getElementById('coins-to-use-label');
         if (label) label.innerText = sliderValue;
+        
+        if (slider) {
+            const max = parseInt(slider.max) || 1;
+            const percentage = (parseInt(sliderValue) / max) * 100;
+            // Altera a variável de CSS para pintar o rastro
+            slider.style.setProperty('--range-progress', percentage + '%');
+        }
+
         this.recalculateCheckoutTotal();
     };
 
@@ -3906,7 +4660,7 @@
         const isFirst = !(hasP && JSON.parse(hasP).length > 0);
         let final = isFirst ? (totalBase * 0.25) : totalBase;
         
-        // Limita o desconto das moedas em no máximo 75%
+        // Limita o desconto das cupons em no máximo 75%
         let coins = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
         if (coins > 75) coins = 75; 
         
@@ -3930,20 +4684,12 @@
                     ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="package" style="width:24px; color:#ccc;"></i>`}
                 </div>
                 <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
-                <button onclick="app.deleteProduct('${p.id}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
             </div>`).join('');
         if (window.lucide) lucide.createIcons();
     };
 
-    app.deleteProduct = function(id) {
-        if (confirm('Deseja apagar este produto?')) {
-            let market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            market = market.filter(p => p.id !== id);
-            localStorage.setItem('dito_products_vanilla', JSON.stringify(market));
-            this.showNotification('Produto removido.');
-            this.renderMyProducts();
-        }
-    };
+
 
     app.filterMarket = function(query) {
         const results = document.getElementById('market-search-results');
@@ -4066,17 +4812,20 @@
             }, (payload) => {
                 const msg = payload.new;
                 
-                // 1. Injeta sempre na Rádio Global se estiver aberta (e se for relevante)
+                // 1. Injeta sempre na Rádio se estiver aberta e for da sala certa
                 const worldDrawer = document.getElementById('world-chat-drawer');
+                const room = this.activeWorldRoom || 'GLOBAL';
+
                 if (worldDrawer) {
                     const isActive = worldDrawer.classList.contains('active');
-                    const isGlobalMsg = msg.receiver === 'GLOBAL' || msg.receiver === 'SOC_GLOBAL' || msg.receiver === this.currentUser.username || msg.sender === this.currentUser.username;
+                    const isMyRoom = msg.receiver === room;
+                    const isForMe = msg.receiver === this.currentUser.username || msg.sender === this.currentUser.username;
                     
-                    if (isGlobalMsg) {
+                    if (isMyRoom || (room === 'GLOBAL' && (msg.receiver === 'SOC_GLOBAL' || isForMe))) {
                         if (isActive) {
                             this.appendWorldMessageToChat(msg);
                         } else if (msg.sender !== this.currentUser.username) {
-                            // Se estiver fechado e não fui eu quem mandou, mostra a bolinha amarela
+                            // Se fechei a sala e recebi msg de GLOBAL ou da MINHA LIVE, avisa
                             const dot = document.getElementById('dot-world-chat');
                             if (dot) dot.style.display = 'block';
                         }

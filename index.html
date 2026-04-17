@@ -97,7 +97,7 @@
 
     <!-- Header Global com Busca Social -->
     <header id="global-header" style="position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; height: 70px; background: #fff; display: none; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 1001; transition: all 0.3s ease;">
-        <!-- Lado Esquerdo: Criar + Moedas -->
+        <!-- Lado Esquerdo: Criar + Cupons -->
         <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
             <div id="header-create-btn" onclick="app.navigate('criar-produto'); app.initCreateProduct();" style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                 <i data-lucide="plus" style="width: 22px; color: #000;"></i>
@@ -157,10 +157,18 @@
         </div>
     </nav>
 
-    <!-- Botão Flutuante do Chat Global (Acima do Menu Home) -->
     <div id="btn-world-chat" onclick="app.openWorldChat()" style="position: fixed; bottom: 85px; left: 16px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
         <i data-lucide="message-square" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
         <span id="dot-world-chat" style="position: absolute; top: 0; right: 0; width: 14px; height: 14px; background: #FFD600; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 10px rgba(255, 214, 0, 0.4); display: none;"></span>
+    </div>
+
+    <div id="btn-live-admin" onclick="app.openLiveAdmin()" style="position: fixed; bottom: 85px; left: 148px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
+        <i data-lucide="cast" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
+    </div>
+
+    <!-- Botão de Missões (Gamificação) -->
+    <div id="btn-missions" onclick="app.openMissions()" style="position: fixed; bottom: 85px; left: 82px; width: 56px; height: 56px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none; align-items: center; justify-content: center; z-index: 999; cursor: pointer; transition: 0.3s; padding: 0;">
+        <i data-lucide="scroll-text" style="color: #000; width: 24px; stroke-width: 2.5px;"></i>
     </div>
 
     <!-- Templates Section -->
@@ -310,6 +318,14 @@
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px;">Vendas</span>
                 </div>
 
+                <div onclick="app.navigate('hall', 'right')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative;">
+                        <i data-lucide="star" style="width: 22px;"></i>
+                        <span id="dot-hall" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
+                    </div>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Hall da fama</span>
+                </div>
+
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links', 'right')">
                     <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                         <i data-lucide="link" style="width: 22px;"></i>
@@ -329,14 +345,6 @@
                         <i data-lucide="shopping-bag" style="width: 22px;"></i>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Minhas compras</span>
-                </div>
-
-                <div onclick="app.navigate('hall', 'right')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
-                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; position: relative;">
-                        <i data-lucide="star" style="width: 22px;"></i>
-                        <span id="dot-hall" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
-                    </div>
-                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Hall da fama</span>
                 </div>
             </section>
 
@@ -487,22 +495,60 @@
                 <button onclick="app.setMarketView('home', 'left')" style="position: absolute; top: 20px; left: 24px; width: 44px; height: 44px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer; z-index: 10;">
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </button>
-                <div style="width: 140px; height: 140px; background: #fff; border-radius: 40px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px rgba(0,0,0,0.03);">
+                <div id="product-cover-container" style="width: 140px; height: 140px; background: #fff; border-radius: 40px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px rgba(0,0,0,0.03); overflow: hidden; position: relative;">
                     <i data-lucide="shopping-bag" style="width: 60px; color: #eee;"></i>
                 </div>
             </div>
             <div style="padding: 40px 24px; background: #fff; border-top-left-radius: 40px; border-top-right-radius: 40px; margin-top: -40px; position: relative; box-shadow: 0 -20px 40px rgba(0,0,0,0.02);">
                 <div id="product-detail-content"></div>
                 
-                <div style="display: flex; gap: 12px; margin-top: 40px;">
-                    <button onclick="app.addToCartFromDetail()" style="flex: 1.5; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <div id="product-actions" style="display: flex; gap: 12px; margin-top: 40px;">
+                    <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                         <i data-lucide="shopping-bag" style="width: 18px;"></i> ADICIONAR À SACOLA
-                    </button>
-                    <button onclick="app.showNotification('Link de pagamento direto em breve!')" style="flex: 1; height: 64px; background: #f5f5f5; color: #000; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; cursor: pointer;">
-                        COMPRAR
                     </button>
                 </div>
             </div>
+        </div>
+    </template>
+
+    <!-- Sala de Transmissão VIP -->
+    <template id="template-live-room">
+        <div style="min-height: 100vh; background: #fff;" class="animate-fade">
+             <header style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;">
+                <div onclick="app.setMarketView('home', 'left')" style="width: 44px; height: 44px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px; color: #000;"></i>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                    <span style="font-size: 8px; font-weight: 900; color: #ff005c; letter-spacing: 2px; text-transform: uppercase;">Sala VIP de Transmissão</span>
+                    <h2 id="live-room-title" style="font-size: 14px; font-weight: 900; color: #000; margin: 0;">...</h2>
+                </div>
+                <div style="width: 44px;"></div>
+             </header>
+
+             <div style="padding: 0 16px;">
+                <div id="live-player-container" style="width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-bottom: 24px; position: relative; display: flex; align-items: center; justify-content: center;">
+                    <div style="color: #666; font-size: 12px; font-weight: 700;">Conectando ao sinal da live...</div>
+                </div>
+
+                <div style="padding: 0 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                         <div id="live-host-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #ff005c; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900;">M</div>
+                         <div style="flex: 1;">
+                            <p id="live-host-name" style="font-size: 13px; font-weight: 900; color: #000; margin: 0;">Anfitrião</p>
+                            <span id="live-status-badge" style="font-size: 9px; font-weight: 900; color: #10b981; text-transform: uppercase;">● Online</span>
+                         </div>
+                    </div>
+                    
+                    <div id="live-description" style="font-size: 13px; line-height: 1.6; color: #666; font-weight: 700; margin-bottom: 32px; max-height: 80px; overflow-y: auto;">
+                        Carregando descrição da transmissão...
+                    </div>
+
+                    <button id="btn-open-live-chat" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+                        <i data-lucide="message-square" style="width: 20px;"></i> ENTRAR NO CHAT DA LIVE
+                    </button>
+                    <p style="text-align: center; font-size: 10px; color: #ccc; font-weight: 700; margin-top: 16px;">Sinal Criptografado Dito VIP</p>
+                </div>
+             </div>
         </div>
     </template>
 
@@ -580,13 +626,23 @@
                 </div>
             </div>
 
+            <!-- Lives ao Vivo (Stories Style) -->
+            <div id="live-carousel-container" style="display: none; margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px;">
+                    <h3 style="font-size: 11px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px;">AO VIVO AGORA</h3>
+                </div>
+                <div id="live-horizontal-list" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none;">
+                    <!-- Injetado via JS -->
+                </div>
+            </div>
+
             <!-- Destaque para você -->
             <div id="ebooks-carousel-container" style="display: none; margin-bottom: 40px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px;">
                     <h3 style="font-size: 11px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px;">Destaque para você</h3>
                     <span style="font-size: 8px; font-weight: 900; color: rgba(255,255,255,0.4); text-transform: uppercase; italic;">Lançamentos →</span>
                 </div>
-                <div id="ebooks-horizontal-list" class="horizontal-scroll" style="padding: 4px; gap: 16px;">
+                <div id="ebooks-horizontal-list" class="horizontal-scroll" style="padding: 4px; gap: 6px;">
                     <!-- Injetado via JS -->
                 </div>
             </div>
@@ -796,21 +852,13 @@
                             <span style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); font-weight: 900; font-size: 14px; color: #000;">R$</span>
                             <input type="number" id="prod-price" oninput="app.calculateNetProfit(this.value)" style="width: 100%; height: 60px; padding: 0 24px 0 60px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 900; font-size: 14px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
                         </div>
-                        <div id="profit-calc-label" style="margin-top: 12px; margin-left: 12px; font-size: 14px; font-weight: 900; color: #22c55e;">
-                            Receba até R$ 0,00
-                        </div>
+                        <div id="profit-calc-label"></div>
                         <p style="font-size: 9px; font-weight: 700; color: #999; margin-top: 12px; margin-left: 12px; line-height: 1.4; opacity: 0.8;">
-                            * O App Dito poderá ajustar o preço final diminuindo ou aumentando com base no programa de Moedas Dito.
+                            * O App Dito poderá ajustar o preço final diminuindo ou aumentando com base no programa de Cupons.
                         </p>
                     </div>
 
-                    <div>
-                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Link do Criador desse trabalho:</label>
-                        <div style="position: relative; height: 60px;">
-                            <i data-lucide="link-2" style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); width: 18px; color: #ccc;"></i>
-                            <input type="url" id="prod-sales-link" style="width: 100%; height: 60px; padding: 0 24px 0 60px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
-                        </div>
-                    </div>
+
 
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
                         <span style="font-size: 12px; font-weight: 800; color: #000;">Visível no Mercado</span>
@@ -1137,9 +1185,13 @@
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->
                 <div id="admin-only-section" style="display: none; margin-bottom: 24px;">
-                    <button onclick="app.navigate('admin-contas')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 12px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+                    <button onclick="app.navigate('admin-contas')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 12px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,1); margin-bottom: 8px;">
                         <i data-lucide="shield-check" style="width: 18px;"></i>
                         Gerenciar contas (Admin)
+                    </button>
+                    <button onclick="app.navigate('admin-produtos')" style="width: 100%; height: 50px; background: #fff; color: #000; border: 2px solid #000; border-radius: 15px; font-weight: 900; font-size: 12px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+                        <i data-lucide="package-search" style="width: 18px;"></i>
+                        Gerenciar produtos (Admin)
                     </button>
                 </div>
 
@@ -1172,6 +1224,21 @@
 
             <div id="admin-users-list" style="display: flex; flex-direction: column; gap: 16px;">
                 <!-- Lista de usuários carregada via JS -->
+            </div>
+        </div>
+    </template>
+
+    <template id="template-admin-produtos">
+        <div style="padding: 24px; padding-bottom: 120px;">
+            <header style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
+                <div onclick="app.navigate('perfil')" style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px;"></i>
+                </div>
+                <h2 style="font-weight: 900; font-size: 20px;">Gestão da Loja</h2>
+            </header>
+
+            <div id="admin-products-list" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Lista de produtos carregada via JS -->
             </div>
         </div>
     </template>
@@ -1319,7 +1386,9 @@
             <h3 style="font-weight: 900; font-size: 18px; display:flex; align-items:center; gap:8px;">
                 <i data-lucide="globe" style="width: 20px; color:#000;"></i> Chat Global
             </h3>
-            <button onclick="app.closeWorldChat()" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #f5f5f5; cursor: pointer; color: #000; font-weight: 900;">✕</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button onclick="app.closeWorldChat()" style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #f5f5f5; cursor: pointer; color: #000; font-weight: 900;">✕</button>
+            </div>
         </div>
         <div id="world-chat-feed" style="flex: 1; padding: 16px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; gap: 4px;">
             <!-- feed -->
@@ -1368,11 +1437,11 @@
             <div style="background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); border-radius: 28px; padding: 32px; color: #fff; margin-bottom: 24px; position: relative; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                     <i data-lucide="circle-dollar-sign" style="width: 16px; color: #fff;"></i>
-                    <p style="font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.8);">Saldo em Moedas Dito</p>
+                    <p style="font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.8);">Saldo em Cupons</p>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 12px;">
                     <h2 id="coins-page-balance" style="font-size: 56px; font-weight: 900; letter-spacing: -2px;">0</h2>
-                    <span style="font-size: 14px; font-weight: 800; color: #fff; opacity: 0.8;">moedas</span>
+                    <span style="font-size: 14px; font-weight: 800; color: #fff; opacity: 0.8;">cupons</span>
                 </div>
                 <div id="first-purchase-badge" style="margin-top: 20px; background: rgba(255, 255, 255, 0.2); padding: 12px 16px; border-radius: 16px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px);">
                     <i data-lucide="gift" style="width: 16px; color: #fff;"></i>
@@ -1388,6 +1457,40 @@
                     <button onclick="app.copyReferralLink()" style="width: 100%; height: 54px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                         <i data-lucide="copy" style="width: 18px;"></i> Copiar Link
                     </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-missoes">
+        <div style="padding: 24px; padding-bottom: 120px; background: #fafafa; min-height: 100vh;">
+            <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div onclick="app.navigate('dashboard', 'left')" style="width: 40px; height: 40px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <i data-lucide="arrow-left" style="width: 20px;"></i>
+                    </div>
+                    <div>
+                        <h2 style="font-weight: 900; font-size: 24px; letter-spacing: -1px; margin-bottom: 0;">Missões</h2>
+                        <p style="font-size: 11px; font-weight: 800; color: #a1a1aa; margin-top: 2px;">Ganhe Cupons</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="ticket" style="width: 18px; color: #ff005c;"></i>
+                    <span id="missions-coin-balance" style="font-size: 16px; font-weight: 900;">0</span>
+                </div>
+            </header>
+
+            </header>
+
+            <!-- Checklist Semanal -->
+            <div>
+                <h3 style="font-size: 16px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    Checkin Semanal
+                </h3>
+                <div style="background: transparent;">
+                    <div id="weekly-checklist-container" class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x mandatory;">
+                        <!-- Injetado via JS -->
+                    </div>
                 </div>
             </div>
         </div>
