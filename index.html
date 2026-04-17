@@ -7,7 +7,14 @@
     <meta name="description" content="Venda seus cursos, ebooks e micro SaaS na plataforma mais rápida do Brasil.">
     <meta name="theme-color" content="#ff005c">
     <script>
-        // Injeção condicional do Manifest (evita erro de CORS em file://)
+        // Bússola de Caminhos: Resolve conflito Local (PC) vs Produção (Vercel)
+        if (window.location.protocol !== 'file:') {
+            const base = document.createElement('base');
+            base.href = '/';
+            document.head.appendChild(base);
+        }
+
+        // Injeção condicional do Manifest
         if (window.location.protocol !== 'file:') {
             const link = document.createElement('link');
             link.rel = 'manifest';
@@ -53,7 +60,7 @@
 
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then(reg => {
+                navigator.serviceWorker.register('/sw.js').then(reg => {
                     // Força a verificação de nova versão toda vez que abre
                     reg.update();
                     console.log("🚀 Service Worker pronto e atualizado.");
@@ -1353,7 +1360,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AWfoxAPMJjl08COTGAE8evpaW_A-ADz1oLDrHjXuoBnmCa1SFnGlpYFnG5II2dKe-cQkZ2Ht_dRO64jG&currency=BRL"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=2.1"></script>
+    <script src="app.js?v=2.2"></script>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeFriendsDrawer()"></div>
     <div id="friends-drawer" class="friends-drawer">

@@ -128,19 +128,16 @@
         },
 
         async init() {
-            await initSupabase(); 
-
-            // Reduz tempo de splash para feedback imediato
-            setTimeout(() => {
-                const splash = document.getElementById('splash-screen');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    splash.style.pointerEvents = 'none';
-                    setTimeout(() => splash.remove(), 400);
-                }
-            }, 300);
+            const hideSplash = () => {
+                const s = document.getElementById('splash-screen');
+                if (s) { s.style.opacity = '0'; s.style.pointerEvents = 'none'; setTimeout(() => s.remove(), 400); }
+            };
 
             try {
+                // Tenta conectar ao banco em background
+                initSupabase(); 
+                setTimeout(hideSplash, 1500); 
+
                 // Captura Link de Convite (Suporta ?ref=CODE e /convite/CODE)
                 const urlParams = new URLSearchParams(window.location.search);
                 let refCode = urlParams.get('ref');
@@ -4067,77 +4064,72 @@
         async login(isGuest = false) { 
             this.showLoading(true, 'Autenticando...');
             
-            if (isGuest) {
-                localStorage.setItem('is_logged_in_vanilla', 'true');
-                localStorage.setItem('is_guest_vanilla', 'true');
-                this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
-                this.navigate('dashboard');
-                this.showLoading(false);
-                return;
-            }
+            try {
+                if (isGuest) {
+                    localStorage.setItem('is_logged_in_vanilla', 'true');
+                    localStorage.setItem('is_guest_vanilla', 'true');
+                    this.currentUser = { username: "Convidado", name: "Visitante", bio: "Explorando o Dito", isGuest: true };
+                    this.navigate('dashboard');
+                    return;
+                }
 
-            const userInp = document.getElementById('username').value.trim();
-            const passInp = document.getElementById('password').value.trim();
+                const userInp = document.getElementById('username')?.value.trim();
+                const passInp = document.getElementById('password')?.value.trim();
 
-            if (!userInp || !passInp) {
-                this.showNotification('Preencha os campos de login.', 'error');
-                this.showLoading(false);
-                return;
-            }
+                if (!userInp || !passInp) {
+                    this.showNotification('Preencha os campos de login.', 'error');
+                    return;
+                }
 
-            // 1. Tenta Login Local (Cache)
-            let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
-            let user = users.find(u => u.username === userInp && u.password === passInp);
+                // 1. Tenta Login Local (Cache)
+                let users = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                let user = users.find(u => u.username === userInp && u.password === passInp);
 
-            // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
-            if (!user && supabase) {
-                console.log("🔍 [Auth] Buscando usuário na nuvem...");
-                try {
-                    const { data, error } = await supabase
-                        .from('dito_users')
-                        .select('*')
-                        .eq('username', userInp)
-                        .eq('password', passInp)
-                        .maybeSingle();
-                    
-                    if (data && !error) {
-                        console.log("✅ [Auth] Usuário encontrado na rede!");
-                        user = data;
-                        users.push(data);
-                        localStorage.setItem('dito_users_db', JSON.stringify(users));
+                // 2. Se não achou local, TENTA LOGIN GLOBAL (Supabase)
+                if (!user && supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('dito_users')
+                            .select('*')
+                            .eq('username', userInp)
+                            .eq('password', passInp)
+                            .maybeSingle();
+                        
+                        if (data && !error) {
+                            user = data;
+                            users.push(data);
+                            localStorage.setItem('dito_users_db', JSON.stringify(users));
+                        }
+                    } catch (e) { 
+                        console.warn("⚠️ [Auth] Falha na rede:", e); 
                     }
-                } catch (e) { 
-                    console.warn("⚠️ [Auth] Falha na rede, prosseguindo com verificação local:", e); 
-                    // Não dar alert aqui para não travar o fluxo se o usuário existir localmente
-                }
-            }
-
-            // 3. Validação Final
-            if (user || (userInp === 'admin' && passInp === 'admin')) {
-                const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Administrador', sales: 0 };
-                localStorage.setItem('is_logged_in_vanilla', 'true');
-                localStorage.setItem('is_guest_vanilla', 'false');
-                this.saveSession(loggedUser);
-                this.currentUser = loggedUser;
-                this.loadUserScopedData(); // Carrega dados individuais (sacola/compras)
-                
-                // Salva ID no cache para manter compras
-                localStorage.setItem('dito_user_id', loggedUser.id);
-                
-                // PRIMEIRO: Puxa os dados em background (Sem bloquear o login! 🚀)
-                this.fetchNetworkUsers(); 
-                
-                // SEGUNDO: Atualiza a sessão silenciosamente assim que o dashboard abrir
-                if (this.currentUser) {
-                    this.saveSession(this.currentUser);
                 }
 
-                this.navigate('dashboard');
-                console.log("🚀 Login realizado e dados sincronizados da nuvem!");
-            } else {
-                this.showNotification('Usuário ou senha incorretos.', 'error');
+                // 3. Validação Final
+                if (user || (userInp === 'admin' && passInp === 'admin')) {
+                    const loggedUser = user || { id: 1, username: 'admin', name: 'Admin', bio: 'Admin', sales: 0 };
+                    localStorage.setItem('is_logged_in_vanilla', 'true');
+                    localStorage.setItem('is_guest_vanilla', 'false');
+                    this.saveSession(loggedUser);
+                    this.currentUser = loggedUser;
+                    this.loadUserScopedData();
+                    
+                    localStorage.setItem('dito_user_id', loggedUser.id);
+                    
+                    // Background sync
+                    this.fetchNetworkUsers(); 
+                    
+                    if (this.currentUser) this.saveSession(this.currentUser);
+                    this.navigate('dashboard');
+                } else {
+                    this.showNotification('Usuário ou senha incorretos.', 'error');
+                }
+            } catch (err) {
+                console.error("Erro no login:", err);
+                this.showNotification('Erro ao autenticar. Tente novamente.', 'error');
+            } finally {
+                this.showLoading(false);
             }
-            this.showLoading(false);
         },
 
         logout() { 

@@ -33,9 +33,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Se houver rede, atualiza o cache
-        const resClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        // Apenas requisições GET podem ser colocadas no cache!
+        if (event.request.method === 'GET') {
+            const resClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request)) // Se offline, usa o cache
