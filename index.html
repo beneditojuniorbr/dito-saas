@@ -257,7 +257,6 @@
             </div>
             <div class="login-header">
                 <img src="D2.png" alt="Dito Logo" style="width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; display: block; object-fit: cover;">
-                <p style="color: #ef4444; font-weight: 900; font-size: 14px; margin-bottom: 4px;">Dito</p>
                 <h1 style="font-size: 28px; font-weight: 900;">Criar conta</h1>
                 <p>Junte-se a nós.</p>
             </div>
@@ -1360,7 +1359,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AWfoxAPMJjl08COTGAE8evpaW_A-ADz1oLDrHjXuoBnmCa1SFnGlpYFnG5II2dKe-cQkZ2Ht_dRO64jG&currency=BRL"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=2.2"></script>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeFriendsDrawer()"></div>
     <div id="friends-drawer" class="friends-drawer">
@@ -1496,17 +1494,33 @@
                 </div>
             </header>
 
-            </header>
-
-            <!-- Checklist Semanal -->
-            <div>
-                <h3 style="font-size: 16px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    Checkin Semanal
+            <!-- CHECK-IN DIÁRIO -->
+            <div style="margin-bottom: 40px;">
+                <h3 style="font-size: 13px; font-weight: 950; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; color: #000; letter-spacing: 1px; text-transform: uppercase;">
+                    Check-in Diário
                 </h3>
-                <div style="background: transparent;">
-                    <div id="weekly-checklist-container" class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x mandatory;">
-                        <!-- Injetado via JS -->
-                    </div>
+                <div id="weekly-checklist-container" class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x mandatory;">
+                    <!-- Injetado via JS (Check-in) -->
+                </div>
+            </div>
+
+            <!-- MISSÃO DIÁRIA -->
+            <div style="margin-bottom: 40px;">
+                <h3 style="font-size: 13px; font-weight: 950; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; color: #000; letter-spacing: 1px; text-transform: uppercase;">
+                    Missão Diária
+                </h3>
+                <div id="daily-challenges-container" class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x mandatory;">
+                    <!-- Injetado via JS -->
+                </div>
+            </div>
+
+            <!-- MISSÃO A LONGO PRAZO -->
+            <div>
+                <h3 style="font-size: 13px; font-weight: 950; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; color: #000; letter-spacing: 1px; text-transform: uppercase;">
+                    Missão a Longo Prazo
+                </h3>
+                <div id="long-term-missions-container" class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x mandatory;">
+                    <!-- Injetado via JS (Grandes metas) -->
                 </div>
             </div>
         </div>
@@ -1580,5 +1594,6 @@
             to { transform: translateY(0); opacity: 1; }
         }
     </style>
+    <script src="app.js?v=2.3"></script>
 </body>
 </html>

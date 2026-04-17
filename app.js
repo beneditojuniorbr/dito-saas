@@ -215,6 +215,34 @@
                 this.initAutoLogout();
                 this.initSystemBackButton();
                 this.fetchNotifications();
+                
+                // Processa prêmios acumulados (Indicações que rolaram enquanto eu estava offline)
+                setTimeout(() => {
+                    if (this.notifications) {
+                        const pendingRefs = this.notifications.filter(n => n.type === 'referral_225' && !n.read);
+                        if (pendingRefs.length > 0) {
+                            let processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
+                            let newlyProcessed = 0;
+                            
+                            pendingRefs.forEach(notif => {
+                                if (!processedRefs.includes(notif.id)) {
+                                    const key = this.getUserKey();
+                                    let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                                    localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
+                                    processedRefs.push(notif.id);
+                                    newlyProcessed++;
+                                }
+                            });
+                            
+                            if (newlyProcessed > 0) {
+                                localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
+                                this.updateCoinsUI();
+                                this.showSystemNotification('Lucro Acumulado', `Você ganhou +${newlyProcessed * 225} cupons por indicações enquanto estava fora!`, 'success');
+                            }
+                        }
+                    }
+                }, 2000);
+
                 this.checkMissionsNotification();
 
                 // RESTAURAÇÃO DE ESTADO (F5 Seguro)
@@ -908,18 +936,23 @@
                 const past = i < today;
                 const statusColor = item.checked ? '#10b981' : (past ? '#ef4444' : (isToday ? '#f59e0b' : '#e4e4e7'));
                 const statusIcon = item.checked ? 'check-circle-2' : (past ? 'x-circle' : 'circle');
-                const canCheck = isToday && !item.checked;
+                
+                // Nova Regra: Precisa de 1 venda hoje para liberar
+                const salesHistory = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+                const hasSaleToday = salesHistory.some(s => new Date(s.date).toDateString() === new Date().toDateString());
+                
+                const canCheck = isToday && !item.checked && hasSaleToday;
+                const showsLocked = isToday && !item.checked && !hasSaleToday;
 
                 return `
-                <div style="scroll-snap-align: start; min-width: 130px; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; padding: 20px 14px; border-radius: 16px; border: ${isToday ? '2px solid transparent' : '1px solid #f0f0f0'}; background: ${isToday ? 'linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ff005c 0%, #0487ff 100%) border-box' : '#fff'}; transition: 0.3s; ${canCheck ? '' : 'opacity: 1;'} box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
-                    <p style="font-weight: 900; font-size: 16px; margin-bottom: 8px; color: ${past && !item.checked ? '#ccc' : '#000'};">${item.dayName}</p>
+                <div style="scroll-snap-align: start; min-width: 70px; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; padding: 12px 6px; border-radius: 12px; border: ${isToday ? '1.5px solid transparent' : '1px solid #f0f0f0'}; background: ${isToday ? 'linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ff005c 0%, #0487ff 100%) border-box' : '#fff'}; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <p style="font-weight: 950; font-size: 11px; margin-bottom: 4px; color: ${past && !item.checked ? '#ccc' : '#000'};">${item.dayName}</p>
                     
-                    <div style="width: 44px; height: 44px; border-radius: 50%; background: ${past && !item.checked ? 'transparent' : '#f9f9f9'}; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: ${past && !item.checked ? '1px dashed #eee' : 'none'};">
-                        <i data-lucide="${statusIcon}" style="color: ${past && !item.checked ? 'rgba(0,0,0,0.1)' : '#000'}; width: 22px; height: 22px; stroke-width: 3px;"></i>
+                    <div style="width: 24px; height: 24px; border-radius: 50%; background: ${past && !item.checked ? 'transparent' : '#f9f9f9'}; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; border: ${past && !item.checked ? '1px dashed #eee' : 'none'};">
+                        <i data-lucide="${statusIcon}" style="color: ${past && !item.checked ? 'rgba(0,0,0,0.1)' : '#000'}; width: 12px; height: 12px; stroke-width: 3px;"></i>
                     </div>
 
-                    <p style="font-size: 9px; font-weight: 800; color: #a1a1aa; text-transform: uppercase; margin-bottom: 12px;">${item.checked ? 'Completado' : (isToday ? 'Hoje' : (past ? 'Expirado' : 'Em breve'))}</p>
-                    ${canCheck ? `<button onclick="app.checkMissionDay(${i})" style="width: 100%; background: #000; color: white; border: none; padding: 10px 0; border-radius: 12px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Receber</button>` : `<div style="width: 100%; background: #f9f9f9; padding: 8px 0; border-radius: 12px; font-size: 11px; font-weight: 900; color: ${past && !item.checked ? '#ccc' : '#000'}; display: flex; align-items: center; justify-content: center; gap: 4px;">+30 <i data-lucide="ticket" style="width: 14px;"></i></div>`}
+                    ${canCheck ? `<button onclick="app.checkMissionDay(${i})" style="width: 100%; background: #000; color: white; border: none; padding: 6px 0; border-radius: 8px; font-weight: 950; font-size: 9px; cursor: pointer;">OK</button>` : `<div style="width: 100%; background: #f9f9f9; padding: 5px 0; border-radius: 8px; font-size: 8px; font-weight: 950; color: ${past && !item.checked ? '#ccc' : '#000'}; display: flex; align-items: center; justify-content: center; gap: 2px;">+60 <i data-lucide="ticket" style="width: 10px;"></i></div>`}
                 </div>
                 `;
             }).join('');
@@ -932,6 +965,190 @@
             
             function isTodayMissionCompleted(dayIndex, list) {
                 return list[dayIndex] && list[dayIndex].checked;
+            }
+
+            // --- RENDERIZA NOVAS SEÇÕES ---
+            this.renderDailyChallenges();
+            this.renderLongTermMissions();
+        },
+
+        renderDailyChallenges() {
+            const container = document.getElementById('daily-challenges-container');
+            if (!container) return;
+
+            const key = this.getUserKey();
+            const today = new Date().toDateString();
+            
+            // Definição do desafio: Fazer uma venda = 100 cupons
+            const salesHistory = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+            const hasSaleToday = salesHistory.some(s => new Date(s.date).toDateString() === today);
+            
+            const claimedKey = `dito_claimed_daily_${key}_${today}`;
+            const isClaimed = localStorage.getItem(claimedKey) === 'true';
+
+            container.innerHTML = `
+                <div style="scroll-snap-align: start; min-width: 180px; background: linear-gradient(135deg, #fff 0%, #fff 100%); padding: 22px; border-radius: 24px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; right: -10px; width: 60px; height: 60px; background: rgba(0, 0, 0, 0.03); border-radius: 50%;"></div>
+                    <div style="width: 50px; height: 50px; background: #fff; border: 1px solid #f0f0f0; border-radius: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
+                        <i data-lucide="handshake" style="width: 24px; color: #000;"></i>
+                    </div>
+                    <div>
+                        <p style="font-weight: 950; font-size: 14px; color: #000; margin-bottom: 4px;">Fazer uma venda</p>
+                        <p style="font-size: 10px; font-weight: 800; color: #999; line-height: 1.3;">Realize 1 venda hoje para liberar seu bônus extra.</p>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        ${isClaimed ? 
+                            `<div style="background: #f0fdf4; color: #16a34a; padding: 12px; border-radius: 14px; font-size: 11px; font-weight: 950; text-align: center;">CONCLUÍDO</div>` :
+                            (hasSaleToday ? 
+                                `<button onclick="app.claimDailyChallenge('sale_100', 100)" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; border-radius: 14px; font-size: 11px; font-weight: 950; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">RESGATAR +100</button>` :
+                                `<button onclick="app.showNotification('Faça uma venda para liberar!', 'info')" style="width: 100%; background: #f5f5f5; color: #ccc; border: none; padding: 12px; border-radius: 14px; font-size: 11px; font-weight: 950; cursor: not-allowed;">BLOQUEADO</button>`
+                            )
+                        }
+                    </div>
+                </div>
+            `;
+
+            if (window.lucide) lucide.createIcons();
+        },
+
+        claimDailyChallenge(id, amount) {
+            const key = this.getUserKey();
+            const today = new Date().toDateString();
+            const claimedKey = `dito_claimed_daily_${key}_${today}`;
+            
+            if (localStorage.getItem(claimedKey) !== 'true') {
+                localStorage.setItem(claimedKey, 'true');
+                
+                const coinsKey = `dito_coins_${key}`;
+                let current = parseInt(localStorage.getItem(coinsKey) || '0');
+                const newBalance = current + amount;
+                localStorage.setItem(coinsKey, newBalance.toString());
+                
+                // --- SINCRONIZA COM SUPABASE (NUVEM) ---
+                if (this.userId) {
+                    supabase.from('profiles').update({ coins: newBalance }).eq('id', this.userId).then(() => {
+                        console.log('✅ Bônus diário salvo na nuvem.');
+                    });
+                }
+                
+                this.showSystemNotification('Desafio Concluido', `Você resgatou +${amount} cupons pelo desafio do dia!`, 'success');
+                this.renderMissions();
+                this.updateBalanceUI(); // Sincroniza Dashboard e Mercado
+            }
+        },
+
+        checkMissionAlerts() {
+            const key = this.getUserKey();
+            const today = new Date().toDateString();
+            const sales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+            const hasSaleToday = sales.some(s => new Date(s.date).toDateString() === today);
+            
+            // Alerta para Missão Diária (100 cupons)
+            const dailyClaimed = localStorage.getItem(`dito_claimed_daily_${key}_${today}`) === 'true';
+            if (hasSaleToday && !dailyClaimed) {
+                this.showNotification('Missão Diária Concluída! Resgate seus 100 cupons.', 'success');
+            }
+        },
+
+        renderLongTermMissions() {
+            const container = document.getElementById('long-term-missions-container');
+            if (!container) return;
+
+            const key = this.getUserKey();
+            const processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
+            const salesHistory = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+            const fansCount = (this.currentUser && this.currentUser.fans) ? this.currentUser.fans : 0;
+            const claimedMissions = JSON.parse(localStorage.getItem(`dito_claimed_missions_${key}`) || '[]');
+
+            // Definição das Escalas Progressivas
+            const configs = [
+                { 
+                    id: 'ref', title: 'Fazedor de Amigos', icon: 'users',
+                    stages: [
+                        { goal: 1, reward: 225 }, { goal: 5, reward: 1125 }, { goal: 10, reward: 2250 }, { goal: 25, reward: 5000 }, { goal: 50, reward: 10000 }
+                    ],
+                    currentVal: processedRefs.length
+                },
+                { 
+                    id: 'sale', title: 'Mestre das Vendas', icon: 'shopping-cart',
+                    stages: [
+                        { goal: 1, reward: 1000 }, { goal: 5, reward: 5000 }, { goal: 10, reward: 10000 }, { goal: 25, reward: 25000 }, { goal: 50, reward: 50000 }
+                    ],
+                    currentVal: salesHistory.length
+                },
+                { 
+                    id: 'fans', title: 'Influenciador', icon: 'heart',
+                    stages: [
+                        { goal: 10, reward: 350 }, { goal: 30, reward: 1000 }, { goal: 50, reward: 2500 }, { goal: 75, reward: 5000 }, { goal: 100, reward: 10000 }, { goal: 250, reward: 25000 }
+                    ],
+                    currentVal: fansCount
+                }
+            ];
+
+            container.innerHTML = configs.map(cfg => {
+                // Acha o primeiro estágio não resgatado
+                let activeStage = cfg.stages.find(s => !claimedMissions.includes(`${cfg.id}_${s.goal}`));
+                
+                // Se completou todos, mostra o último como resgatado
+                if (!activeStage) activeStage = cfg.stages[cfg.stages.length - 1];
+
+                const missionId = `${cfg.id}_${activeStage.goal}`;
+                const isCompleted = cfg.currentVal >= activeStage.goal;
+                const isClaimed = claimedMissions.includes(missionId);
+
+                return `
+                <div style="scroll-snap-align: start; min-width: 170px; background: #fff; padding: 20px; border-radius: 24px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); position: relative;">
+                    <div style="position: absolute; top: 12px; right: 12px; background: rgba(255, 0, 92, 0.05); color: #ff005c; font-size: 9px; font-weight: 950; padding: 4px 10px; border-radius: 50px;">+${activeStage.reward}</div>
+                    <div style="width: 48px; height: 48px; background: #f8f8f8; border-radius: 14px; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="${cfg.icon}" style="width: 24px; color: #000;"></i>
+                    </div>
+                    <div>
+                        <p style="font-weight: 950; font-size: 13px; color: #000; margin-bottom: 2px;">${cfg.title}</p>
+                        <p style="font-size: 10px; font-weight: 700; color: #999;">Meta: ${activeStage.goal} ${cfg.id === 'fans' ? 'fãs' : (cfg.id === 'ref' ? 'amigos' : 'vendas')}</p>
+                    </div>
+                    <div style="margin-top: 5px;">
+                        <div style="width: 100%; height: 6px; background: #f0f0f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px;">
+                            <div style="width: ${Math.min((cfg.currentVal / activeStage.goal) * 100, 100)}%; height: 100%; background: linear-gradient(90deg, #ff005c, #0487ff); transition: 0.5s;"></div>
+                        </div>
+                        ${isClaimed ? 
+                            `<div style="background: #f0fdf4; color: #16a34a; padding: 10px; border-radius: 14px; font-size: 10px; font-weight: 950; text-align: center;">CONCLUÍDO</div>` :
+                            (isCompleted ? 
+                                `<button onclick="app.claimLongTermMission('${missionId}', ${activeStage.reward})" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; border-radius: 14px; font-size: 10px; font-weight: 950; cursor: pointer; animation: pulse 2s infinite;">RESGATAR</button>` :
+                                `<div style="background: #f5f5f5; color: #999; padding: 10px; border-radius: 14px; font-size: 10px; font-weight: 950; text-align: center;">${cfg.currentVal}/${activeStage.goal}</div>`
+                            )
+                        }
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            if (window.lucide) lucide.createIcons();
+        },
+
+        claimLongTermMission(missionId, amount) {
+            const key = this.getUserKey();
+            const claimedKey = `dito_claimed_missions_${key}`;
+            let claimed = JSON.parse(localStorage.getItem(claimedKey) || '[]');
+            
+            if (!claimed.includes(missionId)) {
+                claimed.push(missionId);
+                localStorage.setItem(claimedKey, JSON.stringify(claimed));
+                
+                const coinsKey = `dito_coins_${key}`;
+                let current = parseInt(localStorage.getItem(coinsKey) || '0');
+                const newBalance = current + amount;
+                localStorage.setItem(coinsKey, newBalance.toString());
+                
+                // --- SINCRONIZA COM SUPABASE (NUVEM) ---
+                if (this.userId) {
+                    supabase.from('profiles').update({ coins: newBalance }).eq('id', this.userId).then(() => {
+                        console.log('✅ Missão progressiva salva na nuvem.');
+                    });
+                }
+                
+                this.showSystemNotification('Missão Cumprida', `Você resgatou +${amount} cupons!`, 'success');
+                this.renderMissions();
+                this.updateBalanceUI(); // Sincroniza Dashboard e Mercado
             }
         },
 
@@ -964,15 +1181,30 @@
             let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
             
             if (checklist[dayIndex] && !checklist[dayIndex].checked) {
+                // Nova Regra de Venda Diária (+60 cupons)
+                const salesHistory = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+                const hasSaleToday = salesHistory.some(s => new Date(s.date).toDateString() === new Date().toDateString());
+                
+                if (!hasSaleToday) {
+                    this.showNotification('Você precisa fazer pelo menos 1 venda hoje para resgatar!', 'error');
+                    return;
+                }
+
                 checklist[dayIndex].checked = true;
                 localStorage.setItem(storageKey, JSON.stringify(checklist));
                 
-                // +30 cupons
                 let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                currentCoins += 30;
+                currentCoins += 60;
                 localStorage.setItem(`dito_coins_${key}`, currentCoins.toString());
                 
-                this.showSystemNotification('Check-in Realizado! ✅', 'Você ganhou 30 cupons de desconto.', 'success');
+                // --- SINCRONIZA COM SUPABASE (NUVEM) ---
+                if (this.userId) {
+                    supabase.from('profiles').update({ coins: currentCoins }).eq('id', this.userId).then(() => {
+                        console.log('✅ Saldo sincronizado na nuvem.');
+                    });
+                }
+                
+                this.showSystemNotification('Check-in Realizado! ✅', 'Você ganhou 60 cupons de desconto.', 'success');
                 this.renderMissions(); 
                 this.checkMissionsNotification(); // Apaga o ponto amarelo na hora
             }
@@ -2854,6 +3086,7 @@
             const history = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
             history.unshift(newSale);
             localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
+            this.checkMissionAlerts(); // Verifica conquistas na hora
 
             this.showNotification("Venda simulada com sucesso!", "success");
             this.renderSales(); // Atualiza a tela
@@ -3921,32 +4154,27 @@
 
             this.syncUserToNetwork(newUser); // Joga pra rede!
 
-            // Processa Recompensa de Indicação (+225 Cupons) baseada no CÓDIGO CURTO
-            const refCode = localStorage.getItem('dito_pending_ref'); // Agora é um código tipo "L1L2LFL"
+            // Processa Recompensa de Indicação (+225 Cupons) - FOCO NO PADRINHO 🚀
+            const refCode = localStorage.getItem('dito_pending_ref'); 
             if (refCode && supabase) {
-                // 1. RECOMPENSA O PADRINHO (VIA REDE)
                 const targetId = parseInt(refCode, 36);
                 supabase.from('dito_users').select('username').eq('id', targetId).maybeSingle().then(({ data }) => {
                     if (data && data.username) {
                         const rewardMessage = {
                             target_username: data.username,
                             type: 'referral_225',
-                            title: 'Indicação de Sucesso! 🎁',
-                            message: `O usuário @${username} entrou pelo seu link! Você ganhou +225 cupons.`,
+                            title: 'Indicacao de Sucesso',
+                            message: `O usuário @${username} acaba de criar uma conta pelo seu link! Você ganhou +225 cupons.`,
                             sender: 'Sistema',
                             read: false
                         };
                         supabase.from('dito_notifications').insert([rewardMessage]);
+                        console.log(`✅ [Referral] Recompensa enviada para @${data.username}`);
                     }
                 });
 
-                // 2. RECOMPENSA O NOVO USUÁRIO (LOCALMENTE)
-                // Usamos o prefixo do novo usuário para salvar suas moedas iniciais
-                const userKey = `${username}_${password}`;
-                localStorage.setItem(`dito_coins_${userKey}`, "225");
-                
                 localStorage.removeItem('dito_pending_ref');
-                this.showSystemNotification('Bem-vindo à Dito! 🎁', 'Você ganhou +225 cupons por entrar pelo convite de um amigo!', 'success');
+                this.showSystemNotification('Seja bem-vindo', 'Você entrou para a rede Dito! Comece a convidar amigos para ganhar cupons.', 'success');
             }
 
             this.showNotification('Cadastro realizado com sucesso! Agora você já pode fazer login.');
@@ -4888,6 +5116,7 @@
                             product: 'Venda Realizada'
                         });
                         localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
+                        app.checkMissionAlerts(); // Atalho para avisar conquista
                         this.updateBalanceUI(); // Atualiza o saldo global na hora!
                     }
                 }
@@ -4901,7 +5130,7 @@
                         localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
                         processedRefs.push(notif.id);
                         localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
-                        this.showSystemNotification('Ca-Ching! 💰', 'Um amigo entrou! +225 cupons creditados!', 'success');
+                        this.showSystemNotification('Saldo Atualizado', 'Um amigo entrou! +225 cupons creditados!', 'success');
                     }
                 }
 
