@@ -154,6 +154,9 @@
                     window.history.replaceState({}, document.title, '/');
                 }
 
+                // Reset temporário de cupons (Desative após usar)
+                this.resetCoins();
+
                 // Carrega dados locais
                 this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 // Iniciado via initAutoLogout embaixo
@@ -595,14 +598,14 @@
                     <p style="font-size: 13px; color: #666; margin-bottom: 32px; font-weight: 700;">Escolha o valor para presentear <span style="color: #000;">@${targetUsername}</span></p>
                     
                     <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;">
+                        <button onclick="app.processGift('${targetUsername}', 15)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 15 Cupons
+                        </button>
                         <button onclick="app.processGift('${targetUsername}', 30)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
                             <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 30 Cupons
                         </button>
-                        <button onclick="app.processGift('${targetUsername}', 60)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 60 Cupons
-                        </button>
-                        <button onclick="app.processGift('${targetUsername}', 90)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 90 Cupons
+                        <button onclick="app.processGift('${targetUsername}', 75)" style="width: 100%; height: 60px; border-radius: 20px; border: 1px solid #eee; background: #fff; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                            <i data-lucide="circle-dollar-sign" style="width: 18px; color: #ffd600;"></i> 75 Cupons
                         </button>
                     </div>
                     
@@ -627,15 +630,20 @@
                 // Verifica se já enviou presente para esta pessoa (usamos a tabela de notificações como registro)
                 const { data: existing, error: checkError } = await supabase
                     .from('dito_notifications')
-                    .select('id')
+                    .select('value')
                     .eq('from_username', this.currentUser.username)
                     .eq('target_username', targetUsername)
-                    .eq('type', 'presente_enviado')
-                    .limit(1);
+                    .eq('type', 'presente_enviado');
 
-                if (existing && existing.length > 0) {
+                let totalSent = 0;
+                if (existing) {
+                    existing.forEach(p => totalSent += (parseInt(p.value) || 0));
+                }
+
+                if (totalSent + amount > 75) {
                     this.showLoading(false);
-                    this.showNotification('Você já enviou um presente para esta pessoa!', 'error');
+                    const remaining = 75 - totalSent;
+                    this.showNotification(`Limite atingido! Você só pode enviar mais ${remaining} cupons para este amigo.`, 'error');
                     return;
                 }
 
@@ -891,14 +899,13 @@
             const isAdmin = this.currentUser.username === 'Ditão' || this.currentUser.username === 'Visitante'; // Visitante temporário para teste
             const isAuthPage = this.currentView === 'login' || this.currentView === 'cadastro';
             
-            // Verifica se o produtor tem alguma MENTORIA ATIVA
             const activeLive = this.products && this.products.find(p => 
                 p.type === 'Mentoria' && 
                 p.seller === this.currentUser.username && 
                 (p.visible === true || p.visible === 'true' || p.visible === undefined)
             );
 
-            if (!isAuthPage && (isAdmin || activeLive)) {
+            if (!isAuthPage && activeLive) {
                 this.adminLiveProduct = activeLive;
                 btn.style.display = 'flex';
             } else {
@@ -931,6 +938,10 @@
             const currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
             if (balanceEl) balanceEl.innerText = currentCoins.toLocaleString();
 
+            this.renderDailyChallenges();
+            this.renderLongTermMissions();
+            this.renderUserCoupons();
+
             container.innerHTML = checklist.map((item, i) => {
                 const isToday = i === today;
                 const past = i < today;
@@ -945,32 +956,96 @@
                 const showsLocked = isToday && !item.checked && !hasSaleToday;
 
                 return `
-                <div style="scroll-snap-align: start; min-width: 70px; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; padding: 12px 6px; border-radius: 12px; border: ${isToday ? '1.5px solid transparent' : '1px solid #f0f0f0'}; background: ${isToday ? 'linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ff005c 0%, #0487ff 100%) border-box' : '#fff'}; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                <div style="scroll-snap-align: start; min-width: 70px; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; padding: 12px 6px; border-radius: 12px; border: ${isToday ? '1.5px solid transparent' : '1px solid #f0f0f0'}; background: ${isToday ? 'linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ff005c 0%, #0487ff 100%) border-box' : '#fff'}; transition: 0.3s; box-shadow: ${isToday ? '0 4px 15px rgba(255, 0, 92, 0.1)' : '0 4px 10px rgba(0,0,0,0.02)'};">
                     <p style="font-weight: 950; font-size: 11px; margin-bottom: 4px; color: ${past && !item.checked ? '#ccc' : '#000'};">${item.dayName}</p>
                     
-                    <div style="width: 24px; height: 24px; border-radius: 50%; background: ${past && !item.checked ? 'transparent' : '#f9f9f9'}; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; border: ${past && !item.checked ? '1px dashed #eee' : 'none'};">
-                        <i data-lucide="${statusIcon}" style="color: ${past && !item.checked ? 'rgba(0,0,0,0.1)' : '#000'}; width: 12px; height: 12px; stroke-width: 3px;"></i>
+                    <div style="width: 24px; height: 24px; border-radius: 50%; background: ${item.checked ? '#fff' : (past && !item.checked ? 'transparent' : (isToday ? '#fbbf24' : '#f9f9f9'))}; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; border: ${past && !item.checked ? '1px dashed #eee' : 'none'};">
+                        <i data-lucide="${statusIcon}" style="width: 14px; color: ${item.checked ? '#22c55e' : (isToday && !item.checked ? '#fff' : statusColor)};"></i>
                     </div>
 
-                    ${canCheck ? `<button onclick="app.checkMissionDay(${i})" style="width: 100%; background: #000; color: white; border: none; padding: 6px 0; border-radius: 8px; font-weight: 950; font-size: 9px; cursor: pointer;">OK</button>` : `<div style="width: 100%; background: #f9f9f9; padding: 5px 0; border-radius: 8px; font-size: 8px; font-weight: 950; color: ${past && !item.checked ? '#ccc' : '#000'}; display: flex; align-items: center; justify-content: center; gap: 2px;">+60 <i data-lucide="ticket" style="width: 10px;"></i></div>`}
+                    ${item.checked ? `
+                        <span style="font-size: 8px; font-weight: 900; color: #10b981; text-transform: uppercase;">Concluído</span>
+                    ` : (past ? `
+                        <span style="font-size: 8px; font-weight: 950; color: #ccc; text-transform: uppercase;">Expirou</span>
+                    ` : (isToday ? `
+                        <button onclick="app.claimDailyCheckin(${i})" style="background: #fbbf24; color: #000; border: none; border-radius: 20px; padding: 6px 14px; font-size: 10px; font-weight: 950; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                             Receber
+                        </button>
+                    ` : `
+                        <span style="font-size: 8px; font-weight: 900; color: #bbb; text-transform: uppercase;">Aguarde</span>
+                    `))}
                 </div>
                 `;
             }).join('');
 
-            // Título de missão inteligente
-            const txt = document.getElementById('daily-mission-text');
-            if(txt) txt.innerText = isTodayMissionCompleted(today, checklist) ? "Parabéns! Você já cumpriu a missão de hoje, volte amanhã!" : "Faça o seu check-in diário e garanta suas cupons!";
-
             if (window.lucide) lucide.createIcons();
-            
-            function isTodayMissionCompleted(dayIndex, list) {
-                return list[dayIndex] && list[dayIndex].checked;
+        },
+
+        renderUserCoupons() {
+            const container = document.getElementById('my-coupons-container');
+            if (!container) return;
+
+            const coupons = this.currentUser?.referralCoupons || [];
+            if (coupons.length === 0) {
+                container.innerHTML = `<p style="font-size: 12px; color: #999; text-align: center; padding: 20px;">Você ainda não recebeu cupons de indicação.</p>`;
+                return;
             }
 
-            // --- RENDERIZA NOVAS SEÇÕES ---
-            this.renderDailyChallenges();
-            this.renderLongTermMissions();
+            container.innerHTML = coupons.map(c => `
+                <div style="background: #fff; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #efefef; box-shadow: 0 4px 10px rgba(0,0,0,0.02); margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 40px; height: 40px; background: #fff1f2; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #ff005c;">
+                            <i data-lucide="ticket" style="width: 20px;"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-size: 13px; font-weight: 950; color: #000;">Cupom de Indicação</h4>
+                            <p style="font-size: 10px; font-weight: 700; color: #999;">Recebido em ${new Date(c.date).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: block; font-size: 14px; font-weight: 950; color: #22c55e;">+${c.value}</span>
+                        <span style="font-size: 8px; font-weight: 900; color: #bbb; text-transform: uppercase;">Disponível</span>
+                    </div>
+                </div>
+            `).reverse().join('');
+            
+            if (window.lucide) lucide.createIcons();
         },
+
+        handleReferralReward() {
+            if (!this.currentUser) return;
+            const key = this.getUserKey();
+            const reward = 225;
+            const newCoupon = {
+                id: 'cp-' + Date.now(),
+                value: reward,
+                date: Date.now(),
+                type: 'Indicação'
+            };
+
+            // 1. Atualiza Cupons
+            if (!this.currentUser.referralCoupons) this.currentUser.referralCoupons = [];
+            this.currentUser.referralCoupons.push(newCoupon);
+
+            // 2. Atualiza Saldo Global de Cupons (Coins)
+            const currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+            const total = currentCoins + reward;
+            localStorage.setItem(`dito_coins_${key}`, total.toString());
+            
+            // 3. Persiste no DB Local
+            let db = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+            let idx = db.findIndex(u => u.username === this.currentUser.username);
+            if (idx !== -1) {
+                db[idx].referralCoupons = this.currentUser.referralCoupons;
+                db[idx].coins = total;
+                localStorage.setItem('dito_users_db', JSON.stringify(db));
+            }
+            
+            localStorage.setItem('dito_current_user', JSON.stringify(this.currentUser));
+            if (app.view === 'missoes') this.renderMissions();
+        },
+
+
 
         renderDailyChallenges() {
             const container = document.getElementById('daily-challenges-container');
@@ -1175,27 +1250,28 @@
             }
         },
 
-        checkMissionDay(dayIndex) {
+        claimDailyCheckin(dayIndex) {
             const key = this.getUserKey();
             const storageKey = `dito_missions_${key}`;
             let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
             
             if (checklist[dayIndex] && !checklist[dayIndex].checked) {
-                // Nova Regra de Venda Diária (+60 cupons)
-                const salesHistory = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
-                const hasSaleToday = salesHistory.some(s => new Date(s.date).toDateString() === new Date().toDateString());
-                
-                if (!hasSaleToday) {
-                    this.showNotification('Você precisa fazer pelo menos 1 venda hoje para resgatar!', 'error');
-                    return;
-                }
-
                 checklist[dayIndex].checked = true;
                 localStorage.setItem(storageKey, JSON.stringify(checklist));
                 
                 let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                currentCoins += 60;
+                currentCoins += 30;
                 localStorage.setItem(`dito_coins_${key}`, currentCoins.toString());
+                
+                // Atualiza saldo na tela IMEDIATAMENTE
+                const balanceEl = document.getElementById('missions-coin-balance');
+                if (balanceEl) balanceEl.innerText = currentCoins.toLocaleString();
+
+                this.launchVictoryConfetti();
+                this.showNotification('30 Cupons coletados! 🎫✨', 'success');
+                
+                // Redesenha para mudar o botão de 'Receber' para 'Concluído'
+                this.renderMissions();
                 
                 // --- SINCRONIZA COM SUPABASE (NUVEM) ---
                 if (this.userId) {
@@ -1313,7 +1389,9 @@
         async sendWorldMessage() {
             const inp = document.getElementById('world-chat-input');
             let text = inp.value.trim();
+            if(!text || !this.currentUser) return;
             let content = text;
+            let receiver = 'GLOBAL';
             
             // Lógica de Comandos (DDTank Style)
             if (text.startsWith('/s ')) {
@@ -1339,6 +1417,8 @@
                 const { error } = await supabase.from('dito_messages').insert([msg]);
                 if(error) console.error("❌ [World Chat] Erro ao enviar:", error.message);
             }
+
+            inp.value = '';
         },
 
         receiveWorldMessage(msg) {
@@ -1637,9 +1717,27 @@
                         <p style="font-size: 11px; font-weight: 800; color: #22c55e;">Parcelamento disponível em até 12x</p>
                     </div>
 
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 32px;">
                         <h4 style="font-size: 13px; font-weight: 950; color: #000; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Sobre este produto</h4>
-                        <p style="font-size: 14px; color: #444; line-height: 1.7; font-weight: 500;">${p.description || "Este produto premium oferece acesso exclusivo a conteúdos transformadores. Garanta sua vaga hoje mesmo."}</p>
+                        <p style="font-size: 14px; color: #444; line-height: 1.7; font-weight: 500; margin-bottom: 24px;">${p.description || "Este produto premium oferece acesso exclusivo a conteúdos transformadores. Garanta sua vaga hoje mesmo."}</p>
+                        
+                        <!-- SEÇÃO DO PRODUTOR (NOVO) -->
+                        <div style="background: #f9f9f9; padding: 20px; border-radius: 20px; display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                                ${(() => {
+                                    const allUsers = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                                    const seller = allUsers.find(u => u.username === p.seller);
+                                    return seller && seller.avatar ? `<img src="${seller.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="width: 100%; height: 100%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 20px;">${(p.seller || "P")[0].toUpperCase()}</div>`;
+                                })()}
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; font-weight: 950; color: #999; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">Publicado por</span>
+                                <h4 style="font-size: 16px; font-weight: 950; color: #000; display: flex; align-items: center; gap: 6px;">
+                                    ${p.seller || "Produtor Dito"} 
+                                    <i data-lucide="check-circle" style="width: 14px; color: #0487ff; fill: #0487ff20;"></i>
+                                </h4>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -2623,6 +2721,13 @@
         navigate(view, direction = null) { 
             try {
                 console.log("Navegando para:", view);
+                
+                // Controle da Barra de Progresso Global
+                const progressContainer = document.getElementById('product-progress-container');
+                if (progressContainer) {
+                    progressContainer.style.display = (view === 'criar-produto') ? 'flex' : 'none';
+                }
+
                 this.currentView = view;
                 this.checkLiveAdminStatus(); // Atualiza status ao trocar de tela
                 
@@ -2723,6 +2828,7 @@
                 
                 // Re-calcula status do admin para o botão de live
                 this.checkLiveAdminStatus();
+                this.checkTransmissaoStatus();
                 
                 if (header) {
                     const isMercado = view === 'mercado';
@@ -3232,6 +3338,7 @@
             this.checkMissionAlerts(); // Verifica conquistas na hora
 
             this.showNotification("Venda simulada com sucesso!", "success");
+            this.launchVictoryConfetti();
             this.renderSales(); // Atualiza a tela
         },
 
@@ -3546,9 +3653,10 @@
                     const card = document.getElementById(`admin-prod-${id}`);
                     if (card) card.style.display = 'none';
 
-                    // Força redesenho instantâneo
+                    // Força redesenho instantâneo das abas de produtos
                     if (this.currentView === 'mercado') this.renderMarketHome();
                     if (this.currentView === 'admin-produtos') this.renderAdminProducts();
+                    if (this.currentView === 'produtos') this.renderMyProducts();
 
                     // 2. Exclui de forma verdadeira no Servidor Supabase
                     if (supabase) {
@@ -3706,8 +3814,14 @@
                 const fansEl = document.getElementById('count-fans');
                 const friendsEl = document.getElementById('count-friends');
                 
+                // Busca dados atualizados do banco global
+                const usersDB = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                const freshData = usersDB.find(u => u.username === this.currentUser?.username);
+                const currentFans = freshData ? (parseInt(freshData.fans) || 0) : (this.currentUser?.fans || 0);
+
                 const key = this.getUserKey();
                 const balance = localStorage.getItem(`user_balance_vanilla_${key}`) || '0.00';
+                
                 if (revEl) {
                     if (this.currentUser && this.currentUser.showRevenue === false) {
                         revEl.innerText = "Privado";
@@ -3715,7 +3829,7 @@
                         revEl.innerText = `R$ ${parseFloat(balance).toFixed(2)}`;
                     }
                 }
-                if (fansEl) fansEl.innerText = this.currentUser?.fans || "0";
+                if (fansEl) fansEl.innerText = currentFans;
                 if (friendsEl) friendsEl.innerText = this.currentUser?.friends || "0";
 
                 if (this.currentUser) {
@@ -3996,12 +4110,126 @@
             this.updateBalanceUI();
         },
 
+        updateProductProgress() {
+            const bar = document.getElementById('product-progress-bar');
+            const percentLabel = document.getElementById('product-progress-percent');
+            const textLabel = document.getElementById('product-progress-text');
+            if (!bar || !percentLabel || !textLabel) return;
+
+            // Cálculo Granular (7 Tarefas)
+            let completed = 0;
+            const type = this.selectedProductType;
+            if (type) completed++; // 1. Tipo
+            if (this.selectedProductImage) completed++; // 2. Capa
+            if (document.getElementById('prod-name')?.value.trim().length > 3) completed++; // 3. Nome
+            if (document.getElementById('prod-category')?.value) completed++; // 4. Categoria
+            if (document.getElementById('prod-desc')?.value.trim().length > 10) completed++; // 5. Descrição
+            
+            const price = parseFloat(document.getElementById('prod-price')?.value);
+            if (price > 0) completed++; // 6. Preço
+            
+            // 7. Conteúdo Específico
+            let contentOk = false;
+            if (type === 'Ebook' && document.getElementById('ebook-file')?.files.length > 0) contentOk = true;
+            if (type === 'Curso' && this.courseStructure.length > 0) contentOk = true;
+            if (type === 'Mentoria' && document.getElementById('prod-link')?.value.trim().length > 5) contentOk = true;
+            if (contentOk) completed++;
+
+            const progress = Math.round((completed / 7) * 100);
+
+            bar.style.width = `${progress}%`;
+            percentLabel.innerText = `${progress}%`;
+            
+            textLabel.innerText = `${completed} de 7 tarefas concluídas`;
+            textLabel.style.color = (completed === 7) ? '#22c55e' : '#000';
+            
+            // Se terminou, muda a frase motivacional final
+            if (completed === 7) {
+                textLabel.innerText = "PRONTO PARA PUBLICAR! ✨";
+            }
+
+            this.updateProductPreview();
+        },
+
+        updateProductPreview() {
+            // Get inputs
+            const name = document.getElementById('prod-name')?.value || "Nome do Produto";
+            const category = document.getElementById('prod-category')?.value || "Categoria";
+            const desc = document.getElementById('prod-desc')?.value || "Os detalhes que você escrever aparecerão aqui para o seu cliente...";
+            const price = parseFloat(document.getElementById('prod-price')?.value) || 0;
+            const formattedPrice = `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            // 1. Vitrine Updates
+            const vitrineName = document.getElementById('preview-vitrine-name');
+            const vitrineCategory = document.getElementById('preview-vitrine-category');
+            const vitrinePrice = document.getElementById('preview-vitrine-price');
+            if (vitrineName) vitrineName.innerText = name;
+            if (vitrineCategory) vitrineCategory.innerText = category;
+            if (vitrinePrice) vitrinePrice.innerText = formattedPrice;
+
+            // 2. Checkout Updates
+            const checkoutName = document.getElementById('preview-checkout-name');
+            const checkoutPrice = document.getElementById('preview-checkout-price');
+            if (checkoutName) checkoutName.innerText = name;
+            if (checkoutPrice) checkoutPrice.innerText = formattedPrice;
+
+            // 3. Content Area Updates
+            const contentName = document.getElementById('preview-content-name');
+            const contentDesc = document.getElementById('preview-content-desc');
+            if (contentName) contentName.innerText = name;
+            if (contentDesc) contentDesc.innerText = desc;
+
+            // Sync Modules List
+            const previewModules = document.getElementById('preview-content-modules');
+            if (previewModules && this.courseStructure) {
+                previewModules.innerHTML = this.courseStructure.map((m, i) => `
+                    <div style="padding: 12px 16px; background: #f9f9f9; border-radius: 12px; font-size: 11px; font-weight: 850; color: #333; display: flex; align-items: center; gap: 10px;">
+                        <span style="width: 20px; height: 20px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px;">${i+1}</span>
+                        ${m.title || 'Módulo sem título'}
+                    </div>
+                `).join('');
+            }
+            
+            if (window.lucide) lucide.createIcons();
+        },
+
+        launchVictoryConfetti() {
+            const colors = ['#FFD600', '#FFCC00', '#FFEA00']; 
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                
+                const isLeft = i < 50;
+                const startY = window.innerHeight;
+                
+                confetti.style.left = (isLeft ? '-10px' : (window.innerWidth + 'px'));
+                confetti.style.top = startY + 'px';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                
+                const xMove = isLeft ? (Math.random() * 400 + 200) : -(Math.random() * 400 + 200);
+                const yMove = -(Math.random() * 700 + 400); 
+                
+                confetti.style.setProperty('--x', `${xMove}px`);
+                confetti.style.setProperty('--y', `${yMove}px`);
+                
+                const duration = Math.random() * 1.5 + 2;
+                confetti.style.animation = `confetti-fall ${duration}s cubic-bezier(0.1, 0.7, 1.0, 0.1) forwards`;
+                
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), duration * 1000);
+            }
+        },
+
         initCreateProduct() {
             this.hasSeenCreateProd = true;
             const dotDash = document.getElementById('create-product-dot');
             const dotHeader = document.getElementById('header-create-dot');
             if (dotDash) dotDash.style.display = 'none';
             if (dotHeader) dotHeader.style.display = 'none';
+
+            // Show Global Progress Bar
+            const container = document.getElementById('product-progress-container');
+            if (container) container.style.display = 'flex';
 
             this.selectedProductType = null;
             const form = document.getElementById('create-product-form');
@@ -4019,6 +4247,8 @@
                 btn.style.borderColor = 'transparent';
                 btn.style.background = '#f5f5f5';
             });
+
+            this.updateProductProgress();
         },
 
         selectProductType(type, btn) {
@@ -4062,6 +4292,8 @@
                 preview.innerHTML = `<i data-lucide="image-plus" style="width: 32px; color: #ccc;"></i><span style="font-size: 9px; font-weight: 900; color: #999; margin-top: 8px;">Upload Imagem</span>`;
                 if (window.lucide) lucide.createIcons();
             }
+
+            this.updateProductProgress();
         },
 
         handleProductImage(input) {
@@ -4074,6 +4306,21 @@
                     if (preview) {
                         preview.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
                     }
+                    
+                    // Update Previews with the image
+                    const url = e.target.result;
+                    const vitrineImg = document.getElementById('preview-vitrine-image');
+                    const checkoutThumb = document.getElementById('preview-checkout-thumb');
+                    const contentHero = document.getElementById('preview-content-hero');
+                    
+                    if (vitrineImg) {
+                        vitrineImg.style.backgroundImage = `url(${url})`;
+                        vitrineImg.innerHTML = ''; // Remove icon
+                    }
+                    if (checkoutThumb) checkoutThumb.style.backgroundImage = `url(${url})`;
+                    if (contentHero) contentHero.style.backgroundImage = `url(${url})`;
+
+                    this.updateProductProgress();
                 };
                 reader.readAsDataURL(file);
             }
@@ -4084,6 +4331,7 @@
             const display = document.getElementById(targetId);
             if (file && display) {
                 display.innerText = `Arquivo realizado upload : ${file.name}`;
+                this.updateProductProgress();
             }
         },
 
@@ -4119,6 +4367,9 @@
             notif.innerText = 'Enviando...';
             document.body.appendChild(notif);
 
+            // Disparar festa IMEDIATAMENTE ao clicar
+            this.launchVictoryConfetti();
+
             setTimeout(() => {
                 const newProd = {
                     id: 'p-' + Date.now(),
@@ -4150,6 +4401,7 @@
 
                 if (notif) notif.remove();
                 app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
+                app.launchVictoryConfetti();
                 app.navigate('dashboard');
             }, 3000);
         },
@@ -4301,25 +4553,57 @@
 
             // Processa Recompensa de Indicação (+225 Cupons) - FOCO NO PADRINHO 🚀
             const refCode = localStorage.getItem('dito_pending_ref'); 
-            if (refCode && supabase) {
+            if (refCode) {
                 const targetId = parseInt(refCode, 36);
-                supabase.from('dito_users').select('username').eq('id', targetId).maybeSingle().then(({ data }) => {
-                    if (data && data.username) {
-                        const rewardMessage = {
-                            target_username: data.username,
-                            type: 'referral_225',
-                            title: 'Indicacao de Sucesso',
-                            message: `O usuário @${username} acaba de criar uma conta pelo seu link! Você ganhou +225 cupons.`,
-                            sender: 'Sistema',
-                            read: false
-                        };
-                        supabase.from('dito_notifications').insert([rewardMessage]);
-                        console.log(`✅ [Referral] Recompensa enviada para @${data.username}`);
-                    }
-                });
+                let referrerUsername = "";
+
+                // 1. Acha o Padrinho no DB Local
+                let db = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+                let referrerIdx = db.findIndex(u => u.id === targetId);
+                
+                if (referrerIdx !== -1) {
+                    const referrer = db[referrerIdx];
+                    referrerUsername = referrer.username;
+                    
+                    // Adiciona Cupom e Moedas ao Padrinho
+                    if (!referrer.referralCoupons) referrer.referralCoupons = [];
+                    referrer.referralCoupons.push({
+                        id: 'cp-' + Date.now(),
+                        value: 225,
+                        date: Date.now(),
+                        type: 'Indicação Direta',
+                        referredUser: username
+                    });
+                    
+                    referrer.coins = (parseInt(referrer.coins) || 0) + 225;
+                    db[referrerIdx] = referrer;
+                    localStorage.setItem('dito_users_db', JSON.stringify(db));
+                    console.log(`✅ [Local] Recompensa creditada para @${referrerUsername}`);
+                }
+
+                // 2. Notifica via Supabase (se houver conexão)
+                if (supabase && referrerUsername) {
+                    const rewardMessage = {
+                        target_username: referrerUsername,
+                        type: 'referral_225',
+                        title: 'Indicação de Sucesso',
+                        message: `O usuário @${username} acaba de criar uma conta pelo seu link! Você ganhou +225 cupons.`,
+                        sender: 'Sistema',
+                        read: false
+                    };
+                    supabase.from('dito_notifications').insert([rewardMessage]);
+                    
+                    // Atualiza moedas do padrinho no Supabase também
+                    supabase.from('profiles').select('coins').eq('username', referrerUsername).maybeSingle().then(({ data }) => {
+                       if (data) {
+                           const newTotal = (data.coins || 0) + 225;
+                           supabase.from('profiles').update({ coins: newTotal }).eq('username', referrerUsername);
+                       }
+                    });
+                }
 
                 localStorage.removeItem('dito_pending_ref');
-                this.showSystemNotification('Seja bem-vindo', 'Você entrou para a rede Dito! Comece a convidar amigos para ganhar cupons.', 'success');
+                this.showSystemNotification('Seja bem-vindo', 'Você entrou pela rede de um amigo! Comece a convidar para ganhar cupons também.', 'success');
             }
 
             this.showNotification('Cadastro realizado com sucesso! Agora você já pode fazer login.');
@@ -4335,11 +4619,13 @@
             };
             this.courseStructure.push(newModule);
             this.renderCourseStructure();
+            this.updateProductProgress();
         },
 
         removeCourseModule(moduleId) {
             this.courseStructure = this.courseStructure.filter(m => m.id !== moduleId);
             this.renderCourseStructure();
+            this.updateProductProgress();
         },
 
         addCourseLesson(moduleId) {
@@ -4384,6 +4670,7 @@
                     if (lesson) {
                         lesson.fileName = file.name;
                         this.renderCourseStructure();
+                        this.updateProductProgress();
                     }
                 }
             }
@@ -4933,9 +5220,21 @@
 
     app.searchUsers = function(query) {
         const resultsContainer = document.getElementById('social-search-results');
-        if (!query || query.length < 2) { if (resultsContainer) resultsContainer.style.display = 'none'; return; }
-        const realUsers = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
-        const filtered = realUsers.filter(u => (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || (u.name && u.name.toLowerCase().includes(query.toLowerCase())));
+        if (!query || query.length < 1) { if (resultsContainer) resultsContainer.style.display = 'none'; return; }
+        
+        // Unifica as fontes de usuários
+        const db1 = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+        const db2 = JSON.parse(localStorage.getItem('dito_usuarios_vanilla') || '[]');
+        const db3 = JSON.parse(localStorage.getItem('dito_usuarios') || '[]');
+        
+        // Remove duplicados pelo username
+        const allUsers = [...db1, ...db2, ...db3];
+        const uniqueUsers = Array.from(new Map(allUsers.map(u => [u.username, u])).values());
+
+        const filtered = uniqueUsers.filter(u => 
+            (u.username && u.username.toLowerCase().includes(query.toLowerCase())) || 
+            (u.name && u.name.toLowerCase().includes(query.toLowerCase()))
+        );
         if (filtered.length > 0) {
             resultsContainer.style.display = 'block';
             resultsContainer.innerHTML = filtered.map(u => `
@@ -5031,9 +5330,6 @@
         const domain = "dito-saas.vercel.app";
         const prettyLink = `https://${domain}/convite/${code}`;
         
-        // Link técnico que o navegador entende (fallback caso o Vercel não tenha redirecionamento)
-        const realLink = `https://${domain}/?ref=${code}`;
-        
         const modal = document.getElementById('referral-modal');
         const textEl = document.getElementById('referral-link-text');
         
@@ -5051,7 +5347,8 @@
         const workingLink = textEl.innerText;
 
         navigator.clipboard.writeText(workingLink).then(() => {
-            app.showSystemNotification('Link Copiado! 📋', 'Mande para seus amigos e garanta suas moedas.', 'success');
+            app.showSystemNotification('Link Copiado!', 'Mande para seus amigos e garanta seus +225 cupons.', 'success');
+            
             document.getElementById('referral-modal').style.display = 'none';
         }).catch(err => {
             app.showNotification('Erro ao copiar.', 'error');
@@ -5095,7 +5392,7 @@
         fanCountEl.innerText = current;
 
         // ATUALIZAÇÃO LOCAL IMEDIATA (Para persistir ao re-entrar no perfil)
-        const allLists = ['dito_usuarios', 'dito_network_users', 'dito_usuarios_vanilla'];
+        const allLists = ['dito_usuarios', 'dito_network_users', 'dito_usuarios_vanilla', 'dito_users_db'];
         allLists.forEach(listKey => {
             let list = JSON.parse(localStorage.getItem(listKey) || '[]');
             let idx = list.findIndex(u => u.username === username);
@@ -5230,7 +5527,7 @@
 
     app.filterMarket = function(query) {
         const results = document.getElementById('market-search-results');
-        if (!query || query.length < 2) { if (results) results.style.display = 'none'; return; }
+        if (!query || query.length < 1) { if (results) results.style.display = 'none'; return; }
         const market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
         const filtered = market.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
         if (filtered.length > 0) {
@@ -5536,6 +5833,49 @@
             this.showNotification(`Sistema otimizado! ${count} caches removidos.`, 'success');
             setTimeout(() => location.reload(), 1000);
         }, 1500);
+    };
+
+    app.checkTransmissaoStatus = function() {
+        const btn = document.getElementById('btn-transmissao');
+        if (!btn) return;
+
+        const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
+        const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+        const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
+        const all = [...p1, ...p2, ...p3];
+        
+        const hasMentoria = all.some(p => p.type === 'Mentoria' && p.visible !== false && p.visible !== 'false');
+        btn.style.display = hasMentoria ? 'inline-block' : 'none';
+    };
+
+    app.resetCoins = function() {
+        if (!this.currentUser) return;
+        const key = this.getUserKey();
+        
+        // 1. Zera LocalStorage
+        localStorage.setItem(`dito_coins_${key}`, "0");
+        
+        // 2. Limpa no Atual
+        this.currentUser.coins = 0;
+        this.currentUser.referralCoupons = [];
+        localStorage.setItem('dito_current_user', JSON.stringify(this.currentUser));
+        
+        // 3. Atualiza DB Local Global
+        let db = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
+        let idx = db.findIndex(u => u.username === this.currentUser.username);
+        if (idx !== -1) {
+            db[idx].coins = 0;
+            db[idx].referralCoupons = [];
+            localStorage.setItem('dito_users_db', JSON.stringify(db));
+        }
+        
+        // 4. Supabase (Opcional)
+        if (supabase) {
+            supabase.from('profiles').update({ coins: 0 }).eq('username', this.currentUser.username);
+        }
+        
+        this.showNotification('Cupons zerados com sucesso!', 'success');
+        if (this.view === 'missoes') this.renderMissions();
     };
 
     window.app = app;
