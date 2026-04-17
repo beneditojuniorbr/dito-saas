@@ -1573,7 +1573,6 @@
                     author: product.author,
                     seller: product.seller,
                     visible: product.visible,
-                    sales_link: product.sales_link || "",
                     content: JSON.stringify(product.content || [])
                 }, { onConflict: 'id' });
                 if (error) console.error("❌ Erro Sync Produto:", error.message);
@@ -1618,6 +1617,33 @@
                 }
             }
 
+            // Customizar Informações (Nome, Preço, Descrição, Avaliações)
+            const detailContent = document.getElementById('product-detail-content');
+            if (detailContent && p) {
+                const stars = '★'.repeat(Math.round(p.rating || 5)) + '☆'.repeat(5 - Math.round(p.rating || 5));
+                detailContent.innerHTML = `
+                    <div style="margin-bottom: 24px;">
+                        <span style="font-size: 10px; font-weight: 900; color: #ff005c; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">${p.category || 'Geral'}</span>
+                        <h2 style="font-size: 28px; font-weight: 950; line-height: 1.1; letter-spacing: -1.5px; color: #000; margin-bottom: 12px;">${p.name}</h2>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="color: #ff9d00; font-size: 16px; letter-spacing: -2px;">${stars}</div>
+                            <span style="font-size: 13px; font-weight: 900; color: #000;">${p.rating || '5.0'}</span>
+                            <span style="font-size: 12px; color: #999; font-weight: 700;">• ${p.sales || '0'}+ vendas</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 32px;">
+                        <h3 style="font-size: 32px; font-weight: 950; color: #000; letter-spacing: -1px;">R$ ${p.price.toFixed(2)}</h3>
+                        <p style="font-size: 11px; font-weight: 800; color: #22c55e;">Parcelamento disponível em até 12x</p>
+                    </div>
+
+                    <div style="margin-bottom: 10px;">
+                        <h4 style="font-size: 13px; font-weight: 950; color: #000; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Sobre este produto</h4>
+                        <p style="font-size: 14px; color: #444; line-height: 1.7; font-weight: 500;">${p.description || "Este produto premium oferece acesso exclusivo a conteúdos transformadores. Garanta sua vaga hoje mesmo."}</p>
+                    </div>
+                `;
+            }
+
             // Customizar Botões de Ação
             const actionsContainer = document.getElementById('product-actions');
             if (actionsContainer) {
@@ -1628,24 +1654,21 @@
                         actionsContainer.innerHTML = `
                             <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
                                 <i data-lucide="check-circle" style="width: 20px;"></i>
-                                VOCÊ JÁ POSSUI ACESSO - ENTRAR
-                            </button>
-                            <button onclick="app.openWorldChat('LIVE_${p.id}', 'Chat da Mentoria')" style="width: 64px; height: 64px; background: #f5f5f5; color: #000; border: none; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                <i data-lucide="message-square" style="width: 24px;"></i>
+                                ENTRAR NA MENTORIA
                             </button>
                         `;
                     } else {
                         actionsContainer.innerHTML = `
                             <button onclick="app.ingressLive('${p.id}')" style="flex: 1; height: 64px; background: linear-gradient(90deg, #ff005c, #ff3366); color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,0,92,0.3);">
-                                <i data-lucide="video" style="width: 20px;"></i>
-                                INGRESSAR NA LIVE - R$ ${p.price.toFixed(2)}
+                                <i data-lucide="shopping-cart" style="width: 20px;"></i>
+                                COMPRAR POR R$ ${p.price.toFixed(2)}
                             </button>
                         `;
                     }
                 } else {
                     actionsContainer.innerHTML = `
                         <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                            <i data-lucide="shopping-bag" style="width: 18px;"></i> ADICIONAR À SACOLA
+                            <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
                         </button>
                     `;
                 }
@@ -2669,6 +2692,7 @@
                     case 'meus-cursos': this.renderPurchasedProducts(); break;
                     case 'curso-player': this.renderCoursePlayer(); break;
                     case 'missoes': this.renderMissions(); break;
+                    case 'admin-painel-unificado': break;
                 }
 
                 // Atualiza Barra de Navegação Global e Header
@@ -2783,8 +2807,8 @@
             
             if (saved.length === 0) {
                 const initial = [
-                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", owner: "benedito_pro", entryFee: 0, membersCount: 154 },
-                    { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", owner: "ana_scaling", entryFee: 49.90, membersCount: 42 }
+                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", owner: "benedito_pro", entryFee: 0, membersCount: 0 },
+                    { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", owner: "ana_scaling", entryFee: 49.90, membersCount: 0 }
                 ];
                 localStorage.setItem('dito_societies', JSON.stringify(initial));
                 this.renderSocieties();
@@ -2845,30 +2869,159 @@
             // Membership logic
             const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
             const isMember = myGroups.includes(this.currentSocietyId) || isAdmin;
+            
+            // Solicitações Pendentes (Somente ADM vê esta aba extra)
+            const adminTab = document.getElementById('tab-soc-admin');
+            if (adminTab) adminTab.style.display = isAdmin ? 'flex' : 'none';
 
             if (isMember) {
                 document.getElementById('soc-content-mural').style.display = 'block';
                 document.getElementById('soc-content-membros').style.display = 'none';
+                document.getElementById('soc-content-admin').style.display = 'none';
                 document.getElementById('soc-join-section').style.display = 'none';
                 this.fetchSocietyMural();
             } else {
+                // Verifica se já tem pedido pendente
+                const requests = JSON.parse(localStorage.getItem('society_requests') || '[]');
+                const hasPending = requests.find(r => r.society_id === this.currentSocietyId && r.username === this.currentUser.username);
+                
                 document.getElementById('soc-content-mural').style.display = 'none';
                 document.getElementById('soc-content-membros').style.display = 'none';
+                document.getElementById('soc-content-admin').style.display = 'none';
                 document.getElementById('soc-join-section').style.display = 'block';
+
+                const joinBtn = document.getElementById('btn-society-join');
+                if (joinBtn) {
+                    if (hasPending) {
+                        joinBtn.innerText = 'SOLICITAÇÃO ENVIADA';
+                        joinBtn.style.background = '#f5f5f5';
+                        joinBtn.style.color = '#999';
+                        joinBtn.disabled = true;
+                    } else {
+                        joinBtn.innerText = 'PEDIR PARA PARTICIPAR';
+                        joinBtn.style.background = '#000';
+                        joinBtn.disabled = false;
+                        joinBtn.onclick = () => this.requestToJoinSociety(soc.id);
+                    }
+                }
             }
             if (window.lucide) lucide.createIcons();
+        },
+
+        requestToJoinSociety(id) {
+            if (!this.currentUser) return this.showNotification("Faça login para participar.", "error");
+            
+            const requests = JSON.parse(localStorage.getItem('society_requests') || '[]');
+            requests.push({
+                id: Date.now(),
+                society_id: id,
+                username: this.currentUser.username,
+                avatar: this.currentUser.avatar || "",
+                created_at: new Date().toISOString()
+            });
+
+            const success = this.safeLocalStorageSet('society_requests', JSON.stringify(requests));
+            
+            if (success) {
+                this.showNotification("Solicitação enviada ao Gestor!", "success");
+                this.renderSocietyDetail();
+            } else {
+                this.showNotification("Memória cheia! Tente limpar o cache no perfil.", "error");
+            }
         },
 
         setSocTab(tab) {
             this.currentSocietyTab = tab;
             const isMural = tab === 'mural';
+            const isMembros = tab === 'membros';
+            const isAdmin = tab === 'admin';
+
             document.getElementById('soc-content-mural').style.display = isMural ? 'block' : 'none';
-            document.getElementById('soc-content-membros').style.display = isMural ? 'none' : 'block';
+            document.getElementById('soc-content-membros').style.display = isMembros ? 'block' : 'none';
+            document.getElementById('soc-content-admin').style.display = isAdmin ? 'block' : 'none';
             
-            document.getElementById('tab-soc-mural').classList.toggle('active-tab', isMural);
-            document.getElementById('tab-soc-membros').classList.toggle('active-tab', !isMural);
+            if (document.getElementById('tab-soc-mural')) document.getElementById('tab-soc-mural').classList.toggle('active-tab', isMural);
+            if (document.getElementById('tab-soc-membros')) document.getElementById('tab-soc-membros').classList.toggle('active-tab', isMembros);
+            if (document.getElementById('tab-soc-admin')) document.getElementById('tab-soc-admin').classList.toggle('active-tab', isAdmin);
             
-            if (tab === 'membros') this.fetchSocietyMembers();
+            if (isMembros) this.fetchSocietyMembers();
+            if (isAdmin) this.fetchSocietyRequests();
+        },
+
+        fetchSocietyRequests() {
+            const list = document.getElementById('soc-admin-list');
+            if (!list) return;
+
+            const requests = JSON.parse(localStorage.getItem('society_requests') || '[]')
+                            .filter(r => r.society_id === this.currentSocietyId);
+
+            if (requests.length > 0) {
+                list.innerHTML = requests.map(r => `
+                    <div style="background: #fff; border: 1px solid #eee; border-radius: 20px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #000; color: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 950; font-size: 14px;">${r.username[0].toUpperCase()}</div>
+                            <div>
+                                <h4 style="font-size: 14px; font-weight: 900; color: #000;">${r.username}</h4>
+                                <span style="font-size: 9px; color: #bbb; font-weight: 800;">PEDIDO EM ${new Date(r.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="app.processJoinRequest('${r.username}', true)" style="width: 36px; height: 36px; background: #10b981; color: #fff; border: none; border-radius: 50%; cursor: pointer;"><i data-lucide="check" style="width: 18px; margin: 0 auto;"></i></button>
+                            <button onclick="app.processJoinRequest('${r.username}', false)" style="width: 36px; height: 36px; background: #ef4444; color: #fff; border: none; border-radius: 50%; cursor: pointer;"><i data-lucide="x" style="width: 18px; margin: 0 auto;"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = `<div style="text-align: center; padding: 40px; color: #ccc; font-weight: 900; font-size: 12px;">Nenhuma solicitação pendente.</div>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        },
+
+        processJoinRequest(username, approve) {
+            let requests = JSON.parse(localStorage.getItem('society_requests') || '[]');
+            requests = requests.filter(r => !(r.society_id === this.currentSocietyId && r.username === username));
+            this.safeLocalStorageSet('society_requests', JSON.stringify(requests));
+
+            if (approve) {
+                // Adiciona aos membros (no storage local da sociedade)
+                const socList = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+                const soc = socList.find(s => s.id === this.currentSocietyId);
+                if (soc) {
+                    if (!soc.members) soc.members = [];
+                    if (!soc.members.includes(username)) {
+                        soc.members.push(username);
+                        soc.membersCount = (soc.membersCount || 0) + 1;
+                    }
+                    this.safeLocalStorageSet('dito_societies', JSON.stringify(socList));
+                }
+                this.showNotification(`Usuário @${username} aprovado!`, "success");
+            } else {
+                this.showNotification(`Solicitação de @${username} recusada.`, "info");
+            }
+
+            this.fetchSocietyRequests();
+        },
+
+        kickMember(username) {
+            if (!confirm(`Tem certeza que deseja expulsar @${username}?`)) return;
+
+            const socList = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const soc = socList.find(s => s.id === this.currentSocietyId);
+            if (soc && soc.members) {
+                soc.members = soc.members.filter(m => m !== username);
+                soc.membersCount = Math.max(0, (soc.membersCount || 1) - 1);
+                this.safeLocalStorageSet('dito_societies', JSON.stringify(socList));
+
+                this.showNotification(`@${username} foi removido da sociedade.`, "info");
+                this.fetchSocietyMembers();
+            }
+        },
+
+        inviteToSociety() {
+            const url = window.location.origin + "?soc=" + this.currentSocietyId;
+            navigator.clipboard.writeText(url).then(() => {
+                this.showNotification("Link de convite copiado! Quem clicar pedirá acesso.", "success");
+            });
         },
 
         async postToMural() {
@@ -2886,7 +3039,7 @@
 
             const posts = JSON.parse(localStorage.getItem('society_mural_posts') || '[]');
             posts.unshift(newPost);
-            localStorage.setItem('society_mural_posts', JSON.stringify(posts));
+            this.safeLocalStorageSet('society_mural_posts', JSON.stringify(posts));
             
             input.value = '';
             this.fetchSocietyMural();
@@ -2992,24 +3145,14 @@
             
             const name = nameEl.value.trim();
             const fee = parseFloat(feeEl.value) || 0;
-            const cost = 15.00;
+            const cost = 0.00; // Ficou Grátis!
 
             if (!name) {
                 this.showNotification("Dê um nome para sua sociedade.", "error");
                 return;
             }
 
-            if (this.balance < cost) {
-                this.showNotification("Saldo insuficiente para pagar a taxa de R$ 15,00.", "error");
-                return;
-            }
-
-            if (confirm(`Deseja criar a sociedade "${name}"? Uma taxa de R$ 15,00 será descontada do seu saldo.`)) {
-                // Descontar do saldo
-                this.balance -= cost;
-                this.totalVendas -= cost; // Mantendo sincronizado se necessário
-                localStorage.setItem('dito_balance', this.balance);
-                
+            if (confirm(`Deseja criar a sociedade "${name}" gratuitamente?`)) {
                 // Criar nova sociedade
                 const saved = JSON.parse(localStorage.getItem('dito_societies') || '[]');
                 const newSociety = {
@@ -3956,6 +4099,7 @@
             const name = document.getElementById('prod-name').value.trim();
             const desc = document.getElementById('prod-desc')?.value.trim() || "";
             const price = parseFloat(document.getElementById('prod-price').value) || 0;
+            const category = document.getElementById('prod-category')?.value || "Dinheiro";
             const visible = document.getElementById('prod-visible').checked;
             const salesLink = document.getElementById('prod-sales-link')?.value.trim() || "";
 
@@ -3990,6 +4134,7 @@
                     author: this.currentUser?.username || "Você",
                     seller: this.currentUser?.username || "Você",
                     sales_link: salesLink,
+                    category: category,
                     createdAt: Date.now(),
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
@@ -3998,14 +4143,14 @@
                 const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                 marketProducts.unshift(newProd);
                 localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
-                localStorage.setItem('dito_products', JSON.stringify(marketProducts)); // Sincroniza variantes
+                localStorage.setItem('dito_products', JSON.stringify(marketProducts)); 
 
                 // Compartilha via Supabase
-                this.syncProductToNetwork(newProd);
+                app.syncProductToNetwork(newProd);
 
-                notif.remove();
-                this.showNotification(`Produto "${name}" criado com sucesso!`, "success");
-                this.navigate('dashboard');
+                if (notif) notif.remove();
+                app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
+                app.navigate('dashboard');
             }, 3000);
         },
 
@@ -4370,6 +4515,57 @@
             }, 1000);
         },
 
+        showNotification(msg, type = 'default') {
+            const container = document.getElementById('notification-container');
+            if (!container) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'notification-container';
+                newContainer.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px; pointer-events: none;';
+                document.body.appendChild(newContainer);
+            }
+
+            const toast = document.createElement('div');
+            let bg = '#000';
+            if (type === 'success') bg = '#10b981';
+            if (type === 'error') bg = '#ef4444';
+            if (type === 'info') bg = '#0487ff';
+
+            toast.style.cssText = `
+                background: ${bg};
+                color: #fff;
+                padding: 16px 24px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 900;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                animation: slideDownFade 0.4s ease-out;
+                pointer-events: auto;
+            `;
+
+            const iconMap = {
+                'success': 'check-circle',
+                'error': 'alert-circle',
+                'info': 'info',
+                'default': 'bell'
+            };
+
+            toast.innerHTML = `
+                <i data-lucide="${iconMap[type] || 'bell'}" style="width: 18px;"></i>
+                <span>${msg}</span>
+            `;
+
+            document.getElementById('notification-container').appendChild(toast);
+            if (window.lucide) lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.animation = 'slideUpFade 0.4s ease-in forwards';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        },
+
         showLoading(show, text = 'Carregando...') {
             const overlay = document.getElementById('loading-overlay');
             const textEl = document.getElementById('loading-text');
@@ -4537,6 +4733,35 @@
 
             if (window.lucide) lucide.createIcons();
         },
+
+        toggleMarketFilter() {
+            const dropdown = document.getElementById('market-filter-dropdown');
+            const chevron = document.getElementById('filter-chevron');
+            if (!dropdown) return;
+            
+            const isOpen = dropdown.style.display === 'block';
+            dropdown.style.display = isOpen ? 'none' : 'block';
+            if (chevron) {
+                chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+        },
+
+        setMarketCategory(category, el) {
+            this.marketCategory = category;
+            
+            // Fecha o menu após selecionar
+            this.toggleMarketFilter();
+            
+            // Atualiza o texto do botão de gatilho para mostrar o filtro atual
+            const triggerText = document.querySelector('#market-filter-trigger span');
+            if (triggerText) {
+                triggerText.innerText = category === 'Todas' ? 'Filtro' : category;
+            }
+
+            // Renderiza novamente a Home do Mercado com o filtro
+            const container = document.getElementById('market-actual-content');
+            if (container) this.renderMarketHome(container);
+        },
         
         renderMarketHome(container) {
             if (!container) container = document.getElementById('market-actual-content');
@@ -4561,7 +4786,13 @@
                 .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
                 .filter(p => p.visible !== false && p.visible !== 'false');
             
-            if (all.length === 0) {
+            // --- FILTRO POR NICHO (NOVO) ---
+            const currentCat = this.marketCategory || 'Todas';
+            if (currentCat !== 'Todas') {
+                all = all.filter(p => p.category === currentCat);
+            }
+
+            if (all.length === 0 && currentCat === 'Todas') {
                 // Mercado começa vazio para os usuários cadastrarem seus produtos
                 localStorage.setItem('dito_products', '[]');
             }

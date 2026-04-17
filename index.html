@@ -7,20 +7,19 @@
     <meta name="description" content="Venda seus cursos, ebooks e micro SaaS na plataforma mais rápida do Brasil.">
     <meta name="theme-color" content="#ff005c">
     <script>
-        // Bússola de Caminhos: Resolve conflito Local (PC) vs Produção (Vercel)
-        if (window.location.protocol !== 'file:') {
+        (function() {
+            const isLocal = window.location.protocol === 'file:';
             const base = document.createElement('base');
-            base.href = '/';
+            base.href = isLocal ? './' : '/';
             document.head.appendChild(base);
-        }
 
-        // Injeção condicional do Manifest
-        if (window.location.protocol !== 'file:') {
-            const link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = 'manifest.json';
-            document.head.appendChild(link);
-        }
+            if (!isLocal) {
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = 'manifest.json';
+                document.head.appendChild(link);
+            }
+        })();
     </script>
     <link rel="icon" type="image/png" href="D2.png">
     <link rel="apple-touch-icon" href="D2.png">
@@ -360,13 +359,10 @@
                 <h3 style="font-size: 18px; font-weight: 900; margin-bottom: 16px;">Descubra novas possibilidades</h3>
                 <div class="hide-scrollbar" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x mandatory;">
                     
-                    <div style="min-width: 240px; background: linear-gradient(135deg, #111, #000); border-radius: 16px; padding: 24px; scroll-snap-align: start; color: #fff; position: relative; overflow: hidden;">
-                        <div style="position: absolute; top: -10px; right: -10px; opacity: 0.1;">
-                            <i data-lucide="ticket" style="width: 80px; height: 80px;"></i>
-                        </div>
+                    <div style="min-width: 240px; background: #f5f5f5; border-radius: 16px; padding: 24px; scroll-snap-align: start; color: #000; position: relative; overflow: hidden;">
                         <h4 style="font-size: 14px; font-weight: 900; margin-bottom: 8px;">Compartilhe Dito</h4>
-                        <p style="font-size: 13px; color: #ccc; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Ganhe <span style="background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900;">+225 cupons</span> por cada indicação!</p>
-                        <button onclick="app.shareReferralLink()" style="padding: 10px 20px; background: #fff; color: #000; border: none; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <p style="font-size: 13px; color: #666; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Ganhe <span style="background: linear-gradient(135deg, #ff005c 0%, #0487ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 950;">+225 cupons</span> por cada indicação!</p>
+                        <button onclick="app.shareReferralLink()" style="padding: 10px 20px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="share-2" style="width: 14px;"></i> Compartilhar Link
                         </button>
                     </div>
@@ -433,7 +429,7 @@
                     <div style="display: flex; flex-direction: column; gap: 16px;">
                         <input id="new-soc-name" type="text" placeholder="Nome da comunidade" style="width: 100%; height: 56px; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 0 20px; font-size: 14px; font-weight: 700;">
                         <input id="new-soc-fee" type="number" placeholder="Valor de entrada (R$)" style="width: 100%; height: 56px; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 0 20px; font-size: 14px; font-weight: 700;">
-                        <p style="font-size: 11px; font-weight: 700; color: #856404; background: #fff9f0; padding: 12px; border-radius: 12px;">Taxa única de R$ 15,00 será cobrada do seu saldo.</p>
+                        <p style="font-size: 11px; font-weight: 700; color: #16a34a; background: #f0fdf4; padding: 12px; border-radius: 12px;">Criação de sociedade gratuita por tempo limitado.</p>
                         <button onclick="app.createSociety()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 30px; font-size: 16px; font-weight: 900; cursor: pointer;">Criar Sociedade</button>
                     </div>
                 </div>
@@ -456,9 +452,10 @@
             </header>
 
             <!-- TABS INTERNAS -->
-            <div style="display: flex; gap: 8px; margin-bottom: 32px; background: #f5f5f5; padding: 4px; border-radius: 16px;">
-                <button onclick="app.setSocTab('mural')" class="soc-tab active-tab" id="tab-soc-mural" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 11px; font-weight: 900; cursor: pointer; transition: 0.3s;">MURAL</button>
-                <button onclick="app.setSocTab('membros')" class="soc-tab" id="tab-soc-membros" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 11px; font-weight: 900; cursor: pointer; transition: 0.3s; background: transparent; color: #999;">MEMBROS</button>
+            <div style="display: flex; gap: 4px; margin-bottom: 32px; background: #f5f5f5; padding: 4px; border-radius: 16px;">
+                <button onclick="app.setSocTab('mural')" class="soc-tab active-tab" id="tab-soc-mural" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 10px; font-weight: 950; cursor: pointer; transition: 0.3s; letter-spacing: 0.5px;">MURAL</button>
+                <button onclick="app.setSocTab('membros')" class="soc-tab" id="tab-soc-membros" style="flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 10px; font-weight: 950; cursor: pointer; transition: 0.3s; background: transparent; color: #999; letter-spacing: 0.5px;">MEMBROS</button>
+                <button onclick="app.setSocTab('admin')" class="soc-tab" id="tab-soc-admin" style="display: none; flex: 1; height: 44px; border-radius: 12px; border: none; font-size: 10px; font-weight: 950; cursor: pointer; transition: 0.3s; background: #fef2f2; color: #ef4444; letter-spacing: 0.5px;">GESTÃO</button>
             </div>
 
             <!-- CONTEÚDO MURAL -->
@@ -477,6 +474,12 @@
 
             <!-- CONTEÚDO MEMBROS -->
             <div id="soc-content-membros" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 10px;">
+                    <h4 style="font-size: 14px; font-weight: 950; color: #000;">Lista de Sócios</h4>
+                    <button onclick="app.inviteToSociety()" style="display: flex; align-items: center; gap: 6px; background: #f0f9ff; color: #0369a1; border: none; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 950; cursor: pointer;">
+                        <i data-lucide="user-plus" style="width: 14px;"></i> CONVIDAR
+                    </button>
+                </div>
                 <div id="soc-members-list" style="display: flex; flex-direction: column; gap: 12px;">
                     <!-- Lista de Membros -->
                 </div>
@@ -486,14 +489,22 @@
                 </div>
             </div>
 
+            <!-- CONTEÚDO GESTÃO (EXCLUSIVO ADM) -->
+            <div id="soc-content-admin" style="display: none;">
+                <h4 style="font-size: 14px; font-weight: 950; color: #000; margin-bottom: 24px; padding: 0 10px;">Solicitações Pendentes</h4>
+                <div id="soc-admin-list" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Lista de Pedidos -->
+                </div>
+            </div>
+
             <!-- BOTÃO DE ENTRAR (PARA NÃO MEMBROS) -->
             <div id="soc-join-section" style="display: none; text-align: center; padding: 40px 20px;">
                 <div style="width: 80px; height: 80px; background: #f9f9f9; border-radius: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
                     <i data-lucide="lock" style="width: 32px; color: #ccc;"></i>
                 </div>
                 <h4 style="font-weight: 900; margin-bottom: 12px; font-size: 18px;">Sociedade Privada</h4>
-                <p style="font-size: 13px; color: #999; margin-bottom: 32px; font-weight: 500; padding: 0 20px;">O conteúdo e os membros deste grupo são visíveis apenas para membros ativos.</p>
-                <button id="btn-join-soc" onclick="app.handleJoinSociety()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 950; font-size: 14px; cursor: pointer;">SOLICITAR ENTRADA</button>
+                <p style="font-size: 13px; color: #999; margin-bottom: 32px; font-weight: 500; padding: 0 20px;">O conteúdo e os membros deste grupo são visíveis apenas para sócios aprovados pelo Gestor.</p>
+                <button id="btn-society-join" class="clickable" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 950; font-size: 14px; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">SOLICITAR ENTRADA</button>
             </div>
         </div>
     </template>
@@ -645,6 +656,24 @@
                 </div>
                 <div id="live-horizontal-list" style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none;">
                     <!-- Injetado via JS -->
+                </div>
+            </div>
+
+            <!-- NOVO MENU DE FILTRO (DROPDOWN) -->
+            <div style="margin: 0 24px 24px 24px; position: relative; z-index: 3000;">
+                <div style="display: flex; justify-content: flex-end;">
+                    <div id="market-filter-trigger" onclick="app.toggleMarketFilter()" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s;">
+                        <span style="font-size: 11px; font-weight: 950; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Filtro</span>
+                        <i data-lucide="chevron-down" id="filter-chevron" style="width: 14px; color: #fff; transition: 0.3s;"></i>
+                    </div>
+                </div>
+
+                <!-- Caixa que "escorrega" -->
+                <div id="market-filter-dropdown" style="display: none; position: absolute; top: 50px; right: 0; background: #fff; border-radius: 20px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; animation: slideDown 0.3s ease-out;">
+                    <div onclick="app.setMarketCategory('Todas', this)" style="padding: 16px 20px; font-size: 12px; font-weight: 800; color: #000; cursor: pointer; border-bottom: 1px solid #f0f0f0;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='#fff'">Todas</div>
+                    <div onclick="app.setMarketCategory('Dinheiro', this)" style="padding: 16px 20px; font-size: 12px; font-weight: 800; color: #000; cursor: pointer; border-bottom: 1px solid #f0f0f0;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='#fff'">Dinheiro</div>
+                    <div onclick="app.setMarketCategory('Saúde', this)" style="padding: 16px 20px; font-size: 12px; font-weight: 800; color: #000; cursor: pointer; border-bottom: 1px solid #f0f0f0;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='#fff'">Saúde</div>
+                    <div onclick="app.setMarketCategory('Relacionamento', this)" style="padding: 16px 20px; font-size: 12px; font-weight: 800; color: #000; cursor: pointer;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='#fff'">Relacionamento</div>
                 </div>
             </div>
 
@@ -850,7 +879,16 @@
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
                         <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Nome do produto:</label>
-                        <input type="text" id="prod-name" style="width: 100%; height: 60px; padding: 0 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
+                        <input type="text" id="prod-name" placeholder="Ex: Curso de Finanças" style="width: 100%; height: 60px; padding: 0 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 800; color: #666; margin-bottom: 8px; margin-left: 12px;">Categoria do produto:</label>
+                        <select id="prod-category" style="width: 100%; height: 60px; padding: 0 30px; background: #fafafa; border: 1px solid #eee; border-radius: 50px; font-weight: 800; font-size: 14px; outline: none; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01); appearance: none; cursor: pointer;">
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Saúde">Saúde</option>
+                            <option value="Relacionamento">Relacionamento</option>
+                        </select>
                     </div>
 
                     <div>
@@ -1197,13 +1235,9 @@
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->
                 <div id="admin-only-section" style="display: none; margin-bottom: 24px;">
-                    <button onclick="app.navigate('admin-contas')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 12px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,1); margin-bottom: 8px;">
-                        <i data-lucide="shield-check" style="width: 18px;"></i>
-                        Gerenciar contas (Admin)
-                    </button>
-                    <button onclick="app.navigate('admin-produtos')" style="width: 100%; height: 50px; background: #fff; color: #000; border: 2px solid #000; border-radius: 15px; font-weight: 900; font-size: 12px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-                        <i data-lucide="package-search" style="width: 18px;"></i>
-                        Gerenciar produtos (Admin)
+                    <button onclick="app.navigate('admin-painel-unificado')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 13px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin-bottom: 8px;">
+                        <i data-lucide="shield-alert" style="width: 18px;"></i>
+                        Painel de controle do Adm
                     </button>
                 </div>
 
@@ -1237,6 +1271,43 @@
             <div id="admin-users-list" style="display: flex; flex-direction: column; gap: 16px;">
                 <!-- Lista de usuários carregada via JS -->
             </div>
+        </div>
+    </template>
+
+    <!-- PAINEL UNIFICADO DO ADMINISTRADOR (NOVO) -->
+    <template id="template-admin-painel-unificado">
+        <div style="min-height: 100vh; background: #fff; padding-bottom: 40px;" class="animate-fade">
+             <header style="display: flex; align-items: center; justify-content: space-between; padding: 24px;">
+                <div onclick="app.navigate('perfil', 'left')" style="width: 44px; height: 44px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i data-lucide="arrow-left" style="width: 20px; color: #000;"></i>
+                </div>
+                <h2 style="font-size: 16px; font-weight: 950; color: #000; letter-spacing: -1px;">Controle do Adm</h2>
+                <div style="width: 44px;"></div>
+             </header>
+
+             <div style="padding: 0 24px;">
+                <p style="font-size: 13px; color: #666; font-weight: 700; margin-bottom: 32px; text-align: center;">Bem-vindo de volta, Chefe. O que vamos gerenciar hoje?</p>
+
+                <div style="display: grid; gap: 16px;">
+                    <!-- Card Gerenciar Usuários -->
+                    <div onclick="app.navigate('admin-contas')" style="background: #000; padding: 32px; border-radius: 32px; color: #fff; cursor: pointer; position: relative; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.15);">
+                        <div style="position: absolute; top: -10px; right: -10px; opacity: 0.15;">
+                            <i data-lucide="users" style="width: 80px; height: 80px;"></i>
+                        </div>
+                        <h3 style="font-size: 20px; font-weight: 950; margin-bottom: 8px;">Gerenciar Contas</h3>
+                        <p style="font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 700;">Audite usuários, mude bios e gerencie permissões.</p>
+                    </div>
+
+                    <!-- Card Gerenciar Produtos -->
+                    <div onclick="app.navigate('admin-produtos')" style="background: #f5f5f5; padding: 32px; border-radius: 32px; color: #000; cursor: pointer; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -20px; right: -20px; opacity: 0.05;">
+                            <i data-lucide="package" style="width: 100px; height: 100px;"></i>
+                        </div>
+                        <h3 style="font-size: 20px; font-weight: 950; margin-bottom: 8px;">Gerenciar Produtos</h3>
+                        <p style="font-size: 12px; color: #999; font-weight: 700;">Remova itens, edite preços e controle o mercado global.</p>
+                    </div>
+                </div>
+             </div>
         </div>
     </template>
 
