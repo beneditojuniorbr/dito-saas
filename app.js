@@ -2214,13 +2214,7 @@
                 <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
                 <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com cupons: 75%</p>
                 
-                </div>
-            `;
-            
-            // Garantir que estamos injetando no lugar certo (seja no Mercado ou no Checkout Direto)
-            const targetActions = document.getElementById('pix-payment-actions');
-            if (targetActions) {
-                targetActions.innerHTML = `
+                <div id="pix-payment-actions">
                     ${this.currentUser && this.currentUser.isGuest ? `
                         <div id="checkout-registration-form" style="background: #fff; border: 1px solid #f0f0f0; padding: 20px; border-radius: 20px; margin-top: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
                             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
@@ -2239,9 +2233,11 @@
                     <button onclick="app.processPaymentCheckout()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
                         <i data-lucide="diamond" style="width: 18px;"></i> ${this.currentUser && this.currentUser.isGuest ? 'CADASTRAR E GERAR PIX' : 'GERAR PIX AGORA'}
                     </button>
+                    <button onclick="app.generateCheckoutQR()" style="width: 100%; height: 50px; background: #222; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 13px; margin-top: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i data-lucide="qr-code" style="width: 16px;"></i> Gerar QR Code Pix
+                    </button>
                 </div>
-                `;
-            }
+            `;
             
             list.appendChild(rewardsSection);
 
