@@ -106,9 +106,9 @@
                 <i data-lucide="plus" style="width: 22px; color: #000;"></i>
                 <div id="header-create-dot" style="position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background: #ffd600; border-radius: 50%; border: 1.5px solid #fff; z-index: 10; display: none;"></div>
             </div>
-            <div id="coin-pod" onclick="app.navigate('recompensas')" style="background: rgba(255, 214, 0, 0.1); padding: 4px 12px; border-radius: 50px; display: none; align-items: center; gap: 6px; cursor: pointer; border: 1px solid rgba(255, 214, 0, 0.2); transition: all 0.3s ease;">
-                <i data-lucide="circle-dollar-sign" style="width: 12px; color: #ffd600;"></i>
-                <span id="global-coin-balance" style="font-size: 11px; font-weight: 900; color: #b8860b;">0</span>
+            <div id="coin-pod" onclick="app.navigate('recompensas')" style="background: transparent; padding: 0; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.3s ease;">
+                <i data-lucide="ticket" style="width: 12px; color: #ff005c;"></i>
+                <span id="global-coin-balance" style="font-size: 11px; font-weight: 900; color: #000;">0</span>
             </div>
         </div>
 
@@ -243,6 +243,89 @@
                     Baixar App Dito
                 </button>
             </div>
+
+            <!-- Landing Page Section (Scrollable) -->
+            <div style="margin-top: 100px; width: 100%; text-align: left; padding: 60px 24px; background: #fff; border-top: 1px solid #f9f9f9;">
+                <div style="text-align: center; margin-bottom: 64px;">
+                    <h2 style="font-size: 42px; font-weight: 950; letter-spacing: -3px; color: #000; line-height: 0.9; margin-bottom: 8px;">Sua melhor escolha.</h2>
+                    <p style="font-size: 13px; font-weight: 700; color: #999; letter-spacing: -0.5px;">Onde produtores lucram de verdade.</p>
+                </div>
+                
+                <div style="display: grid; gap: 40px;">
+                    <!-- Benefício 1: Taxa -->
+                    <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="percent" stroke="url(#dito-gradient)" style="width: 28px; height: 28px;"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-weight: 950; font-size: 16px; color: #000; margin-bottom: 4px; letter-spacing: -0.5px;">Taxa Fixa de 3%</h4>
+                            <p style="font-size: 13px; color: #666; font-weight: 500; line-height: 1.5;">Esqueça as taxas abusivas das outras plataformas. No Dito, você mantém o controle total do seu lucro.</p>
+                        </div>
+                    </div>
+
+                    <!-- Benefício 2: Pix -->
+                    <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="zap" stroke="url(#dito-gradient)" style="width: 28px; height: 28px;"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-weight: 950; font-size: 16px; color: #000; margin-bottom: 4px; letter-spacing: -0.5px;">Pagamentos Instantâneos</h4>
+                            <p style="font-size: 13px; color: #666; font-weight: 500; line-height: 1.5;">Receba suas vendas na hora via Pix. Sem prazos de carência e sem burocracia para sacar o que é seu.</p>
+                        </div>
+                    </div>
+
+                    <!-- Benefício 3: Ecossistema -->
+                    <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="layout" stroke="url(#dito-gradient)" style="width: 28px; height: 28px;"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-weight: 950; font-size: 16px; color: #000; margin-bottom: 4px; letter-spacing: -0.5px;">Plataforma Todos em Um</h4>
+                            <p style="font-size: 13px; color: #666; font-weight: 500; line-height: 1.5;">Hospede os cursos que você ama, venda ebooks com facilidade ou faça mentorias ao vivo escolha o valor do seu ingresso. Ou junte tudo em Uma coisa só Todos em Um</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="app.navigate('cadastro')" style="margin-top: 60px; width: 100%; height: 64px; background: linear-gradient(90deg, #ff005c 0%, #0487ff 100%); color: #fff; border: none; border-radius: 50px; font-weight: 950; font-size: 14px; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 25px rgba(255, 0, 92, 0.2); letter-spacing: 1px;">
+                    CRIAR MINHA CONTA GRÁTIS
+                </button>
+
+                <!-- HALL DA FAMA SECTION -->
+                <div style="margin-top: 100px; border-top: 1px solid #f0f0f0; padding-top: 80px;">
+                    <div style="text-align: center; margin-bottom: 64px;">
+                        <h2 style="font-size: 36px; font-weight: 950; letter-spacing: -2px; color: #000; margin-top: 8px;">Hall da Fama.</h2>
+                        <p style="font-size: 14px; color: #666; font-weight: 500; margin-top: 8px; line-height: 1.5;">Conquiste seu lugar entre as lendas.</p>
+                    </div>
+
+                    <div style="display: grid; gap: 40px; margin-bottom: 64px;">
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i data-lucide="trophy" stroke="url(#dito-gradient)" style="width: 28px; height: 28px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="font-weight: 950; font-size: 16px; color: #000; margin-bottom: 4px; letter-spacing: -0.5px;">Milestones de Sucesso</h4>
+                                <p style="font-size: 13px; color: #666; font-weight: 500; line-height: 1.5;">De R$ 100 a R$ 100.000. Cada marca alcançada é celebrada com honras e vantagens exclusivas na plataforma.</p>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i data-lucide="medal" stroke="url(#dito-gradient)" style="width: 28px; height: 28px;"></i>
+                            </div>
+                            <div>
+                                <h4 style="font-weight: 950; font-size: 16px; color: #000; margin-bottom: 4px; letter-spacing: -0.5px;">Placas de Reconhecimento</h4>
+                                <p style="font-size: 13px; color: #666; font-weight: 500; line-height: 1.5;">Receba placas digitais personalizadas para exibir sua autoridade em seu perfil público.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p style="text-align: center; font-size: 12px; color: #999; font-weight: 700; font-style: italic;">"O sucesso deixa rastros. Comece a trilhar os seus hoje."</p>
+                </div>
+                
+                <div style="margin-top: 80px; text-align: center; padding-bottom: 40px;">
+                     <p style="font-size: 10px; color: #ccc; font-weight: 800; letter-spacing: 2px;">© 2026 DITO PRO - SAAS PLATFORM</p>
+                </div>
+            </div>
         </div>
     </template>
 
@@ -288,8 +371,7 @@
         <div class="dashboard animate-fade" style="padding: 0;">
 
             <!-- Minimalist Balance Section -->
-            <section style="background: #fff; color: #000; padding: 32px 24px; margin-bottom: 12px; text-align: center; border-bottom: 1px solid #f9f9f9;">
-                <p style="font-size: 9px; font-weight: 900; letter-spacing: 2px; color: #eee; margin-bottom: 12px;">Saldo total</p>
+            <section style="background: #fff; color: #000; padding: 24px; margin-bottom: 12px; text-align: center; border-bottom: 1px solid #f9f9f9;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; position: relative;">
                     <h2 id="label-balance" style="font-size: 32px; font-weight: 900; letter-spacing: -1.5px;">
                         R$ 0,00
@@ -693,11 +775,7 @@
                     <i data-lucide="arrow-left" style="width: 20px;"></i>
                 </div>
                 
-                <!-- SALDO DE CUPONS NO MERCADO (SINCRONIZADO) -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="ticket" style="width: 18px; color: #fff;"></i>
-                    <span id="market-coin-balance" style="font-size: 16px; font-weight: 900; color: #fff;">0</span>
-                </div>
+                <!-- SALDO DE CUPONS REMOVIDO DA HOME DO MERCADO -->
             </div>
             <header style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="flex: 1;"></div>
@@ -1713,12 +1791,8 @@
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
-                    <div style="width: 24px; height: 20px; display: flex; align-items: center; justify-content: center; position: relative; margin-right: 8px;">
-                        <i data-lucide="ticket" style="width: 16px; color: #ff005c; position: absolute; transform: rotate(-15deg); opacity: 0.4;"></i>
-                        <i data-lucide="ticket" style="width: 16px; color: #ff005c; position: absolute; transform: rotate(15deg); opacity: 0.7;"></i>
-                        <i data-lucide="ticket" style="width: 16px; color: #ff005c; position: absolute; z-index: 2;"></i>
-                    </div>
-                    <span id="missions-coin-balance" style="font-size: 16px; font-weight: 900;">0</span>
+                    <i data-lucide="ticket" style="width: 16px; color: #ff005c;"></i>
+                    <span id="missions-coin-balance" style="font-size: 16px; font-weight: 950; color: #000;">0</span>
                 </div>
             </header>
 

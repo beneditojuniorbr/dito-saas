@@ -499,7 +499,7 @@
                 return;
             }
 
-            if (!this.currentUser.email) {
+            if (!this.currentUser.email && !this.currentUser.isGuest) {
                 this.showNotification('Cadastre seu e-mail no perfil antes de comprar!', 'error');
                 this.navigate('perfil');
                 return;
@@ -529,7 +529,8 @@
                         description: `Compra no Dito Pro - ${this.cart.length} itens`,
                         email: email,
                         metadata: {
-                            user_id: this.currentUser.id,
+                            user_id: this.currentUser.id || this.currentUser.username,
+                            username: this.currentUser.username,
                             cart_items: this.cart.map(p => p.id)
                         }
                     })
@@ -545,10 +546,12 @@
                 console.log("✅ [Pagamento] Resposta recebida:", data);
                 
                 if (data.qr_code) {
-                    this.showNotification('Pix recebido com sucesso!', 'success');
                     this.showLoading(false);
                     this.displayPixModal(data.qr_code, total);
                     this.showNotification('Pix gerado com sucesso! ✨', 'success');
+                    
+                    // Inicia polling para detectar a confirmação
+                    this.startPaymentPolling();
                 } else {
                     console.error("❌ [Pagamento] Falha: qr_code não encontrado no JSON", data);
                     throw new Error(data.error || data.message || 'O servidor de pagamento não retornou um código Pix válido.');
@@ -558,6 +561,96 @@
                 console.error("🚨 [Pagamento] Erro Crítico:", e);
                 this.showLoading(false);
                 this.showNotification(`Erro ao gerar Pix: ${e.message}`, 'error');
+            }
+        },
+
+        async processPaymentCheckout() {
+            // 1. Se for convidado, valida e cria a conta DURANTE o checkout
+            if (this.currentUser && this.currentUser.isGuest) {
+                const name = document.getElementById('reg-checkout-name')?.value.trim();
+                const user = document.getElementById('reg-checkout-user')?.value.trim();
+                const pass = document.getElementById('reg-checkout-pass')?.value.trim();
+
+                if (!name || !user || !pass) {
+                    this.showNotification("Por favor, crie sua conta para receber o acesso ao produto.", "error");
+                    document.getElementById('checkout-registration-form')?.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+
+                this.showLoading(true, "Registrando sua conta real...");
+                
+                try {
+                    // Verifica se usuário já existe
+                    const { data: existing } = await supabase.from('dito_users').select('username').eq('username', user).maybeSingle();
+                    if (existing) {
+                        this.showLoading(false);
+                        this.showNotification("Este usuário já existe. Escolha outro!", "error");
+                        return;
+                    }
+
+                    const { data, error } = await supabase.from('dito_users').insert([{
+                        username: user,
+                        password: pass,
+                        name: name,
+                        balance: 0,
+                        sales: 0,
+                        bio: "Membro Dito",
+                        referred_by: localStorage.getItem('dito_pending_ref') || null,
+                        created_at: new Date().toISOString()
+                    }]).select().single();
+
+                    if (error) throw error;
+
+                    // Sucesso no Cadastro -> Converte Sessão
+                    localStorage.setItem('is_logged_in_vanilla', 'true');
+                    localStorage.setItem('is_guest_vanilla', 'false');
+                    this.currentUser = data;
+                    this.saveSession(data);
+                    this.showNotification('Conta criada com sucesso! ✨', 'success');
+                } catch (e) {
+                    console.error("Erro ao criar conta:", e);
+                    this.showLoading(false);
+                    this.showNotification("Erro ao criar conta comercial.", "error");
+                    return;
+                }
+            }
+
+            // 2. Inicia o fluxo de pagamento real via Mercado Pago
+            await this.processPaymentMP('pix');
+        },
+
+        startPaymentPolling() {
+            if (this.paymentPollingInterval) clearInterval(this.paymentPollingInterval);
+            
+            const buyerKey = this.getUserKey();
+            const initialCount = this.purchasedProducts.length;
+            
+            console.log("🕒 [Payment] Iniciando monitoramento de entrega para:", buyerKey);
+            
+            this.paymentPollingInterval = setInterval(async () => {
+                // 1. Tenta sincronizar via Supabase
+                if (supabase && this.currentUser && !this.currentUser.isGuest) {
+                    await this.fetchPurchasedProducts();
+                    if (this.purchasedProducts.length > initialCount) {
+                        console.log("✅ [Payment] Entrega confirmada via polling!");
+                        clearInterval(this.paymentPollingInterval);
+                        this.launchVictoryConfetti();
+                        this.showSystemNotification('Pagamento Confirmado! ✅', 'Seu produto já está liberado na área de membros.', 'success');
+                    }
+                }
+            }, 4000); // Checa a cada 4 segundos
+        },
+
+        launchVictoryConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ff005c', '#0487ff', '#ffd600']
+                });
+            } else {
+                console.log("🎉 [Confetti] Ativo!");
             }
         },
 
@@ -1002,8 +1095,8 @@
                 headerTitle.innerHTML = `<i data-lucide="${icon}" style="width: 20px; color:#000;"></i> ${roomTitle}`;
             }
 
-            // Limpa o feed para carregar apenas mensagens da sala atual (Se necessário, filtragem no append)
-            document.getElementById('world-chat-feed').innerHTML = '';
+            // Agora carrega do histórico persistente imediatamente
+            this.fetchWorldChatMessages();
 
             document.getElementById('world-chat-drawer').classList.add('active');
             document.getElementById('world-chat-drawer').style.bottom = '0';
@@ -1141,9 +1234,7 @@
             container.innerHTML = coupons.map(c => `
                 <div style="background: #fff; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #efefef; box-shadow: 0 4px 10px rgba(0,0,0,0.02); margin-bottom: 8px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 40px; height: 40px; background: #fff1f2; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #ff005c;">
-                            <i data-lucide="ticket" style="width: 20px;"></i>
-                        </div>
+                        <i data-lucide="ticket" style="width: 18px; color: #ff005c;"></i>
                         <div>
                             <h4 style="font-size: 13px; font-weight: 950; color: #000;">Cupom de Indicação</h4>
                             <p style="font-size: 10px; font-weight: 700; color: #999;">Recebido em ${new Date(c.date).toLocaleDateString('pt-BR')}</p>
@@ -1274,11 +1365,8 @@
                 return `
                 <div style="scroll-snap-align: start; min-width: 200px; padding: 20px; border-radius: 24px; border: 2px solid transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #ef4444 0%, #0ea5e9 100%) border-box; display: flex; flex-direction: column; gap: 12px; position: relative; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.05);">
                     <div style="position: absolute; top: 12px; right: 12px; background: ${evt.color}15; color: ${evt.color}; font-size: 9px; font-weight: 950; padding: 4px 10px; border-radius: 50px;">+${evt.reward}</div>
-                    <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; position: relative;">
-                        <!-- Stack de 3 cupons -->
-                        <i data-lucide="ticket" style="width: 20px; color: ${evt.color}; position: absolute; transform: rotate(-15deg); opacity: 0.4; margin-right: 8px;"></i>
-                        <i data-lucide="ticket" style="width: 20px; color: ${evt.color}; position: absolute; transform: rotate(15deg); opacity: 0.7; margin-left: 8px;"></i>
-                        <i data-lucide="ticket" style="width: 20px; color: ${evt.color}; position: absolute; z-index: 2;"></i>
+                    <div style="width: 44px; height: 44px; background: ${evt.color}15; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                        <i data-lucide="ticket" style="width: 22px; color: ${evt.color};"></i>
                     </div>
                     <div>
                         <p style="font-weight: 950; font-size: 14px; color: #000; margin-bottom: 2px;">${evt.name}</p>
@@ -1686,20 +1774,25 @@
             const container = document.getElementById('world-chat-feed');
             if (!container) return;
             
+            // Evita duplicatas visuais se vier do fetch e do realtime ao mesmo tempo
+            const msgId = msg.id || (msg.created_at + msg.content);
+            if (document.getElementById(`world-msg-${msgId}`)) return;
+
             // Definição das Cores de Alto Contraste (Fundo Branco)
             let channelColor = '#000000'; // Global (Preto Sólido)
             let prefix = '[Mundo]';
             
-            if (msg.receiver === 'SOC_GLOBAL' || msg.receiver.startsWith('SOC_')) {
+            if (msg.receiver === 'SOC_GLOBAL' || (msg.receiver && msg.receiver.startsWith('SOC_'))) {
                 channelColor = '#008f11'; // Sociedade (Verde Escuro)
                 prefix = '[Sociedade]';
             } else if (msg.receiver !== 'GLOBAL') {
                 channelColor = '#c70097'; // Privado/Sussurro (Rosa Escuro para fundo branco)
-                prefix = `[Sussurro de ${msg.receiver === this.currentUser.username ? 'você' : msg.receiver}]`;
+                prefix = `[Sussurro de ${msg.receiver === this.currentUser?.username ? 'você' : msg.receiver}]`;
             }
             
             const isMe = msg.sender === this.currentUser?.username;
             const itemDiv = document.createElement('div');
+            itemDiv.id = `world-msg-${msgId}`;
             itemDiv.style.padding = '4px 0'; // Mais espaçamento no modo claro
             itemDiv.style.color = channelColor;
             itemDiv.style.fontSize = '14px';
@@ -1716,14 +1809,50 @@
             
             container.appendChild(itemDiv);
             container.scrollTop = container.scrollHeight;
+
+            // Salva no cache local para persistência total (DDTank Style)
+            this.saveWorldMessageToLocal(msg);
+        },
+
+        saveWorldMessageToLocal(msg) {
+            const key = 'dito_world_chat_history';
+            let history = [];
+            try {
+                history = JSON.parse(localStorage.getItem(key) || '[]');
+            } catch(e) { history = []; }
+
+            // Evita duplicatas no storage
+            const alreadyExists = history.some(m => (m.id && m.id === msg.id) || (m.created_at === msg.created_at && m.content === msg.content));
+            if (!alreadyExists) {
+                history.push(msg);
+                if (history.length > 100) history.shift(); // Mantém as últimas 100 mensagens
+                localStorage.setItem(key, JSON.stringify(history));
+            }
         },
 
         async fetchWorldChatMessages() {
-            if(!supabase || !this.currentUser) return;
+            if(!this.currentUser) return;
             const container = document.getElementById('world-chat-feed');
-            
+            if (!container) return;
+
+            // 1. CARREGA DO CACHE LOCAL (INSTANTÂNEO)
+            const localKey = 'dito_world_chat_history';
+            let localData = [];
             try {
-                // Traz os últimos avisos globais e mensagens suas do mundo
+                localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+            } catch(e) { localData = []; }
+
+            if (localData.length > 0) {
+                container.innerHTML = '';
+                localData.forEach(msg => this.appendWorldMessageToChat(msg));
+            } else {
+                container.innerHTML = '<p style="text-align:center;color:#ccc;font-size:12px;margin-top:20px;">Carregando mensagens da rede...</p>';
+            }
+
+            if (!supabase) return;
+
+            try {
+                // 2. BUSCA NO SUPABASE PARA ATUALIZAR O HISTÓRICO REAL
                 const { data, error } = await supabase.from('dito_messages')
                     .select('*')
                     .or(`receiver.eq.GLOBAL,receiver.eq.SOC_GLOBAL,receiver.eq.${this.currentUser.username},sender.eq.${this.currentUser.username}`)
@@ -1731,20 +1860,21 @@
                     .limit(50);
                     
                 if(!error && data) {
+                    // Re-renderiza com dados novos para garantir sincronia
                     container.innerHTML = '';
-                    // Reverte pois o select order by desc + limit pega os 50 mais recentes mas inverte a cronologia
-                    data.reverse().forEach(msg => {
-                        // Filtro fino: Se for sussurro entre outros, não mostra
+                    const reversed = data.reverse();
+                    reversed.forEach(msg => {
                         if (msg.receiver !== 'GLOBAL' && msg.receiver !== 'SOC_GLOBAL' && msg.receiver !== this.currentUser.username && msg.sender !== this.currentUser.username) {
                             return;
                         }
-                        // Não mostra mensagens normais de chat 1:1 no chat global (apenas os puramente enviados via World Chat)
-                        // Para facilitar, por enquanto, mostraremos todas as Dito Messages. A magia está no receiver.
                         this.appendWorldMessageToChat(msg);
                     });
+                    
+                    // Atualiza o cache local com os dados mais recentes do servidor
+                    localStorage.setItem(localKey, JSON.stringify(reversed));
                 }
             } catch(e) {
-                console.warn(e);
+                console.warn("Erro ao buscar world chat:", e);
             }
         },
 
@@ -2198,11 +2328,7 @@
             rewardsSection.innerHTML = `
                 ${isFirstPurchase ? `
                 <div style="background: rgba(34, 197, 94, 0.05); border: 1px dashed #22c55e; padding: 12px; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 24px; height: 16px; display: flex; align-items: center; justify-content: center; position: relative;">
-                        <i data-lucide="ticket" style="width: 14px; color: #22c55e; position: absolute; transform: rotate(-15deg); opacity: 0.4;"></i>
-                        <i data-lucide="ticket" style="width: 14px; color: #22c55e; position: absolute; transform: rotate(15deg); opacity: 0.7;"></i>
-                        <i data-lucide="ticket" style="width: 14px; color: #22c55e; position: absolute; z-index: 2;"></i>
-                    </div>
+                    <i data-lucide="ticket" style="width: 16px; color: #22c55e;"></i>
                     <p style="font-size: 10px; font-weight: 900; color: #22c55e;">PRIMEIRA COMPRA: 75% OFF!</p>
                 </div>
                 ` : ''}
@@ -2233,9 +2359,6 @@
                     <button onclick="app.processPaymentCheckout()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
                         <i data-lucide="diamond" style="width: 18px;"></i> ${this.currentUser && this.currentUser.isGuest ? 'CADASTRAR E GERAR PIX' : 'GERAR PIX AGORA'}
                     </button>
-                    <button onclick="app.generateCheckoutQR()" style="width: 100%; height: 50px; background: #222; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 13px; margin-top: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <i data-lucide="qr-code" style="width: 16px;"></i> Gerar QR Code Pix
-                    </button>
                 </div>
             `;
             
@@ -2256,47 +2379,7 @@
             if (window.lucide) lucide.createIcons();
         },
 
-        async processPaymentCheckout() {
-            if (this.currentUser && this.currentUser.isGuest) {
-                const name = document.getElementById('reg-checkout-name')?.value.trim();
-                const user = document.getElementById('reg-checkout-user')?.value.trim();
-                const pass = document.getElementById('reg-checkout-pass')?.value.trim();
 
-                if (!name || !user || !pass) {
-                    return this.showNotification('Preencha os dados de cadastro para continuar.', 'error');
-                }
-
-                this.showLoading(true, 'Criando sua conta...');
-                
-                // Realiza cadastro via Supabase
-                try {
-                    const { data, error } = await supabase.from('dito_users').insert([{
-                        username: user,
-                        password: pass,
-                        name: name,
-                        balance: 0,
-                        sales: 0,
-                        bio: "Membro Dito",
-                        referred_by: localStorage.getItem('dito_pending_ref') || null
-                    }]).select().single();
-
-                    if (error) throw error;
-
-                    // Sucesso no Cadastro -> Converte Sessão
-                    localStorage.setItem('is_logged_in_vanilla', 'true');
-                    localStorage.setItem('is_guest_vanilla', 'false');
-                    this.currentUser = data;
-                    this.saveSession(data);
-                    this.showNotification('Conta criada com sucesso! Gerando pagamento...', 'success');
-                } catch (e) {
-                    this.showLoading(false);
-                    return this.showNotification('Erro ao criar conta: Usuário já existe ou erro de rede.', 'error');
-                }
-            }
-
-            // Segue para o pagamento
-            this.processPaymentMP('pix');
-        },
 
         generateCheckoutQR() {
             const qrImg = document.getElementById('checkout-qr-code');
@@ -4436,10 +4519,12 @@
             const dashCoins = document.getElementById('dashboard-coin-balance');
             const missCoins = document.getElementById('missions-coin-balance');
             const markCoins = document.getElementById('market-coin-balance');
+            const podCoins = document.getElementById('global-coin-balance');
             
             if (dashCoins) dashCoins.innerText = coins;
             if (missCoins) missCoins.innerText = coins;
             if (markCoins) markCoins.innerText = coins;
+            if (podCoins) podCoins.innerText = coins;
         },
 
         startEventsCarousel() {
