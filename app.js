@@ -1987,9 +1987,27 @@
         },
 
         async fetchNetworkProducts() {
+            // 1. Efeito Visual de "Flash" (Piscada) e Rotação do Ícone
+            const mContainer = document.getElementById('market-actual-content');
+            const rIcon = document.getElementById('market-refresh-icon');
+
+            if (rIcon) {
+                rIcon.style.transition = 'transform 1.5s ease-in-out';
+                rIcon.style.transform = rIcon.style.transform === 'rotate(180deg)' ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+
+            if (mContainer) {
+                mContainer.style.transition = 'none';
+                mContainer.style.opacity = '0';
+                setTimeout(() => {
+                    mContainer.style.transition = 'opacity 1.5s ease-out';
+                    mContainer.style.opacity = '1';
+                }, 50);
+            }
+
             if (!supabase) return;
             try {
-                // Busca apenas os produtos mais recentes do Mercado (Top 50)
+                // Simula um loading rápido para ser visível
                 const { data, error } = await supabase.from('dito_market_products')
                     .select('*')
                     .order('created_at', { ascending: false })
@@ -1997,11 +2015,8 @@
 
                 if (data && !error) {
                     const currentHash = JSON.stringify(data);
-                    const lastHash = localStorage.getItem('dito_last_p_hash');
-                    if (currentHash === lastHash) return; // Nada mudou, mantém o scroll!
                     
-                    localStorage.setItem('dito_last_p_hash', currentHash);
-
+                    // Atualiza local anyway para garantir que tudo esteja fresco
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                     data.forEach(net => {
                         const idx = local.findIndex(p => p.id === net.id);
@@ -2010,15 +2025,19 @@
                         else local.push(parsed);
                     });
                     
-                    if (local.length > 100) local = local.slice(0, 100);
-
                     this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
                     this.products = local;
+
+                    // FORÇA a renderização para o usuário ver o "bounce" de carregamento
+                    if (this.currentView === 'mercado') {
+                        this.renderMarketHome();
+                    }
                     
-                    if (this.currentView === 'mercado') this.renderMarketHome();
+                    localStorage.setItem('dito_last_p_hash', currentHash);
                 }
             } catch (e) {
                 console.warn("⚠️ [Network] Erro ao buscar produtos:", e);
+                // Erros silenciosos ou apenas logs para manter a UI limpa
             }
         },
 
@@ -2476,9 +2495,12 @@
             const buyerKey = this.getUserKey();
 
             for (let product of productsToUnlock) {
-                // 1. REGISTRA PARA O COMPRADOR
+                // 1. REGISTRA PARA O COMPRADOR (Com Timestamp para Reembolso)
                 if (!this.purchasedProducts.find(p => p.id === product.id)) {
-                    this.purchasedProducts.push(product);
+                    this.purchasedProducts.push({ 
+                        ...product, 
+                        purchased_at: Date.now() 
+                    });
                 }
 
                 // 2. CRÉDITO JUSTO PARA O VENDEDOR (REDE)
@@ -2637,22 +2659,77 @@
                 return;
             }
 
-            list.innerHTML = this.purchasedProducts.map(p => `
-                <div style="background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 16px; display: flex; gap: 16px; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.02); position: relative;">
-                    <div style="width: 70px; height: 70px; background: #f8f8f8; border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="play-circle" style="width: 28px; color: #ccc;"></i>`}
+            list.innerHTML = this.purchasedProducts.map(p => {
+                const now = Date.now();
+                const purchaseDate = p.purchased_at || now; // Fallback para compras antigas
+                const diffTime = now - purchaseDate;
+                const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+                const isRefundable = diffTime <= sevenDaysMs;
+                
+                // Calcula dias restantes para o UI
+                const daysRemaining = Math.max(0, Math.ceil((sevenDaysMs - diffTime) / (1000 * 60 * 60 * 24)));
+
+                return `
+                    <div style="background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); position: relative;">
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="width: 60px; height: 60px; background: #f8f8f8; border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="play-circle" style="width: 24px; color: #ccc;"></i>`}
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <span style="font-size: 8px; font-weight: 900; background: #f5f5f5; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; color: #999; margin-bottom: 4px; display: inline-block;">${p.type || 'Produto'}</span>
+                                <h4 style="font-size: 14px; font-weight: 900; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <p style="font-size: 10px; color: #22c55e; font-weight: 900;">Acesso Vitalício</p>
+                                    ${isRefundable ? `<span style="font-size: 9px; color: #f59e0b; font-weight: 800;">• ${daysRemaining}d para reembolso</span>` : ''}
+                                </div>
+                            </div>
+                            <button onclick="app.openCourse('${p.id}')" style="width: 42px; height: 42px; background: #000; color: #fff; border: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                <i data-lucide="arrow-right" style="width: 18px;"></i>
+                            </button>
+                        </div>
+                        
+                        ${isRefundable ? `
+                            <div style="border-top: 1px solid #f9f9f9; padding-top: 12px; display: flex; justify-content: flex-start;">
+                                <button onclick="app.requestRefund('${p.id}')" style="background: none; border: none; color: #999; font-size: 10px; font-weight: 800; padding: 0; cursor: pointer; display: flex; align-items: center; gap: 4px; text-decoration: underline;">
+                                    <i data-lucide="refresh-cw" style="width: 10px;"></i> Solicitar Reembolso (Garantia Dito)
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <span style="font-size: 8px; font-weight: 900; background: #f5f5f5; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; color: #999; margin-bottom: 4px; display: inline-block;">${p.type || 'Produto'}</span>
-                        <h4 style="font-size: 14px; font-weight: 900; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
-                        <p style="font-size: 10px; color: #22c55e; font-weight: 900;">Acesso Vitalício</p>
-                    </div>
-                    <button onclick="app.openCourse('${p.id}')" style="width: 48px; height: 48px; background: #000; color: #fff; border: none; border-radius: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                        <i data-lucide="arrow-right" style="width: 20px;"></i>
-                    </button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
             if (window.lucide) lucide.createIcons();
+        },
+
+        async requestRefund(id) {
+            const product = this.purchasedProducts.find(p => p.id === id);
+            if (!product) return;
+
+            const confirmRefund = confirm(`Deseja solicitar o reembolso de "${product.name}"?\n\nO acesso será removido imediatamente e o valor será estornado conforme a política de 7 dias.`);
+            
+            if (confirmRefund) {
+                this.showLoading(true, "Processando estorno...");
+                
+                try {
+                    // 1. Remove do array local
+                    this.purchasedProducts = this.purchasedProducts.filter(p => p.id !== id);
+                    const buyerKey = this.getUserKey();
+                    this.safeLocalStorageSet(`dito_purchased_products_${buyerKey}`, JSON.stringify(this.purchasedProducts));
+                    
+                    // 2. Simula reversão financeira (Logs apenas neste MVP)
+                    console.log(`💸 [Reembolso] Estornando R$ ${product.price} para o comprador.`);
+                    
+                    setTimeout(() => {
+                        this.showLoading(false);
+                        this.showNotification("Reembolso solicitado com sucesso! ✅", "success");
+                        this.renderPurchasedProducts();
+                    }, 1500);
+                } catch (e) {
+                    console.error("Erro ao processar reembolso:", e);
+                    this.showLoading(false);
+                    this.showNotification("Erro ao processar reembolso.", "error");
+                }
+            }
         },
 
         openCourse(id) {
@@ -5606,6 +5683,9 @@
                 .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
                 .filter(p => p.visible !== false && p.visible !== 'false');
             
+            // --- EMBARALHAR PRODUTOS (NOVO) ---
+            all = all.sort(() => Math.random() - 0.5);
+
             // --- FILTRO POR NICHO (NOVO) ---
             const currentCat = this.marketCategory || 'Todas';
             if (currentCat !== 'Todas') {
@@ -5657,7 +5737,7 @@
                     `;
                     
                     return `
-                    <div onclick="app.viewProduct('${p.id}')" style="width: 151px; min-width: 151px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <div onclick="app.viewProduct('${p.id}')" style="width: 165px; min-width: 165px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
                         ${imgContainer}
                         <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
                         <div style="display: flex; gap: 2px; margin-bottom: 6px;">
@@ -5676,7 +5756,7 @@
             }
 
             // 2. TODOS (Grid Vertical Justo)
-            feed.style.gap = '6px';
+            feed.style.gap = '8px';
             feed.style.background = 'transparent'; 
             feed.innerHTML = all.map(p => {
                 const isMentoria = p.type === 'Mentoria';
