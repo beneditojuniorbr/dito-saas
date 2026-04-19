@@ -2326,12 +2326,8 @@
             rewardsSection.style.marginTop = '16px';
             rewardsSection.style.paddingTop = '16px';
             rewardsSection.innerHTML = `
-                ${isFirstPurchase ? `
-                <div style="background: rgba(34, 197, 94, 0.05); border: 1px dashed #22c55e; padding: 12px; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <i data-lucide="ticket" style="width: 16px; color: #22c55e;"></i>
-                    <p style="font-size: 10px; font-weight: 900; color: #22c55e;">PRIMEIRA COMPRA: 75% OFF!</p>
-                </div>
-                ` : ''}
+                <!-- Oferta de primeira compra removida -->
+
 
                 <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Cupons:</span>
@@ -4252,7 +4248,14 @@
                     if (this.currentUser && this.currentUser.showRevenue === false) {
                         revEl.innerText = "Privado";
                     } else {
-                        revEl.innerText = `R$ ${parseFloat(balance).toFixed(2)}`;
+                        // Calcula o saldo real (Base + Vendas)
+                        const key = this.getUserKey();
+                        const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
+                        const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+                        const salesTotal = realSales.reduce((acc, s) => acc + (parseFloat(s.value || s.amount || 0)), 0);
+                        const total = baseBalance + salesTotal;
+                        
+                        revEl.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
                 }
                 if (fansEl) fansEl.innerText = currentFans;
@@ -5002,6 +5005,12 @@
 
             if (!username || !password || !email) {
                 this.showNotification('Preencha todos os campos, incluindo o e-mail.', 'error');
+                return;
+            }
+
+            const termsCheck = document.getElementById('reg-terms-check');
+            if (termsCheck && !termsCheck.checked) {
+                this.showNotification('Você precisa confirmar que leu os Termos de Uso.', 'error');
                 return;
             }
 
@@ -6004,9 +6013,7 @@
 
     app.recalculateCheckoutTotal = function() {
         const totalBase = this.cart.reduce((acc, i) => acc + parseFloat(i.price || 0), 0);
-        const hasP = localStorage.getItem('dito_purchased_products');
-        const isFirst = !(hasP && JSON.parse(hasP).length > 0);
-        let final = isFirst ? (totalBase * 0.25) : totalBase;
+        let final = totalBase;
         
         // Limita o desconto das cupons em no máximo 75%
         let coins = parseInt(document.getElementById('coin-discount-slider')?.value || '0');
@@ -6142,46 +6149,8 @@
                 const notif = payload.new;
                 console.log('🔔 Nova notificação em tempo real:', notif);
                 
-                // Lógica Especial para VENDA (Sincroniza Saldo do Vendedor)
-                if (notif.type === 'venda' || notif.type === 'sale' || notif.title.toLowerCase().includes('venda realizado')) {
-                    const key = this.getUserKey();
-                    const history = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
-                    const valueMatch = notif.message.match(/R\$\s?([0-9.,]+)/);
-                    if (valueMatch) {
-                        const val = parseFloat(valueMatch[1].replace(',', '.'));
-                        history.push({ id: notif.id, value: val, date: new Date().toISOString(), product: 'Venda Realizada' });
-                        localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
-                        this.updateBalanceUI();
-                        this.playNotifSound();
-                    }
-                }
-
-                // Lógica Especial para COMPRA APROVADA (Libera Produto para o Comprador)
-                if (notif.type === 'compra_aprovada') {
-                    console.log("🎁 Liberando produto via Realtime...");
-                    // Extrai o nome do produto da mensagem para feedback visual
-                    const productNameMatch = notif.message.match(/"([^"]+)"/);
-                    const prodName = productNameMatch ? productNameMatch[1] : "seu produto";
-                    
-                    this.showSystemNotification('Acesso Liberado!', `O produto "${prodName}" já está na sua área de membros.`, 'success');
-                    
-                    // Como não temos o objeto completo do produto aqui, forçamos um reload ou fetch
-                    this.fetchPurchasedProducts(); 
-                    if (this.currentView === 'meus-cursos') this.renderPurchasedProducts();
-                }
-
-                // Processa Recompensa de Indicação TIME REAL
-                if (notif.type === 'referral_225') {
-                    let processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
-                    if (!processedRefs.includes(notif.id)) {
-                        const key = this.getUserKey();
-                        let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                        localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
-                        processedRefs.push(notif.id);
-                        localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
-                        this.showSystemNotification('Saldo Atualizado', 'Um amigo entrou! +225 cupons creditados!', 'success');
-                    }
-                }
+                // Despacha para o processador central
+                this.processIncomingNotification(notif);
 
                 if (!this.notifications) this.notifications = [];
                 this.notifications.unshift(notif);
@@ -6190,7 +6159,8 @@
                 this.playNotifSound();
             })
             .subscribe();
-            
+
+
         // Escuta novas MENSAGENS DE CHAT (Sistema mais resiliente sem filtros pesados)
         supabase
             .channel('realtime_chat_resilient')
@@ -6254,6 +6224,102 @@
             .subscribe((status) => {
                 console.log("📡 [Chat] Status da conexão Realtime:", status);
             });
+    };
+
+    app.processIncomingNotification = function(notif) {
+        // 1. Lógica de VENDA
+        if (notif.type === 'venda' || notif.type === 'sale' || notif.title.toLowerCase().includes('venda realizado')) {
+            const key = this.getUserKey();
+            const history = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
+            const valueMatch = notif.message.match(/R\$\s?([0-9.,]+)/);
+            if (valueMatch) {
+                const val = parseFloat(valueMatch[1].replace(',', '.'));
+                history.unshift({ 
+                    id: notif.id, 
+                    value: val, 
+                    timestamp: Date.now(),
+                    date: new Date().toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}),
+                    fullDate: new Date().toLocaleDateString('pt-BR'),
+                    productName: 'Venda Realizada',
+                    isSale: true 
+                });
+                localStorage.setItem(`dito_real_sales_history_${key}`, JSON.stringify(history));
+                this.updateBalanceUI();
+                this.playNotifSound();
+                if (this.currentView === 'vendas') this.renderSales();
+            }
+        }
+
+        // 2. Lógica de COMPRA APROVADA
+        if (notif.type === 'compra_aprovada') {
+            const productNameMatch = notif.message.match(/"([^"]+)"/);
+            const prodName = productNameMatch ? productNameMatch[1] : "seu produto";
+            this.showSystemNotification('Acesso Liberado!', `O produto "${prodName}" já está na sua área de membros.`, 'success');
+            this.fetchPurchasedProducts(); 
+            if (this.currentView === 'meus-cursos') this.renderPurchasedProducts();
+            this.playNotifSound();
+        }
+
+        // 3. Lógica de INDICAÇÃO
+        if (notif.type === 'referral_225') {
+            let processedRefs = JSON.parse(localStorage.getItem('dito_processed_refs') || '[]');
+            if (!processedRefs.includes(notif.id)) {
+                const key = this.getUserKey();
+                let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
+                processedRefs.push(notif.id);
+                localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
+                this.showSystemNotification('Saldo Atualizado', 'Um amigo entrou! +225 cupons creditados!', 'success');
+                this.updateCoinsUI();
+            }
+        }
+    };
+
+    app.simulatePurchase = function() {
+        const dummyProduct = {
+            id: 'PROD_TESTE_' + Date.now(),
+            name: 'Curso Dito Pro (E-book incluso)',
+            type: 'Curso',
+            image: '',
+            seller: 'admin',
+            price: 0,
+            content: [
+                {
+                    id: 'mod1',
+                    title: 'Iniciando no Dito',
+                    lessons: [
+                        { id: 'aula1', title: 'Boas vindas ao ecossistema', fileName: '' }
+                    ]
+                }
+            ]
+        };
+
+        // Injeta na lista de compras local para o teste aparecer
+        if (!this.purchasedProducts) this.purchasedProducts = [];
+        this.purchasedProducts.unshift(dummyProduct);
+
+        this.processIncomingNotification({
+            id: Date.now(),
+            type: 'compra_aprovada',
+            title: 'Acesso Liberado!',
+            message: 'O produto "' + dummyProduct.name + '" foi liberado!',
+            created_at: new Date().toISOString()
+        });
+        
+        if (this.currentView === 'meus-cursos') this.renderPurchasedProducts();
+        this.launchVictoryConfetti();
+    };
+
+    app.testFullFlow = async function() {
+        this.showLoading(true, "Iniciando teste de fluxo...");
+        setTimeout(() => {
+            this.simulateSale(); // Testa o lado do vendedor
+            setTimeout(() => {
+                this.simulatePurchase(); // Testa o lado do comprador
+                this.showNotification("Teste concluído! Verifique seu saldo e área de membros.", "success");
+                this.showLoading(false);
+            }, 1000);
+        }, 1000);
     };
 
     app.renderNotifications = function() {
@@ -6357,6 +6423,13 @@
             }
         } catch (e) {
             console.error("Erro ao sincronizar compras:", e);
+        }
+    };
+
+    app.toggleTerms = function(show) {
+        const modal = document.getElementById('terms-modal');
+        if (modal) {
+            modal.style.display = show ? 'flex' : 'none';
         }
     };
 
