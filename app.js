@@ -142,6 +142,11 @@
                 const isPathCheckout = window.location.pathname.startsWith('/p/');
                 const currentCheckoutId = urlParams.get('checkout') || (isPathCheckout ? window.location.pathname.split('/p/')[1] : null);
                 
+                // Limpa histórico de chat local ao entrar (Novas Mensagens serão salvas apenas nesta sessão)
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('chat_history_')) localStorage.removeItem(key);
+                });
+                
                 // Inteligencia anti-F5 para local (file://)
                 const lastProcessedLink = localStorage.getItem('dito_last_processed_checkout');
                 const isNewLink = currentCheckoutId && (currentCheckoutId !== lastProcessedLink);
@@ -1130,14 +1135,19 @@
                 return;
             }
 
-            const isAdmin = this.currentUser.username === 'Ditão' || this.currentUser.username === 'Visitante'; // Visitante temporário para teste
             const isAuthPage = this.currentView === 'login' || this.currentView === 'cadastro';
+            if (isAuthPage) {
+                btn.style.display = 'none';
+                return;
+            }
             
             const activeLive = this.products && this.products.find(p => 
                 p.type === 'Mentoria' && 
                 p.seller === this.currentUser.username && 
                 (p.visible === true || p.visible === 'true' || p.visible === undefined)
             );
+
+            btn.style.display = activeLive ? 'flex' : 'none';
 
             if (!isAuthPage && activeLive) {
                 this.adminLiveProduct = activeLive;
@@ -1625,8 +1635,8 @@
 
         openLiveAdmin() {
             const actions = [
+                { icon: 'play-circle', label: 'Iniciar Transmissão', color: '#10b981', call: "app.updateLiveStatus('AO VIVO')" },
                 { icon: 'pause-circle', label: 'Pausar Live', color: '#f59e0b', call: "app.updateLiveStatus('PAUSADO')" },
-                { icon: 'play-circle', label: 'Retomar Live', color: '#10b981', call: "app.updateLiveStatus('AO VIVO')" },
                 { icon: 'x-circle', label: 'Encerrar Live', color: '#ef4444', call: "app.updateLiveStatus('ENCERRADO')" },
                 { icon: 'refresh-ccw', label: 'Remover Mentoria da Vitrine', color: '#6366f1', call: "app.updateLiveVisibility(false)" }
             ];
@@ -3247,7 +3257,7 @@
                 
                 // Re-calcula status do admin para o botão de live
                 this.checkLiveAdminStatus();
-                this.checkTransmissaoStatus();
+
                 
                 if (header) {
                     const isMercado = view === 'mercado';
@@ -4892,6 +4902,8 @@
                 if (notif) notif.remove();
                 app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
                 app.launchVictoryConfetti();
+                // Verifica se precisa mostrar o botão de Transmissão imediatamente
+                if (this.selectedProductType === 'Mentoria') app.checkLiveAdminStatus();
                 app.navigate('dashboard');
             }, 3000);
         },
@@ -6450,18 +6462,7 @@
         }, 1500);
     };
 
-    app.checkTransmissaoStatus = function() {
-        const btn = document.getElementById('btn-transmissao');
-        if (!btn) return;
 
-        const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
-        const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-        const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
-        const all = [...p1, ...p2, ...p3];
-        
-        const hasMentoria = all.some(p => p.type === 'Mentoria' && p.visible !== false && p.visible !== 'false');
-        btn.style.display = hasMentoria ? 'inline-block' : 'none';
-    };
     app.resetCoins = function() {
         if (!this.currentUser) return;
         const key = this.getUserKey();
