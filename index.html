@@ -9,17 +9,19 @@
     <script>
         (function() {
             const isLocal = window.location.protocol === 'file:';
-            const base = document.createElement('base');
-            base.href = isLocal ? './' : '/';
-            document.head.appendChild(base);
-
+            
+            // Só adiciona a tag base se não for local, para evitar erros de segurança do Chrome/Windows
             if (!isLocal) {
-
+                const base = document.createElement('base');
+                base.href = '/';
+                document.head.appendChild(base);
+                
                 const link = document.createElement('link');
                 link.rel = 'manifest';
-                link.href = 'manifest.json';
                 link.href = 'manifest.json?v=20240420';
                 document.head.appendChild(link);
+            } else {
+                console.warn("⚠️ [Dito] Rodando via arquivo local. Algumas funções de rede e PWA podem ser limitadas pelo navegador.");
             }
         })();
     </script>

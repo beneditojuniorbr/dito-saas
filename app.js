@@ -6316,8 +6316,8 @@
                         <p style="font-size: 12px; color: #999; font-weight: 500;">A transmissão começará automaticamente à medida que o sinal for detectado.</p>
                         ${this.currentUser && this.currentUser.username === p.seller ? `
                             <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 240px;">
-                                <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
-                                    <i data-lucide="camera" style="width: 14px; margin-right: 4px;"></i> INICIAR CÂMERA (DITO NATIVE)
+                                <button onclick="app.isLocalProtocol() ? app.showRemoteCameraHelp('${p.id}') : app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
+                                    <i data-lucide="camera" style="width: 14px; margin-right: 4px;"></i> ${app.isLocalProtocol() ? 'CONECTAR CÂMERA DO CELULAR' : 'INICIAR CÂMERA (NATIVO)'}
                                 </button>
                                 <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer;">
                                     USAR LINK EXTERNO (YOUTUBE)
@@ -6503,6 +6503,23 @@
                 video.play();
                 if (btn) btn.style.display = 'none';
                 if (overlay) overlay.style.display = 'none';
+            }
+        },
+
+        isLocalProtocol() {
+            return window.location.protocol === 'file:';
+        },
+
+        showRemoteCameraHelp(productId) {
+            const p = this.products.find(item => String(item.id) === String(productId));
+            const msg = `Para usar a câmera no celular, publique seu app no GitHub ou use o link de acesso remoto do Dito. Deseja iniciar o modo de espera de sinal?`;
+            
+            if (confirm(msg)) {
+                // Ativa modo espera
+                p.sales_link = 'NATIVE_LIVE';
+                this.syncProductToNetwork(p);
+                this.renderMarketLiveRoom(document.getElementById('market-container'));
+                this.showNotification("Aguardando sinal do celular... Ligue a câmera lá!", "default");
             }
         },
 
