@@ -34,6 +34,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   
   const url = new URL(event.request.url);
+  
+  // IGNORA requisições para o Supabase (API da Rede) para não perder os headers de autenticação
+  if (url.hostname.includes('supabase.co')) return;
+
   const isLocalAsset = ASSETS_TO_CACHE.some(asset => url.pathname.endsWith(asset) || url.pathname === '/');
 
   // Adiciona um timestamp para forçar o browser a ignorar o cache local e ir no servidor
