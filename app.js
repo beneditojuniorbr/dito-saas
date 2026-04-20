@@ -1262,18 +1262,28 @@
             this.mentorChannel = supabase.channel(channelName, { config: { broadcast: { ack: true } } });
             this.peerConnections = this.peerConnections || {}; 
 
+            // Heartbeat para avisar que o mentor esta online
+            this.heartbeatInterval = setInterval(() => {
+                this.mentorChannel.send({
+                    type: 'broadcast',
+                    event: 'mentor-presence',
+                    payload: { mentorId: this.currentUser.username, status: 'active' }
+                });
+            }, 5000);
+
             this.mentorChannel
                 .on('broadcast', { event: 'request-stream' }, async ({ payload }) => {
                     const studentId = payload.studentId;
-                    console.log(`[Mentor] Solicitacao de: ${studentId}`);
                     
-                    // Se já existir um PC para esse aluno e estiver conectado, não faz nada
-                    if (this.peerConnections[studentId] && 
-                       (this.peerConnections[studentId].connectionState === 'connected' || 
-                        this.peerConnections[studentId].connectionState === 'connecting')) {
-                        return;
+                    // Protecao contra conexoes duplicadas ou em andamento
+                    if (this.peerConnections[studentId]) {
+                        const pc = this.peerConnections[studentId];
+                        if (pc.connectionState === 'connected') return;
+                        // Se estiver tentando ha muito tempo, limpa e tenta de novo
+                        pc.close();
                     }
 
+                    console.log(`[Mentor] Criando ponte para: ${studentId}`);
                     const pc = new RTCPeerConnection({
                         iceServers: [
                             { urls: 'stun:stun.l.google.com:19302' },
@@ -1309,10 +1319,7 @@
                 .on('broadcast', { event: 'answer' }, async ({ payload }) => {
                     if (payload.target === this.currentUser.username) {
                         const pc = this.peerConnections[payload.studentId];
-                        if (pc) {
-                            console.log(`[Mentor] Resposta recebida de ${payload.studentId}`);
-                            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-                        }
+                        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
                     }
                 })
                 .on('broadcast', { event: 'ice-candidate-from-student' }, async ({ payload }) => {
@@ -6429,6 +6436,10 @@
 
                 if (video) {
                     video.srcObject = event.streams[0];
+                    video.onloadedmetadata = () => {
+                        video.play().catch(e => console.warn("Autoplay bloqueado, aguardando clique."));
+                    };
+                    
                     if (status) status.innerText = 'CONEXÃO ESTABELECIDA!';
                     if (overlay) overlay.style.background = 'transparent';
                     if (unmuteBtn) {
@@ -6439,6 +6450,7 @@
                         if(status) status.style.opacity = '0';
                         const d = document.getElementById('live-diag-log');
                         if (d) d.style.display = 'none';
+                        if (overlay) overlay.style.display = 'none';
                     }, 5000);
                 }
             };
@@ -6467,6 +6479,14 @@
                             payload: { studentId: myId, target: payload.mentorId || this.selectedProduct.seller, answer }
                         });
                     }
+                })
+                .on('broadcast', { event: 'mentor-presence' }, ({ payload }) => {
+                    diag("Mentor detectado na sala!");
+                    this.studentChannel.send({
+                        type: 'broadcast',
+                        event: 'request-stream',
+                        payload: { studentId: myId }
+                    });
                 })
                 .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
                     if (payload.target === myId) {
