@@ -1306,6 +1306,12 @@
                         if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
                     }
                 })
+                .on('broadcast', { event: 'ice-candidate-from-student' }, async ({ payload }) => {
+                    if (payload.target === this.currentUser.username) {
+                        const pc = this.peerConnections[payload.studentId];
+                        if (pc) await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                    }
+                })
                 .subscribe();
         },
 
@@ -6233,14 +6239,21 @@
             // Converter link de vendas em Player (YouTube/Vimeo) - Suporte Mobile Robusto
             if (p.sales_link === 'NATIVE_LIVE') {
                 playerContainer.innerHTML = `
-                    <div style="width: 100%; height: 100%; background: #000; position: relative;">
-                        <video id="live-native-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-                        <div style="position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 6px;">
-                           <div style="background: #ff005c; color: #fff; font-size: 10px; font-weight: 950; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(255,0,92,0.3);">
-                               <div class="live-pulse" style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> DITO NATIVE LIVE
-                           </div>
-                           <div id="live-connection-status" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 9px; font-weight: 900; padding: 4px 10px; border-radius: 50px; backdrop-filter: blur(10px);">
-                               CONECTANDO AO MENTOR...
+                    <div style="width: 100%; height: 100%; background: #000; position: relative; overflow: hidden;">
+                        <video id="live-native-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        
+                        <!-- Overlay de Conexão -->
+                        <div id="live-native-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+                            <div class="live-pulse" style="width: 16px; height: 16px; background: #ff005c; border-radius: 50%; margin-bottom: 12px;"></div>
+                            <p id="live-native-status" style="color: #fff; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Sincronizando com o Mentor...</p>
+                            <button id="btn-unmute-live" onclick="app.unmuteNativeLive()" style="display: none; margin-top: 16px; background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
+                                <i data-lucide="volume-2" style="width: 14px; vertical-align: middle; margin-right: 4px;"></i> ATIVAR ÁUDIO
+                            </button>
+                        </div>
+
+                        <div style="position: absolute; top: 20px; left: 20px; z-index: 5;">
+                           <div style="background: #ff005c; color: #fff; font-size: 10px; font-weight: 950; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px;">
+                               <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%; animation: pulse 2s infinite;"></div> DITO NATIVE LIVE
                            </div>
                         </div>
                     </div>
@@ -6360,18 +6373,30 @@
             if (!supabase) return;
             const channelName = `live-native-${productId}`;
             this.studentChannel = supabase.channel(channelName);
-            const myId = this.currentUser ? this.currentUser.username : `guest-${Date.now()}`;
+            const myId = this.currentUser ? this.currentUser.username : `guest-${Math.random().toString(36).substr(2, 9)}`;
 
             const pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
             });
 
             pc.ontrack = (event) => {
                 const video = document.getElementById('live-native-video');
+                const overlay = document.getElementById('live-native-overlay');
+                const status = document.getElementById('live-native-status');
+                const unmuteBtn = document.getElementById('btn-unmute-live');
+
                 if (video) {
                     video.srcObject = event.streams[0];
-                    document.getElementById('live-connection-status').innerText = 'SINAL RECEBIDO! EM ALTA DEFINIÇÃO';
-                    document.getElementById('live-connection-status').style.background = '#10b981';
+                    if (status) status.innerText = 'CONECTADO!';
+                    if (overlay) overlay.style.background = 'transparent';
+                    if (unmuteBtn) {
+                        unmuteBtn.style.display = 'block';
+                        if (window.lucide) lucide.createIcons();
+                    }
+                    setTimeout(() => { if(overlay) overlay.style.display = 'none'; }, 3000);
                 }
             };
 
@@ -6379,8 +6404,8 @@
                 if (event.candidate) {
                     this.studentChannel.send({
                         type: 'broadcast',
-                        event: 'answer',
-                        payload: { studentId: myId, target: this.selectedProduct.seller, answer: pc.localDescription }
+                        event: 'ice-candidate-from-student',
+                        payload: { studentId: myId, target: this.selectedProduct.seller, candidate: event.candidate }
                     });
                 }
             };
@@ -6406,14 +6431,34 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        // Solicita o stream ao mentor
-                        this.studentChannel.send({
-                            type: 'broadcast',
-                            event: 'request-stream',
-                            payload: { studentId: myId }
-                        });
+                        // Solicita o stream ao mentor a cada 3 segundos até conectar (Polling de sinal)
+                        this.signalInterval = setInterval(() => {
+                            if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+                                this.studentChannel.send({
+                                    type: 'broadcast',
+                                    event: 'request-stream',
+                                    payload: { studentId: myId }
+                                });
+                            } else {
+                                clearInterval(this.signalInterval);
+                            }
+                        }, 3000);
                     }
                 });
+            
+            this.activePC = pc; // Para limpar depois
+        },
+
+        unmuteNativeLive() {
+            const video = document.getElementById('live-native-video');
+            const btn = document.getElementById('btn-unmute-live');
+            const overlay = document.getElementById('live-native-overlay');
+            if (video) {
+                video.muted = false;
+                video.play();
+                if (btn) btn.style.display = 'none';
+                if (overlay) overlay.style.display = 'none';
+            }
         },
 
         toggleMarketFilter() {
