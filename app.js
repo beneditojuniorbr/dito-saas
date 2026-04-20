@@ -1189,17 +1189,19 @@
             this.checkLiveAdminStatus();
         },
 
-        accessLiveDirectly(productId) {
+        async accessLiveDirectly(productId) {
             const p = this.products.find(p => String(p.id) === String(productId));
             if (!p) return;
             
             this.showNotification("Acesso Verificado! Abrindo sala...", "success");
             
             // Força sincronia para garantir o link mais recente da transmissão
-            this.fetchNetworkProducts(true);
+            await this.fetchNetworkProducts(true);
             
-            // Define o produto ativo e vai para a sala live interna
-            this.selectedProduct = p;
+            // Re-localiza o produto na lista atualizada para pegar o sales_link novo
+            const updatedP = this.products.find(item => String(item.id) === String(productId));
+            this.selectedProduct = updatedP || p;
+            
             this.setMarketView('live-room');
         },
 
@@ -6129,6 +6131,12 @@
         // Placeholder removido para evitar sobreposição - funcionalidade real movida para renderMarketCheckout consolidado acima
 
         renderMarketLiveRoom(container) {
+            // Tenta pegar a versão mais fresca do produto na memória
+            if (this.selectedProduct) {
+                const fresh = this.products.find(p => String(p.id) === String(this.selectedProduct.id));
+                if (fresh) this.selectedProduct = fresh;
+            }
+
             const p = this.selectedProduct;
             if (!p) return this.setMarketView('home');
 
@@ -6168,6 +6176,11 @@
                         <i data-lucide="video-off" style="width: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
                         <p style="font-size: 13px; font-weight: 800; color: #000;">Aguardando mentor iniciar...</p>
                         <p style="font-size: 11px; color: #999;">A transmissão aparecerá aqui em instantes.</p>
+                        ${this.currentUser && this.currentUser.username === p.seller ? `
+                            <button onclick="app.updateLiveLink('${p.id}')" style="margin-top: 16px; background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 50px; font-weight: 900; font-size: 10px; cursor: pointer;">
+                                DEFINIR LINK DE TRANSMISSÃO
+                            </button>
+                        ` : ''}
                     </div>
                 `;
             }
@@ -6182,10 +6195,17 @@
                         <i data-lucide="camera" style="width: 14px;"></i> INICIAR MINHA CÂMERA
                     </button>
                     ${p.sales_link ? `
-                        <button onclick="app.renderMarketLiveRoom(document.getElementById('market-container'))" style="background: #f5f5f5; color: #666; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap;">
-                            RESTAURAR VÍDEO PRINCIPAL
+                        <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap;">
+                            TROCAR VÍDEO
                         </button>
-                    ` : ''}
+                        <button onclick="app.renderMarketLiveRoom(document.getElementById('market-container'))" style="background: #f5f5f5; color: #666; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap;">
+                            RESTAURAR VÍDEO
+                        </button>
+                    ` : `
+                        <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap;">
+                            DEFINIR LINK (YOUTUBE/VIMEO)
+                        </button>
+                    `}
                 `;
                 container.appendChild(controls);
             } else {
@@ -6199,6 +6219,24 @@
             }
 
             if (window.lucide) lucide.createIcons();
+        },
+
+        async updateLiveLink(productId) {
+            const newLink = prompt("Cole o link do YouTube ou Vimeo para a transmissão:");
+            if (!newLink) return;
+
+            const p = this.products.find(item => String(item.id) === String(productId));
+            if (!p) return;
+
+            p.sales_link = newLink;
+            
+            // Sincroniza com a rede (Supabase envia o sinal para todos)
+            await this.syncProductToNetwork(p);
+            
+            this.showNotification("Link de transmissão atualizado e enviado para todos! 🚀", "success");
+            
+            // Atualiza UI local
+            this.renderMarketLiveRoom(document.getElementById('market-container'));
         },
 
         toggleMarketFilter() {
