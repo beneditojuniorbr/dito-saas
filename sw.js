@@ -28,18 +28,27 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estratégia Network First: Garante que as mudanças visuais cheguem no celular
+// Estratégia Network First com Cache-Busting: Garante que as mudanças visuais cheguem no celular sem cache preso
 self.addEventListener('fetch', (event) => {
+  // Ignora requisições de outras origens ou que não sejam GET
+  if (event.request.method !== 'GET') return;
+  
+  const url = new URL(event.request.url);
+  const isLocalAsset = ASSETS_TO_CACHE.some(asset => url.pathname.endsWith(asset) || url.pathname === '/');
+
+  // Adiciona um timestamp para forçar o browser a ignorar o cache local e ir no servidor
+  // Usamos cache: 'no-store' no fetch para garantir que não pegue cache de nível de sistema (ISP/Browser)
+  const busterUrl = isLocalAsset ? `${event.request.url}${event.request.url.includes('?') ? '&' : '?'}t=${Date.now()}` : event.request.url;
+
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Apenas requisições GET podem ser colocadas no cache!
-        if (event.request.method === 'GET') {
-            const resClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
-        }
-        return response;
+    fetch(busterUrl, { cache: 'no-store' }) 
+      .then((networkResponse) => {
+        if (!networkResponse || networkResponse.status !== 200) return networkResponse;
+        
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        return networkResponse;
       })
-      .catch(() => caches.match(event.request)) // Se offline, usa o cache
+      .catch(() => caches.match(event.request)) // Se offline total, usa o cache de emergência
   );
 });

@@ -3555,28 +3555,103 @@
                 }
             }
             if (window.lucide) lucide.createIcons();
+            if (isAdmin) this.fetchSocietyRequests();
         },
 
-        requestToJoinSociety(id) {
-            if (!this.currentUser) return this.showNotification("Faça login para participar.", "error");
-            
-            const requests = JSON.parse(localStorage.getItem('society_requests') || '[]');
-            requests.push({
-                id: Date.now(),
-                society_id: id,
-                username: this.currentUser.username,
-                avatar: this.currentUser.avatar || "",
-                created_at: new Date().toISOString()
-            });
+        async fetchSocietyRequests() {
+            const list = document.getElementById('soc-admin-list');
+            if (!list) return;
 
-            const success = this.safeLocalStorageSet('society_requests', JSON.stringify(requests));
+            try {
+                const { data, error } = await supabase
+                    .from('dito_society_requests')
+                    .select('*')
+                    .eq('society_id', this.currentSocietyId);
+                
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    list.innerHTML = `<p style="text-align: center; color: #ccc; font-size: 11px; padding: 20px;">Nenhuma solicitação pendente.</p>`;
+                    return;
+                }
+
+                list.innerHTML = data.map(req => `
+                    <div style="background: #fff; padding: 16px; border-radius: 20px; border: 1px solid #f5f5f5; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #f9f9f9; overflow: hidden; border: 1px solid #eee;">
+                                ${req.avatar ? `<img src="${req.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<i data-lucide="user" style="width:16px;"></i>`}
+                            </div>
+                            <div>
+                                <p style="font-weight: 950; font-size: 13px; color: #000;">${req.username}</p>
+                                <p style="font-size: 9px; font-weight: 800; color: #ccc; text-transform: uppercase;">QUER ENTRAR</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="app.handleSocietyRequest('${req.id}', 'reject')" style="width: 36px; height: 36px; border-radius: 50%; background: #fff; border: 1px solid #fee2e2; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="x" style="width: 16px;"></i>
+                            </button>
+                            <button onclick="app.handleSocietyRequest('${req.id}', 'approve')" style="width: 36px; height: 36px; border-radius: 50%; background: #000; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="check" style="width: 16px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                if (window.lucide) lucide.createIcons();
+            } catch (e) { console.error(e); }
+        },
+
+        async handleSocietyRequest(requestId, action) {
+            try {
+                const { data: reqData } = await supabase.from('dito_society_requests').select('*').eq('id', requestId).single();
+                if (!reqData) return;
+
+                if (action === 'approve') {
+                    const socs = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+                    const socIndex = socs.findIndex(s => s.id === reqData.society_id);
+                    if (socIndex !== -1) {
+                        const soc = socs[socIndex];
+                        if (!soc.members) soc.members = [];
+                        if (!soc.members.includes(reqData.username)) {
+                            soc.members.push(reqData.username);
+                            soc.membersCount = (soc.membersCount || 0) + 1;
+                        }
+                        await supabase.from('dito_societies').update({ members: soc.members, membersCount: soc.membersCount }).eq('id', soc.id);
+                        localStorage.setItem('dito_societies', JSON.stringify(socs));
+                    }
+                    this.sendNetworkNotification(reqData.username, 'society', `Aprovado na Sociedade! 🎉`, `Agora você faz parte de uma nova elite. Aproveite!`);
+                    this.showNotification("Membro aprovado com sucesso!", "success");
+                }
+
+                await supabase.from('dito_society_requests').delete().eq('id', requestId);
+                this.fetchSocietyRequests();
+                this.fetchSocietyMembers(); // Recarrega lista
+            } catch (e) { this.showNotification("Erro ao processar.", "error"); }
+        },
+
+        async requestToJoinSociety(id) {
+            if (!this.currentUser) return this.showNotification("Login necessário.", "error");
             
-            if (success) {
+            const societies = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const soc = societies.find(s => s.id === id);
+            
+            try {
+                const request = {
+                    id: Date.now().toString(),
+                    society_id: id,
+                    username: this.currentUser.username,
+                    avatar: this.currentUser.avatar || "",
+                    created_at: new Date().toISOString()
+                };
+
+                await supabase.from('dito_society_requests').insert([request]);
+                
+                if (soc && soc.owner) {
+                    this.sendNetworkNotification(soc.owner, 'society_request', `${this.currentUser.username} quer entrar!`, `Alguém pediu acesso à sua sociedade "${soc.name}".`);
+                }
+
                 this.showNotification("Solicitação enviada ao Gestor!", "success");
                 this.renderSocietyDetail();
-            } else {
-                this.showNotification("Memória cheia! Tente limpar o cache no perfil.", "error");
-            }
+            } catch (e) { this.showNotification("Erro ao enviar pedido.", "error"); }
         },
 
         setSocTab(tab) {
