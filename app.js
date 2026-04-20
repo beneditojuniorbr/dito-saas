@@ -1245,6 +1245,55 @@
             this.showNotification("Transmissão encerrada.", "default");
         },
 
+        async startParticipantCamera() {
+            try {
+                this.showNotification("Ativando sua câmera para a mentoria...", "default");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+                
+                let overlay = document.getElementById('student-camera-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'student-camera-overlay';
+                    overlay.style.cssText = `
+                        position: fixed; bottom: 100px; right: 20px; width: 120px; height: 160px; 
+                        background: #000; border-radius: 20px; overflow: hidden; 
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000; border: 2px solid #ff005c;
+                        display: flex; flex-direction: column;
+                    `;
+                    document.body.appendChild(overlay);
+                }
+
+                overlay.style.display = 'flex';
+                overlay.innerHTML = `
+                    <video id="student-video-el" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <button onclick="app.stopParticipantCamera()" style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <i data-lucide="x" style="width: 14px;"></i>
+                    </button>
+                    <span style="position: absolute; bottom: 5px; left: 5px; font-size: 8px; color: #fff; font-weight: 900; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Você</span>
+                `;
+
+                const video = document.getElementById('student-video-el');
+                video.srcObject = stream;
+                this.participantStream = stream;
+
+                if (window.lucide) lucide.createIcons();
+                this.showNotification("Sua câmera está ativa! Agora o mentor pode te ver.", "success");
+            } catch (err) {
+                console.error("Erro ao ativar câmera do aluno:", err);
+                this.showNotification("Não foi possível acessar sua câmera.", "error");
+            }
+        },
+
+        stopParticipantCamera() {
+            if (this.participantStream) {
+                this.participantStream.getTracks().forEach(track => track.stop());
+                this.participantStream = null;
+            }
+            const overlay = document.getElementById('student-camera-overlay');
+            if (overlay) overlay.style.display = 'none';
+            this.showNotification("Sua câmera foi desligada.", "default");
+        },
+
         checkLiveAdminStatus() {
             const btn = document.getElementById('btn-live-admin');
             if (!btn) return;
@@ -2318,7 +2367,8 @@
             // Customizar Botões de Ação
             const actionsContainer = document.getElementById('product-actions');
             if (actionsContainer) {
-                const hasAccess = this.purchasedProducts && this.purchasedProducts.some(pp => String(pp.id) === String(p.id));
+                const isOwner = this.currentUser && (p.seller === this.currentUser.username || p.author === this.currentUser.username);
+                const hasAccess = isOwner || (this.purchasedProducts && this.purchasedProducts.some(pp => String(pp.id) === String(p.id)));
 
                 if (isMentoria) {
                     if (hasAccess) {
@@ -2925,7 +2975,16 @@
         },
 
         openCourse(id) {
-            this.activeCourse = this.purchasedProducts.find(p => p.id === id);
+            // Busca nas compras ou, se for o dono, busca na vitrine global
+            let product = this.purchasedProducts.find(p => p.id === id);
+            
+            if (!product) {
+                const globalP = this.products.find(p => p.id === id);
+                const isOwner = globalP && (globalP.seller === this.currentUser?.username || globalP.author === this.currentUser?.username);
+                if (isOwner) product = globalP;
+            }
+
+            this.activeCourse = product;
             if (this.activeCourse) {
                 if (this.activeCourse.type === 'Mentoria') {
                     this.accessLiveDirectly(id);
@@ -6097,10 +6156,18 @@
                             <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 12px 24px; border-radius: 50px; font-weight: 900; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
                                 <i data-lucide="camera" style="width: 16px;"></i> USAR MINHA CÂMERA
                             </button>
-                        ` : ''}
+                        ` : `
+                            <button onclick="app.startParticipantCamera()" style="background: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="video" style="width: 14px;"></i> PARTICIPAR COM VÍDEO
+                            </button>
+                        `}
                     </div>
                 `;
             }
+
+            // Garante que o container de vídeo flutuante do aluno exista
+            const studentStream = document.getElementById('student-camera-overlay');
+            if (studentStream) studentStream.style.display = 'none';
 
             if (window.lucide) lucide.createIcons();
         },
@@ -6605,7 +6672,10 @@
                     <img src="${this.rGetPImage(p.image, p.name)}" style="width:100%; height:100%; object-fit:cover;">
                 </div>
                 <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
-                <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="app.openCourse('${String(p.id)}')" style="width:40px; height:40px; background:#f0f9ff; color:#0369a1; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="external-link" style="width:18px;"></i></button>
+                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                </div>
             </div>`).join('');
         if (window.lucide) lucide.createIcons();
     };
