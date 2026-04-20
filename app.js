@@ -2343,7 +2343,7 @@
                     
                     // Se estivermos na live, atualiza o produto selecionado para pegar novos links (Câmera do Mentor)
                     if (this.currentView === 'mercado' && this.marketView === 'live-room' && this.selectedProduct) {
-                        const updated = local.find(p => String(p.id) === String(this.selectedProduct.id));
+                        const updated = synchronized.find(p => String(p.id) === String(this.selectedProduct.id));
                         if (updated) {
                             this.selectedProduct = updated;
                             this.renderMarketLiveRoom(document.getElementById('market-container'));
@@ -6371,6 +6371,20 @@
 
         startWatchingNativeLive(productId) {
             if (!supabase) return;
+            
+            // LIMPEZA: Evita conexões duplicadas se a função for chamada várias vezes
+            if (this.activePC) {
+                this.activePC.close();
+                this.activePC = null;
+            }
+            if (this.signalInterval) {
+                clearInterval(this.signalInterval);
+                this.signalInterval = null;
+            }
+            if (this.studentChannel) {
+                this.studentChannel.unsubscribe();
+            }
+
             const channelName = `live-native-${productId}`;
             this.studentChannel = supabase.channel(channelName);
             const myId = this.currentUser ? this.currentUser.username : `guest-${Math.random().toString(36).substr(2, 9)}`;
