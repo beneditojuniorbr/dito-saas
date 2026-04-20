@@ -3447,7 +3447,11 @@
                 localStorage.setItem('dito_societies', JSON.stringify(data || []));
                 this.renderSocieties(data || []);
             } catch (e) {
-                console.warn("DB offline, usando local:", e);
+                if (e.code === 'PGRST205') {
+                    console.warn("Tabela 'dito_societies' não encontrada. Rodar SQL de conserto.");
+                } else {
+                    console.warn("DB offline, usando local:", e);
+                }
                 const local = JSON.parse(localStorage.getItem('dito_societies') || '[]');
                 this.renderSocieties(local);
             }
@@ -3890,7 +3894,11 @@
                 supabase.from('dito_societies').insert([newSociety]).then(({ error }) => {
                     if (error) {
                         console.error(error);
-                        this.showNotification("Erro ao sincronizar. Tente novamente.", "error");
+                        if (error.code === 'PGRST205') {
+                            this.showNotification("Erro: Tabelas de Sociedade ausentes. Execute o SQL de conserto no painel Supabase.", "error");
+                        } else {
+                            this.showNotification("Erro ao sincronizar. Verifique sua conexão.", "error");
+                        }
                     } else {
                         this.showNotification("Sociedade criada e sincronizada!", "success");
                         this.fetchSocieties(); // Recarrega do banco
@@ -6603,8 +6611,11 @@
 
     app.updateNotifBadge = function(animate = false) {
         const badge = document.getElementById('notif-badge');
+        const dotHeader = document.getElementById('notif-dot-header');
         const list = this.notifications || [];
         const unreadCount = list.filter(n => !n.read).length;
+        
+        if (dotHeader) dotHeader.style.display = unreadCount > 0 ? 'block' : 'none';
         
         if (badge) {
             badge.style.display = unreadCount > 0 ? 'block' : 'none';
