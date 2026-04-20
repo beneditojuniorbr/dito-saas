@@ -1212,7 +1212,7 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
                 
                 playerContainer.innerHTML = `
-                    <div style="position: relative; width: 100%; height: 100%; background: #000; border-radius: 20px; overflow: hidden;">
+                    <div style="position: relative; width: 100%; height: 100%; background: #000; border-radius: 0; overflow: hidden;">
                         <video id="live-local-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
                         <div style="position: absolute; top: 20px; left: 20px; background: rgba(255,0,92,0.8); color: #fff; font-size: 10px; font-weight: 900; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; animation: pulse 2s infinite;">
                             <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> AO VIVO
@@ -1936,7 +1936,6 @@
             
             const msg = {
                 sender: this.currentUser.username,
-                sender_avatar: this.currentUser.avatar || "",
                 receiver: receiver,
                 content: content,
                 created_at: new Date().toISOString(),
@@ -2227,21 +2226,29 @@
 
             if (!supabase) return;
             try {
-                // Simula um loading rápido para ser visível
+                // 2. BUSCA NO SUPABASE
                 const { data, error } = await supabase.from('dito_market_products')
                     .select('*')
                     .order('created_at', { ascending: false })
                     .limit(50);
 
                 if (data && !error) {
-                    // Hash ultra-leve para comparação (evita QuotaExceeded por causa de Base64)
+                    // Hash ultra-leve para comparação
                     const currentHash = data.map(p => `${p.id}-${p.created_at}`).join('|');
+                    const lastHash = localStorage.getItem('dito_last_p_hash');
+
+                    // Se nada mudou, cancela o processamento pesado
+                    if (currentHash === lastHash && this.products.length > 0) {
+                        return;
+                    }
                     
                     // Atualiza local anyway para garantir que tudo esteja fresco
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
                     data.forEach(net => {
                         const idx = local.findIndex(p => p.id === net.id);
-                        const parsed = { ...net, price: Number(net.price), content: net.content ? JSON.parse(net.content) : null };
+                        // Parsing seguro
+                        const contentData = net.content ? (typeof net.content === 'string' ? JSON.parse(net.content) : net.content) : null;
+                        const parsed = { ...net, price: Number(net.price), content: contentData };
                         if (idx !== -1) local[idx] = parsed;
                         else local.push(parsed);
                     });
@@ -2249,7 +2256,7 @@
                     this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
                     this.products = local;
 
-                    // FORÇA a renderização para o usuário ver o "bounce" de carregamento
+                    // FORÇA a renderização
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
                         this.renderMarketHome();
                     }
@@ -2397,7 +2404,7 @@
 
             document.getElementById('product-detail-content').innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                    <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1px; width: 70%;">${isMentoria ? 'Sala de Transmissão VIP' : p.name.toLowerCase()}</h1>
+                    <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1px; width: 70%;">${p.name}</h1>
                     <div style="text-align: right;">
                         <span style="display: block; font-size: 22px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
                         ${p.oldPrice ? `<span style="font-size: 12px; font-weight: 700; color: #ccc; text-decoration: line-through;">R$ ${p.oldPrice.toFixed(2)}</span>` : ''}
@@ -6133,15 +6140,15 @@
                 chatBtn.onclick = () => this.openWorldChat(`LIVE_${p.id}`, `Chat: ${p.name}`);
             }
 
-            // Converter link de vendas em Player (YouTube/Vimeo)
+            // Converter link de vendas em Player (YouTube/Vimeo) - Auto-start ativado
             if (p.sales_link) {
                 let embedUrl = p.sales_link;
                 if (p.sales_link.includes('youtube.com/watch?v=')) {
-                    embedUrl = p.sales_link.replace('watch?v=', 'embed/');
+                    embedUrl = p.sales_link.replace('watch?v=', 'embed/') + '?autoplay=1&mute=1&rel=0';
                 } else if (p.sales_link.includes('youtu.be/')) {
-                    embedUrl = p.sales_link.replace('youtu.be/', 'youtube.com/embed/');
+                    embedUrl = p.sales_link.replace('youtu.be/', 'youtube.com/embed/') + '?autoplay=1&mute=1&rel=0';
                 } else if (p.sales_link.includes('vimeo.com/')) {
-                    embedUrl = p.sales_link.replace('vimeo.com/', 'player.vimeo.com/video/');
+                    embedUrl = p.sales_link.replace('vimeo.com/', 'player.vimeo.com/video/') + '?autoplay=1&muted=1';
                 }
 
                 playerContainer.innerHTML = `
@@ -6151,23 +6158,37 @@
                 playerContainer.innerHTML = `
                     <div style="text-align: center; color: #666; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                         <i data-lucide="video-off" style="width: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
-                        <p style="font-size: 12px; font-weight: 700; margin-bottom: 20px;">Aguardando início da transmissão pelo mentor...</p>
-                        ${this.currentUser && this.currentUser.username === p.seller ? `
-                            <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 12px 24px; border-radius: 50px; font-weight: 900; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
-                                <i data-lucide="camera" style="width: 16px;"></i> USAR MINHA CÂMERA
-                            </button>
-                        ` : `
-                            <button onclick="app.startParticipantCamera()" style="background: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                                <i data-lucide="video" style="width: 14px;"></i> PARTICIPAR COM VÍDEO
-                            </button>
-                        `}
+                        <p style="font-size: 13px; font-weight: 800; color: #000;">Aguardando mentor iniciar...</p>
+                        <p style="font-size: 11px; color: #999;">A transmissão aparecerá aqui em instantes.</p>
                     </div>
                 `;
             }
 
-            // Garante que o container de vídeo flutuante do aluno exista
-            const studentStream = document.getElementById('student-camera-overlay');
-            if (studentStream) studentStream.style.display = 'none';
+            // CONTROLES DE TRANSMISSÃO (Exclusivo Mentor)
+            const controls = document.createElement('div');
+            controls.style.cssText = 'padding: 16px; display: flex; gap: 10px; overflow-x: auto; background: #fff; border-top: 1px solid #eee;';
+            
+            if (this.currentUser && this.currentUser.username === p.seller) {
+                controls.innerHTML = `
+                    <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(255,0,92,0.2);">
+                        <i data-lucide="camera" style="width: 14px;"></i> INICIAR MINHA CÂMERA
+                    </button>
+                    ${p.sales_link ? `
+                        <button onclick="app.renderMarketLiveRoom(document.getElementById('market-container'))" style="background: #f5f5f5; color: #666; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap;">
+                            RESTAURAR VÍDEO PRINCIPAL
+                        </button>
+                    ` : ''}
+                `;
+                container.appendChild(controls);
+            } else {
+                // Versão Participante
+                controls.innerHTML = `
+                     <button onclick="app.startParticipantCamera()" style="background: #000; color: #fff; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="video" style="width: 14px;"></i> MINHA CÂMERA
+                    </button>
+                `;
+                container.appendChild(controls);
+            }
 
             if (window.lucide) lucide.createIcons();
         },
