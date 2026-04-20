@@ -2371,6 +2371,7 @@
                     author: product.author,
                     seller: product.seller,
                     visible: product.visible,
+                    sales_link: product.sales_link, // Essencial para transmitir Native Live e Links
                     content: JSON.stringify(product.content || [])
                 }, { onConflict: 'id' });
                 if (error) console.error("❌ Erro Sync Produto:", error.message);
