@@ -1735,7 +1735,9 @@
             
             // Lógica de Comandos (DDTank Style)
             if (text.startsWith('/s ')) {
-                receiver = 'SOC_GLOBAL'; // Simplificação temporária: Chat global de soc
+                // Se estiver no detalhe de uma sociedade, envia apenas para aquela sala isolada
+                const isSocDetail = this.currentView === 'sociedade-detalhe';
+                receiver = isSocDetail ? `SOC_${this.currentSocietyId}` : 'SOC_GLOBAL';
                 content = text.replace('/s ', '');
             } else if (text.startsWith('/p ')) {
                 const parts = text.split(' ');
@@ -1747,6 +1749,7 @@
             
             const msg = {
                 sender: this.currentUser.username,
+                sender_avatar: this.currentUser.avatar || "",
                 receiver: receiver,
                 content: content,
                 created_at: new Date().toISOString(),
@@ -1792,8 +1795,14 @@
             let channelColor = '#000000'; // Global (Preto Sólido)
             let prefix = '[Mundo]';
             
-            if (msg.receiver === 'SOC_GLOBAL' || (msg.receiver && msg.receiver.startsWith('SOC_'))) {
-                channelColor = '#008f11'; // Sociedade (Verde Escuro)
+            const isSpecificSoc = msg.receiver && msg.receiver.startsWith('SOC_');
+            
+            if (isSpecificSoc && msg.receiver !== 'SOC_GLOBAL') {
+                channelColor = '#0057ff'; // Sociedade Específica (Azul vibrante)
+                const socId = msg.receiver.replace('SOC_', '');
+                prefix = `[Sociedade #${socId.substring(0,4)}]`;
+            } else if (msg.receiver === 'SOC_GLOBAL') {
+                channelColor = '#008f11'; // Sociedade Geral (Verde Escuro)
                 prefix = '[Sociedade]';
             } else if (msg.receiver !== 'GLOBAL') {
                 channelColor = '#c70097'; // Privado/Sussurro (Rosa Escuro para fundo branco)
@@ -1811,10 +1820,22 @@
             itemDiv.style.lineHeight = '1.3';
             itemDiv.style.borderBottom = '1px solid #f9f9f9'; 
             
+            const user = (this.networkUsers || []).find(u => u.username === msg.sender);
+            const avatarUrl = msg.sender_avatar || (user ? user.avatar : '');
+            const avatarHtml = avatarUrl ? 
+                `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : 
+                `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"><i data-lucide="user" style="width: 14px; color: #ccc;"></i></div>`;
+
             itemDiv.innerHTML = `
-                <span onclick="app.viewPublicProfile('${msg.sender}')" style="cursor: pointer; color: ${isMe ? '#ff005c' : channelColor}; text-decoration: none;">${msg.sender}</span>
-                <span style="opacity: 0.7;">${prefix}:</span>
-                <span style="font-weight: 500; color: #333;">${msg.content}</span>
+                <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 2px;">
+                    <div onclick="app.viewPublicProfile('${msg.sender}')" style="width: 28px; height: 28px; border-radius: 50%; background: #f9f9f9; border: 1px solid #eee; overflow: hidden; flex-shrink: 0; cursor: pointer; margin-top: 2px;">
+                        ${avatarHtml}
+                    </div>
+                    <div style="flex: 1; line-height: 1.4;">
+                        <span onclick="app.viewPublicProfile('${msg.sender}')" style="cursor: pointer; color: ${isMe ? '#ff005c' : channelColor}; font-weight: 950; font-size: 13px;">${msg.sender}</span>
+                        <span style="font-weight: 600; color: #333; font-size: 13px; margin-left: 2px;">${msg.content}</span>
+                    </div>
+                </div>
             `;
             
             container.appendChild(itemDiv);
@@ -1863,9 +1884,12 @@
 
             try {
                 // 2. BUSCA NO SUPABASE PARA ATUALIZAR O HISTÓRICO REAL
+                const isSocDetail = this.currentView === 'sociedade-detalhe';
+                const socFilter = isSocDetail ? `SOC_${this.currentSocietyId}` : 'SOC_GLOBAL';
+                
                 const { data, error } = await supabase.from('dito_messages')
                     .select('*')
-                    .or(`receiver.eq.GLOBAL,receiver.eq.SOC_GLOBAL,receiver.eq.${this.currentUser.username},sender.eq.${this.currentUser.username}`)
+                    .or(`receiver.eq.GLOBAL,receiver.eq.${socFilter},receiver.eq.${this.currentUser.username},sender.eq.${this.currentUser.username}`)
                     .order('created_at', { ascending: false })
                     .limit(50);
                     
@@ -3288,7 +3312,7 @@
                         // this.startEventsCarousel();
                         break;
                     case 'mercado': setTimeout(() => this.renderStore(), 10); break;
-                    case 'sociedade': this.renderSocieties(); break;
+                    case 'sociedade': this.fetchSocieties(); break;
                 case 'sociedade-detalhe': this.renderSocietyDetail(); break;
                     case 'hall': this.renderHallOfFame(); break;
                     case 'perfil': this.renderProfile(); break;
@@ -3414,19 +3438,29 @@
             this.renderStore();
         },
 
-        renderSocieties() {
+        async fetchSocieties() {
+            try {
+                const { data, error } = await supabase.from('dito_societies').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                
+                // Salva no cache e renderiza
+                localStorage.setItem('dito_societies', JSON.stringify(data || []));
+                this.renderSocieties(data || []);
+            } catch (e) {
+                console.warn("DB offline, usando local:", e);
+                const local = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+                this.renderSocieties(local);
+            }
+        },
+
+        renderSocieties(data = null) {
             const list = document.getElementById('societies-list');
             if (!list) return;
 
-            const saved = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const saved = data || JSON.parse(localStorage.getItem('dito_societies') || '[]');
             
             if (saved.length === 0) {
-                const initial = [
-                    { id: '1', name: "Pro Digital", description: "O maior ecossistema de produtores.", owner: "benedito_pro", entryFee: 0, membersCount: 0 },
-                    { id: '2', name: "Clube dos 6 Dígitos", description: "Focado em escala de anúncios.", owner: "ana_scaling", entryFee: 49.90, membersCount: 0 }
-                ];
-                localStorage.setItem('dito_societies', JSON.stringify(initial));
-                this.renderSocieties();
+                list.innerHTML = `<div style="text-align: center; padding: 40px; color: #ccc; font-weight: 800; font-size: 13px;">Nenhuma sociedade encontrada.<br><span style="font-size: 10px; font-weight: 500;">Crie a primeira agora!</span></div>`;
                 return;
             }
 
@@ -3760,7 +3794,6 @@
             
             const name = nameEl.value.trim();
             const fee = parseFloat(feeEl.value) || 0;
-            const cost = 0.00; // Ficou Grátis!
 
             if (!name) {
                 this.showNotification("Dê um nome para sua sociedade.", "error");
@@ -3768,28 +3801,31 @@
             }
 
             if (confirm(`Deseja criar a sociedade "${name}" gratuitamente?`)) {
-                // Criar nova sociedade
-                const saved = JSON.parse(localStorage.getItem('dito_societies') || '[]');
                 const newSociety = {
                     id: Date.now().toString(),
                     name: name,
-                    description: "Nova sociedade criada pelo usuário.",
-                    admin: this.currentUser?.username || "Você",
+                    description: "Ecossistema pro criado via App Dito.",
+                    owner: this.currentUser?.username || "Anônimo",
                     entryFee: fee,
-                    membersCount: 1
+                    membersCount: 1,
+                    created_at: new Date().toISOString()
                 };
                 
-                saved.push(newSociety);
-                localStorage.setItem('dito_societies', JSON.stringify(saved));
-                
-                this.showNotification("Sociedade criada com sucesso!", "success");
-                
-                // Limpar e fechar
+                // Sincroniza com a nuvem (Supabase) para todos os celulares verem
+                supabase.from('dito_societies').insert([newSociety]).then(({ error }) => {
+                    if (error) {
+                        console.error(error);
+                        this.showNotification("Erro ao sincronizar. Tente novamente.", "error");
+                    } else {
+                        this.showNotification("Sociedade criada e sincronizada!", "success");
+                        this.fetchSocieties(); // Recarrega do banco
+                        this.toggleCreateSocietyModal(false);
+                    }
+                });
+
+                // Limpar campos
                 nameEl.value = '';
-                feeEl.value = '';
-                this.toggleCreateSocietyModal(false);
-                this.renderSocieties();
-                this.updateBalanceUI();
+                feeEl.value = '0';
             }
         },
 
@@ -3823,9 +3859,43 @@
 
             // Passa array vazio para dummyData para não mostrar a linha de fundo
             this.drawSalesChart([], realSales);
+            this.renderSalesRuler(days);
             this.renderSalesHistory(realSales.filter(s => s.isSale).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 15));
 
             if (window.lucide) lucide.createIcons();
+        },
+
+        renderSalesRuler(days) {
+            const ruler = document.getElementById('sales-chart-ruler');
+            if (!ruler) return;
+            
+            let steps = [];
+            if (days === 30) {
+                // De 3 em 3 dias
+                for (let i = 1; i <= 30; i += 3) steps.push({ val: i, label: (i < 10 ? '0' : '') + i });
+                if (steps[steps.length - 1].val !== 30) steps.push({ val: 30, label: '30' });
+            } else if (days === 60) {
+                // De 10 em 10 dias
+                for (let i = 10; i <= 60; i += 10) steps.push({ val: i, label: i + 'd' });
+            } else if (days === 90) {
+                // De 2 em 2 meses (60 dias e 90 dias)
+                steps = [
+                    { val: 30, label: '1 MÊS', ghost: true }, 
+                    { val: 60, label: '2 MESES' }, 
+                    { val: 90, label: '3 MESES' }
+                ];
+            }
+            
+            ruler.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 4px; position: relative;">
+                    ${steps.map((s, i) => `
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: ${s.ghost ? '0' : '1'}; height: ${s.ghost ? '0' : 'auto'}; pointer-events: none;">
+                            <div style="width: 1px; height: ${i % 2 === 0 ? '8px' : '4px'}; background: ${i % 2 === 0 ? '#eee' : '#f5f5f5'};"></div>
+                            <span style="font-size: 8px; font-weight: ${i % 2 === 0 ? '950' : '800'}; color: ${i % 2 === 0 ? '#000' : '#ccc'}; white-space: nowrap;">${s.label}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         },
 
         simulateSale() {
@@ -3929,7 +3999,7 @@
             list.innerHTML = salesWithValues.map(s => `
                 <div style="background: #fff; padding: 16px; border-radius: 20px; border: 1px solid #f9f9f9; display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 40px; height: 40px; background: #fffbeb; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fbbf24;">
+                        <div style="width: 40px; height: 40px; background: transparent; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #000;">
                             <i data-lucide="trending-up" style="width: 20px;"></i>
                         </div>
                         <div>
@@ -6269,10 +6339,14 @@
 
                 if (worldDrawer) {
                     const isActive = worldDrawer.classList.contains('active');
+                    const isSocDetail = this.currentView === 'sociedade-detalhe';
+                    const socRoom = isSocDetail ? `SOC_${this.currentSocietyId}` : 'SOC_GLOBAL';
+                    
                     const isMyRoom = msg.receiver === room;
+                    const isSocRoom = msg.receiver === socRoom;
                     const isForMe = msg.receiver === this.currentUser.username || msg.sender === this.currentUser.username;
                     
-                    if (isMyRoom || (room === 'GLOBAL' && (msg.receiver === 'SOC_GLOBAL' || isForMe))) {
+                    if (isMyRoom || isSocRoom || isForMe) {
                         if (isActive) {
                             this.appendWorldMessageToChat(msg);
                         } else if (msg.sender !== this.currentUser.username) {

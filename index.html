@@ -754,7 +754,7 @@
                     <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;">Encontre o que ama.</p>
                 </div>
                 <div style="flex: 1; display: flex; justify-content: flex-end;">
-                    <button onclick="app.fetchNetworkProducts()" style="background: rgba(255,255,255,0.1); border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px);">
+                    <button onclick="app.fetchNetworkProducts()" style="background: transparent; border: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i id="market-refresh-icon" data-lucide="refresh-cw" style="width: 20px; color: #fff;"></i>
                     </button>
                 </div>
@@ -783,7 +783,7 @@
             <!-- NOVO MENU DE FILTRO (DROPDOWN) -->
             <div style="margin: 0 24px 24px 24px; position: relative; z-index: 3000;">
                 <div style="display: flex; justify-content: flex-end;">
-                    <div id="market-filter-trigger" onclick="app.toggleMarketFilter()" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s;">
+                    <div id="market-filter-trigger" onclick="app.toggleMarketFilter()" style="display: flex; align-items: center; gap: 8px; cursor: pointer; transition: 0.3s;">
                         <span style="font-size: 11px; font-weight: 950; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Filtro</span>
                         <i data-lucide="chevron-down" id="filter-chevron" style="width: 14px; color: #fff; transition: 0.3s;"></i>
                     </div>
@@ -1863,25 +1863,16 @@
                 <button onclick="app.renderSales(90)" id="btn-sales-90" style="flex: 1; height: 40px; border: none; border-radius: 12px; font-size: 11px; font-weight: 900; cursor: pointer; transition: 0.3s; background: transparent; color: #999;">90 DIAS</button>
             </div>
 
-            <div style="background: #fff; border-radius: 28px; border: 1px solid #eee; padding: 24px; margin-bottom: 24px; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.02);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                    <div>
-                        <p style="font-size: 10px; font-weight: 900; color: #999; text-transform: uppercase; letter-spacing: 1px;">Receita Total</p>
-                        <h2 id="sales-chart-total" style="font-size: 28px; font-weight: 900; color: #000;">R$ 0,00</h2>
-                    </div>
+            <div style="margin-bottom: 40px; position: relative;">
+                <div id="sales-chart-container" style="width: 100%; height: 180px; position: relative; overflow: visible;">
                 </div>
                 
-                <div id="sales-chart-container" style="width: 100%; height: 200px; position: relative; overflow: visible;">
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-top: 16px; padding: 0 10px;">
-                    <span style="font-size: 9px; font-weight: 800; color: #ccc;">DIA 01</span>
-                    <span style="font-size: 9px; font-weight: 800; color: #ccc;">DIA 15</span>
-                    <span style="font-size: 9px; font-weight: 800; color: #ccc;">DIA 30</span>
+                <!-- Régua Dinâmica dos Dias (Gerada via JS) -->
+                <div id="sales-chart-ruler" style="margin-top: 32px; position: relative;">
                 </div>
             </div>
 
-            <h3 style="font-size: 14px; font-weight: 900; margin-bottom: 16px; padding-left: 8px;">Histórico Recente</h3>
+            <h3 style="font-size: 14px; font-weight: 900; margin: 40px 0 16px; padding-left: 8px;">Histórico Recente</h3>
             <div id="sales-history-list" style="display: flex; flex-direction: column; gap: 12px;">
             </div>
         </div>
