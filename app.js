@@ -6222,7 +6222,11 @@
             const p = this.selectedProduct;
             if (!p) return this.setMarketView('home');
 
+            if (!container) return; // Proteção contra renderização em background sem o container no DOM
+            
             const temp = document.getElementById('template-live-room');
+            if (!temp) return;
+            
             container.innerHTML = temp.innerHTML;
 
             document.getElementById('live-room-title').innerText = p.name;
