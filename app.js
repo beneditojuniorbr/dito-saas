@@ -1259,25 +1259,32 @@
         initMentorSignaling(productId, stream) {
             if (!supabase) return;
             const channelName = `live-native-${productId}`;
-            this.mentorChannel = supabase.channel(channelName);
-            this.peerConnections = {}; // Um PC para cada aluno
+            this.mentorChannel = supabase.channel(channelName, { config: { broadcast: { ack: true } } });
+            this.peerConnections = this.peerConnections || {}; 
 
             this.mentorChannel
                 .on('broadcast', { event: 'request-stream' }, async ({ payload }) => {
                     const studentId = payload.studentId;
-                    console.log(`Alunos entrando: ${studentId}`);
+                    console.log(`[Mentor] Solicitacao de: ${studentId}`);
                     
-                    // Cria uma conexão direta com esse aluno
+                    // Se já existir um PC para esse aluno e estiver conectado, não faz nada
+                    if (this.peerConnections[studentId] && 
+                       (this.peerConnections[studentId].connectionState === 'connected' || 
+                        this.peerConnections[studentId].connectionState === 'connecting')) {
+                        return;
+                    }
+
                     const pc = new RTCPeerConnection({
-                        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' }
+                        ]
                     });
                     
                     this.peerConnections[studentId] = pc;
-                    
-                    // Adiciona as trilhas (vídeo/áudio) do mentor
                     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-                    // ICE Candidates
                     pc.onicecandidate = (event) => {
                         if (event.candidate) {
                             this.mentorChannel.send({
@@ -1288,14 +1295,13 @@
                         }
                     };
 
-                    // Cria Oferta
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
 
                     this.mentorChannel.send({
                         type: 'broadcast',
                         event: 'offer',
-                        payload: { target: studentId, offer }
+                        payload: { target: studentId, mentorId: this.currentUser.username, offer }
                     });
                     
                     this.updateViewerCount();
@@ -1303,7 +1309,10 @@
                 .on('broadcast', { event: 'answer' }, async ({ payload }) => {
                     if (payload.target === this.currentUser.username) {
                         const pc = this.peerConnections[payload.studentId];
-                        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                        if (pc) {
+                            console.log(`[Mentor] Resposta recebida de ${payload.studentId}`);
+                            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                        }
                     }
                 })
                 .on('broadcast', { event: 'ice-candidate-from-student' }, async ({ payload }) => {
@@ -6245,20 +6254,25 @@
             if (p.sales_link === 'NATIVE_LIVE') {
                 playerContainer.innerHTML = `
                     <div style="width: 100%; height: 100%; background: #000; position: relative; overflow: hidden;">
-                        <video id="live-native-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <video id="live-native-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
                         
-                        <!-- Overlay de Conexão -->
-                        <div id="live-native-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
-                            <div class="live-pulse" style="width: 16px; height: 16px; background: #ff005c; border-radius: 50%; margin-bottom: 12px;"></div>
-                            <p id="live-native-status" style="color: #fff; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Sincronizando com o Mentor...</p>
-                            <button id="btn-unmute-live" onclick="app.unmuteNativeLive()" style="display: none; margin-top: 16px; background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 50px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
-                                <i data-lucide="volume-2" style="width: 14px; vertical-align: middle; margin-right: 4px;"></i> ATIVAR ÁUDIO
-                            </button>
+                        <!-- Log de Diagnóstico (Visível durante conexão) -->
+                        <div id="live-diag-log" style="position: absolute; bottom: 80px; left: 20px; color: rgba(255,255,255,0.5); font-family: monospace; font-size: 8px; pointer-events: none; z-index: 100;">
+                            Status: Iniciando...
                         </div>
 
+                        <!-- Overlay de Conexão -->
+                        <div id="live-native-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(5px);">
+                            <div class="live-pulse" style="width: 16px; height: 16px; background: #ff005c; border-radius: 50%; margin-bottom: 12px;"></div>
+                            <p id="live-native-status" style="color: #fff; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Sincronizando com o Mentor...</p>
+                            <button id="btn-unmute-live" onclick="app.unmuteNativeLive()" style="display: none; margin-top: 16px; background: #ff005c; color: #fff; border: none; padding: 12px 24px; border-radius: 50px; font-weight: 950; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(255,0,92,0.3); animation: bounce 2s infinite;">
+                                <i data-lucide="volume-2" style="width: 16px; vertical-align: middle; margin-right: 6px;"></i> OUVIR MENTOR
+                            </button>
+                        </div>
+                        
                         <div style="position: absolute; top: 20px; left: 20px; z-index: 5;">
-                           <div style="background: #ff005c; color: #fff; font-size: 10px; font-weight: 950; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px;">
-                               <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%; animation: pulse 2s infinite;"></div> DITO NATIVE LIVE
+                           <div style="background: #ff005c; color: #fff; font-size: 10px; font-weight: 950; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(255,0,92,0.3);">
+                               <div style="width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: pulse 1s infinite;"></div> DITO NATIVE LIVE
                            </div>
                         </div>
                     </div>
@@ -6377,31 +6391,33 @@
         startWatchingNativeLive(productId) {
             if (!supabase) return;
             
-            // LIMPEZA: Evita conexões duplicadas se a função for chamada várias vezes
-            if (this.activePC) {
-                this.activePC.close();
-                this.activePC = null;
-            }
-            if (this.signalInterval) {
-                clearInterval(this.signalInterval);
-                this.signalInterval = null;
-            }
-            if (this.studentChannel) {
-                this.studentChannel.unsubscribe();
-            }
+            const diag = (txt) => {
+                const el = document.getElementById('live-diag-log');
+                if (el) el.innerText = `Status: ${txt}`;
+                console.log(`[NativeLive] ${txt}`);
+            };
+
+            // LIMPEZA
+            if (this.activePC) { this.activePC.close(); this.activePC = null; }
+            if (this.signalInterval) { clearInterval(this.signalInterval); this.signalInterval = null; }
+            if (this.studentChannel) { this.studentChannel.unsubscribe(); }
 
             const channelName = `live-native-${productId}`;
             this.studentChannel = supabase.channel(channelName);
             const myId = this.currentUser ? this.currentUser.username : `guest-${Math.random().toString(36).substr(2, 9)}`;
 
+            diag(`Iniciando sessao como ${myId}...`);
+
             const pc = new RTCPeerConnection({
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
                 ]
             });
 
             pc.ontrack = (event) => {
+                diag("Sinal de vídeo recebido!");
                 const video = document.getElementById('live-native-video');
                 const overlay = document.getElementById('live-native-overlay');
                 const status = document.getElementById('live-native-status');
@@ -6409,13 +6425,17 @@
 
                 if (video) {
                     video.srcObject = event.streams[0];
-                    if (status) status.innerText = 'CONECTADO!';
+                    if (status) status.innerText = 'CONEXÃO ESTABELECIDA!';
                     if (overlay) overlay.style.background = 'transparent';
                     if (unmuteBtn) {
                         unmuteBtn.style.display = 'block';
                         if (window.lucide) lucide.createIcons();
                     }
-                    setTimeout(() => { if(overlay) overlay.style.display = 'none'; }, 3000);
+                    setTimeout(() => { 
+                        if(status) status.style.opacity = '0';
+                        const d = document.getElementById('live-diag-log');
+                        if (d) d.style.display = 'none';
+                    }, 5000);
                 }
             };
 
@@ -6432,6 +6452,7 @@
             this.studentChannel
                 .on('broadcast', { event: 'offer' }, async ({ payload }) => {
                     if (payload.target === myId) {
+                        diag("Oferta recebida do mentor. Conectando...");
                         await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
@@ -6439,7 +6460,7 @@
                         this.studentChannel.send({
                             type: 'broadcast',
                             event: 'answer',
-                            payload: { studentId: myId, target: this.selectedProduct.seller, answer }
+                            payload: { studentId: myId, target: payload.mentorId || this.selectedProduct.seller, answer }
                         });
                     }
                 })
@@ -6450,7 +6471,7 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        // Solicita o stream ao mentor a cada 3 segundos até conectar (Polling de sinal)
+                        diag("Buscando mentor na rede...");
                         this.signalInterval = setInterval(() => {
                             if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
                                 this.studentChannel.send({
@@ -6459,13 +6480,14 @@
                                     payload: { studentId: myId }
                                 });
                             } else {
+                                diag("Conectado com sucesso!");
                                 clearInterval(this.signalInterval);
                             }
-                        }, 3000);
+                        }, 2500);
                     }
                 });
             
-            this.activePC = pc; // Para limpar depois
+            this.activePC = pc;
         },
 
         unmuteNativeLive() {
