@@ -6169,14 +6169,30 @@
                 `;
             } else {
                 playerContainer.innerHTML = `
-                    <div style="text-align: center; color: #666; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
-                        <i data-lucide="video-off" style="width: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
-                        <p style="font-size: 13px; font-weight: 800; color: #000;">Aguardando mentor iniciar...</p>
-                        <p style="font-size: 11px; color: #999;">A transmissão aparecerá aqui em instantes.</p>
+                    <div style="text-align: center; color: #666; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #fdfdfd;">
+                        <style>
+                            .live-pulse {
+                                animation: pulse-red 2s infinite;
+                            }
+                            @keyframes pulse-red {
+                                0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 92, 0.7); }
+                                70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 92, 0); }
+                                100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 92, 0); }
+                            }
+                        </style>
+                        <div class="live-pulse" style="width: 12px; height: 12px; background: #ff005c; border-radius: 50%; margin-bottom: 20px;"></div>
+                        <i data-lucide="video-off" style="width: 48px; margin-bottom: 16px; color: #eee;"></i>
+                        <p style="font-size: 15px; font-weight: 950; color: #000; letter-spacing: -0.5px; margin-bottom: 4px;">Aguardando o Mentor iniciar...</p>
+                        <p style="font-size: 12px; color: #999; font-weight: 500;">A transmissão começará automaticamente à medida que o sinal for detectado.</p>
                         ${this.currentUser && this.currentUser.username === p.seller ? `
-                            <button onclick="app.updateLiveLink('${p.id}')" style="margin-top: 16px; background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 50px; font-weight: 900; font-size: 10px; cursor: pointer;">
-                                DEFINIR LINK DE TRANSMISSÃO
-                            </button>
+                            <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 240px;">
+                                <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+                                    DEFINIR LINK DE TRANSMISSÃO
+                                </button>
+                                <button onclick="app.setTestLiveLink('${p.id}')" style="background: #f5f5f5; color: #666; border: none; padding: 10px; border-radius: 12px; font-weight: 800; font-size: 10px; cursor: pointer;">
+                                    USAR VÍDEO DE TESTE (DEMO)
+                                </button>
+                            </div>
                         ` : ''}
                     </div>
                 `;
@@ -6233,6 +6249,16 @@
             this.showNotification("Link de transmissão atualizado e enviado para todos! 🚀", "success");
             
             // Atualiza UI local
+            this.renderMarketLiveRoom(document.getElementById('market-container'));
+        },
+
+        async setTestLiveLink(productId) {
+            const testLink = "https://www.youtube.com/watch?v=5Uf67vK9L1o"; // Vídeo demo de música ou similar
+            const p = this.products.find(item => String(item.id) === String(productId));
+            if (!p) return;
+            p.sales_link = testLink;
+            await this.syncProductToNetwork(p);
+            this.showNotification("Vídeo de Teste ativado! Todos já podem ver. 🎥", "success");
             this.renderMarketLiveRoom(document.getElementById('market-container'));
         },
 
