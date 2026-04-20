@@ -2242,18 +2242,15 @@
                     // o usuário veja as mudanças mesmo sem refresh ou se o storage estiver bugado
                     
                     // Atualiza local anyway para garantir que tudo esteja fresco
-                    let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                    data.forEach(net => {
-                        const idx = local.findIndex(p => p.id === net.id);
-                        // Parsing seguro
+                    // 2. Mirroring: Transformamos o dado da rede na nossa base real
+                    const synchronized = data.map(net => {
                         const contentData = net.content ? (typeof net.content === 'string' ? JSON.parse(net.content) : net.content) : null;
-                        const parsed = { ...net, price: Number(net.price), content: contentData };
-                        if (idx !== -1) local[idx] = parsed;
-                        else local.push(parsed);
+                        return { ...net, price: Number(net.price), content: contentData };
                     });
-                    
-                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
-                    this.products = local;
+
+                    // 3. Atualizamos a memória e o storage local
+                    this.products = synchronized;
+                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(synchronized));
 
                     // FORÇA a renderização se for o caso
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
