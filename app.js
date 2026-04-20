@@ -2235,12 +2235,9 @@
                 if (data && !error) {
                     // Hash ultra-leve para comparação
                     const currentHash = data.map(p => `${p.id}-${p.created_at}`).join('|');
-                    const lastHash = localStorage.getItem('dito_last_p_hash');
-
-                    // Se nada mudou E não é forçado, cancela
-                    if (!force && currentHash === lastHash && this.products.length > 0) {
-                        return;
-                    }
+                    
+                    // SEMPRE atualiza a memória interna (RAM) para garantir que
+                    // o usuário veja as mudanças mesmo sem refresh ou se o storage estiver bugado
                     
                     // Atualiza local anyway para garantir que tudo esteja fresco
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -6248,7 +6245,7 @@
             localStorage.setItem('dito_market_last_seen', Date.now().toString());
 
             let all = (this.products || [])
-                .filter(p => p.visible !== false && p.visible !== 'false');
+                .filter(p => p.visible !== false && p.visible !== 'false' && p.visible !== 0);
             
             // --- EMBARALHAR PRODUTOS (NOVO) ---
             all = all.sort(() => Math.random() - 0.5);
