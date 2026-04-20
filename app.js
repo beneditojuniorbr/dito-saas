@@ -5613,10 +5613,14 @@
                 if (notif) notif.remove();
                 app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
                 app.launchVictoryConfetti();
+
+                // Recarrega rede IMEDIAMENTE para aparecer
+                setTimeout(() => app.fetchNetworkProducts(true), 500);
+
                 // Verifica se precisa mostrar o botão de Transmissão imediatamente
                 if (this.selectedProductType === 'Mentoria') app.checkLiveAdminStatus();
                 app.navigate('dashboard');
-            }, 3000);
+            }, 1500); // Reduzido de 3s para 1.5s para ser mais ágil
         },
 
         updateWithdrawUI() {
@@ -6550,8 +6554,8 @@
             let all = (this.products || [])
                 .filter(p => p.visible !== false && p.visible !== 'false' && p.visible !== 0);
             
-            // --- EMBARALHAR PRODUTOS (NOVO) ---
-            all = all.sort(() => Math.random() - 0.5);
+            // --- ORDENAR POR NOVOS PRIMEIRO (DESC) ---
+            all = all.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 
             // --- FILTRO POR NICHO (NOVO) ---
             const currentCat = this.marketCategory || 'Todas';
@@ -6583,8 +6587,8 @@
                 `).join('');
             }
 
-            // 1. DESTAQUES: Novos primeiro (Horizontal) (Excluindo Mentorias para não repetir)
-            const arrival = [...all].filter(p => p.type !== 'Mentoria').sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+            // 1. DESTAQUES: Novos primeiro (Horizontal)
+            const arrival = [...all].sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 
             if (hContainer && hWrapper) {
                 hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
