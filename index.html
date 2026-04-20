@@ -14,6 +14,7 @@
             document.head.appendChild(base);
 
             if (!isLocal) {
+
                 const link = document.createElement('link');
                 link.rel = 'manifest';
                 link.href = 'manifest.json';
@@ -133,8 +134,8 @@
             </div>
 
             <div id="header-notifications-btn" onclick="app.toggleNotifDrawer(true)" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%;">
-                <i data-lucide="heart" style="width: 18px; color: #000;"></i>
-                <span id="notif-dot-header" style="position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; background: #ff005c; border-radius: 50%; display: none; border: 1.5px solid #fff;"></span>
+                <i data-lucide="circle" style="width: 18px; color: #000;"></i>
+                <span id="notif-dot-header" style="position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; background: #ffd600; border-radius: 50%; display: none; border: 1.5px solid #fff;"></span>
             </div>
 
             <div id="header-logout-btn" onclick="app.logout()" style="width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
@@ -441,7 +442,7 @@
                     <div style="min-width: 240px; background: #fff; border-radius: 16px; padding: 24px; scroll-snap-align: start; color: #000; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
                             <h4 style="font-size: 14px; font-weight: 950; margin-bottom: 8px;">Compartilhe Dito</h4>
-                            <p style="font-size: 13px; color: #666; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Ganhe <span style="background: linear-gradient(135deg, #ff0045 0%, #0094ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 950;">+225 cupons</span> por cada indicação!</p>
+                            <p style="font-size: 13px; color: #666; margin-bottom: 20px; font-weight: 500; line-height: 1.4;">Ganhe <span style="background: linear-gradient(135deg, #ff0045 0%, #0094ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 950;">+100 cupons</span> por cada indicação!</p>
                         </div>
                         <button onclick="app.shareReferralLink()" style="width: 100%; height: 44px; background: #fff; color: #000; border: 1px solid #000; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px; justify-content: center;">
                             <i data-lucide="share-2" style="width: 14px;"></i> Compartilhar Link
@@ -563,7 +564,7 @@
     <template id="template-sociedade-detalhe">
         <div style="padding: 24px; padding-bottom: 120px;" class="animate-fade">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px;">
-                <div onclick="app.navigate('sociedade', 'left')" style="width: 44px; height: 44px; background: #f8f8f8; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <div onclick="app.navigate('sociedade', 'left')" style="width: 44px; height: 44px; background: #f8f8f8; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i data-lucide="arrow-left" style="width: 20px; color: #000;"></i>
                 </div>
                 <div id="soc-admin-badge" style="display: none; padding: 8px 16px; background: #000; color: #fff; border-radius: 50px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">⚙️ Gestor</div>
@@ -617,6 +618,13 @@
                 <h4 style="font-size: 14px; font-weight: 950; color: #000; margin-bottom: 24px; padding: 0 10px;">Solicitações Pendentes</h4>
                 <div id="soc-admin-list" style="display: flex; flex-direction: column; gap: 12px;">
                     <!-- Lista de Pedidos -->
+                </div>
+
+                <div style="margin-top: 60px; border-top: 1.5px dashed #fee2e2; padding-top: 32px; text-align: center;">
+                    <p style="font-size: 11px; font-weight: 800; color: #999; margin-bottom: 12px; text-transform: uppercase;">Zona de Perigo</p>
+                    <button onclick="app.deleteMySociety()" style="width: 100%; height: 56px; background: #ef4444; color: #fff; border: none; border-radius: 16px; font-size: 12px; font-weight: 950; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);">
+                        <i data-lucide="trash-2" style="width: 18px;"></i> EXCLUIR MINHA SOCIEDADE
+                    </button>
                 </div>
             </div>
 
@@ -1003,6 +1011,7 @@
                     <div onclick="document.getElementById('prod-image-file').click()" style="width: 140px; height: 140px; background: #fbfbfb; border: 2px dashed #eee; border-radius: 32px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: 0.3s;" id="prod-image-preview">
                         <i data-lucide="image-plus" style="width: 32px; color: #ddd;"></i>
                         <span style="font-size: 9px; font-weight: 900; color: #bbb; margin-top: 8px;">Upload Imagem</span>
+                        <span style="font-size: 8px; font-weight: 900; color: #ef4444; margin-top: 4px; background: #fee2e2; padding: 2px 8px; border-radius: 100px; text-transform: uppercase;">Máximo: 500kb</span>
                     </div>
                     <input type="file" id="prod-image-file" accept="image/*" style="display: none;" onchange="app.handleProductImage(this)">
                 </div>
@@ -1209,6 +1218,8 @@
                     </div>
                 </div>
             </div>
+            
+            <div id="checkout-dynamic-actions"></div>
 
             <div id="payment-status-message" style="padding: 24px; text-align: center; background: #fdfdfd; border-radius: 24px; border: 1px solid #f0f0f0; margin-bottom: 24px;">
                 <i data-lucide="shield-check" style="width: 32px; color: #22c55e; margin-bottom: 12px;"></i>
@@ -1469,9 +1480,13 @@
 
                 <!-- Botão Admin (Aparece apenas para o Benedito) -->
                 <div id="admin-only-section" style="display: none; margin-bottom: 24px;">
-                    <button onclick="app.navigate('admin-painel-unificado')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 13px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin-bottom: 8px;">
+                    <button onclick="app.navigate('admin-painel-unificado')" style="width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 15px; font-weight: 900; font-size: 13px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); margin-bottom: 8px;">
                         <i data-lucide="shield-alert" style="width: 18px;"></i>
                         Painel de controle do Adm
+                    </button>
+                    <!-- BOTÃO DE MANUTENÇÃO LOGO ABAIXO DO ADMIN -->
+                    <button onclick="app.resetStorage()" style="width: 100%; height: 44px; background: #f5f5f5; color: #999; border: none; border-radius: 14px; font-size: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; margin-top: 10px;">
+                         🗑️ LIMPAR MEMÓRIA (CACHE)
                     </button>
                 </div>
 
@@ -1714,28 +1729,32 @@
         </div>
         <div style="padding: 16px; background: #fff;">
             <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="world-chat-input" placeholder="Comando ou mensagem..." onkeypress="if(event.key === 'Enter') app.sendWorldMessage()" style="flex: 1; height: 50px; border-radius: 12px; border: none; background: #f9f9f9; padding: 0 20px; font-weight: 700; font-size: 15px; outline: none;">
-                <button onclick="app.sendWorldMessage()" style="width: 50px; height: 50px; border-radius: 12px; border: none; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                    <i data-lucide="send" style="width: 20px;"></i>
+                <input type="text" id="world-chat-input" placeholder="Comando ou mensagem..." onkeypress="if(event.key === 'Enter') app.sendWorldMessage()" style="flex: 1; height: 50px; border-radius: 50px; border: none; background: #f0f0f0; padding: 0 24px; font-weight: 700; font-size: 15px; outline: none;">
+                <button onclick="app.sendWorldMessage()" style="width: 50px; height: 50px; border-radius: 50%; border: none; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                    <i data-lucide="send" style="width: 18px;"></i>
                 </button>
             </div>
         </div>
     </div>
     
-    <!-- DRAWER DE NOTIFICAÇÕES -->
-    <div id="notif-overlay" onclick="app.toggleNotifDrawer(false)" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 2000; display: none;"></div>
-    <div id="notif-drawer" style="position: fixed; top: 0; right: -100%; width: 85%; max-width: 400px; height: 100%; background: #fff; z-index: 2001; transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1); padding: 32px 24px; box-shadow: -10px 0 40px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
-            <h2 style="font-size: 24px; font-weight: 900; letter-spacing: -1px;">Notificações</h2>
-            <button onclick="app.toggleNotifDrawer(false)" style="background: #f8f8f8; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;"><i data-lucide="x" style="width: 20px; color: #000;"></i></button>
+    <!-- DRAWER DE NOTIFICAÇÕES (AGORA FULL SCREEN) -->
+    <div id="notif-drawer" style="position: fixed; top: 0; right: -100%; width: 100%; height: 100%; background: #fff; z-index: 2100; transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1); display: flex; flex-direction: column; overflow: hidden;">
+        <!-- Header Atividades Estilo App -->
+        <div style="padding: 24px 24px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f9f9f9; background: #fff;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button onclick="app.toggleNotifDrawer(false)" style="background: #f8f8f8; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="arrow-left" style="width: 20px; color: #000;"></i>
+                </button>
+                <h2 style="font-size: 26px; font-weight: 950; letter-spacing: -1.5px;">Atividades</h2>
+            </div>
+            <button onclick="app.clearNotifications()" style="background: transparent; border: none; font-size: 11px; font-weight: 900; color: #ff005c; cursor: pointer; text-transform: uppercase;">Limpar</button>
         </div>
         
-        <div id="notif-list-content" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
-            <!-- Itens de notificação aqui -->
+        <div id="notif-list-content" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: #fff;">
+            <!-- Itens de atividade aqui -->
         </div>
-
-        <button onclick="app.clearNotifications()" style="width: 100%; height: 50px; background: #fff; border: 1px solid #eee; border-radius: 100px; font-size: 11px; font-weight: 900; color: #999; margin-top: 24px; text-transform: uppercase;">Limpar Tudo</button>
     </div>
+
 
     <script>
         function closeFriendsDrawer() {
@@ -1893,7 +1912,7 @@
                 <i data-lucide="gift" style="width: 32px; color: #fff;"></i>
             </div>
             <h3 style="font-weight: 900; font-size: 20px; color: #000; margin-bottom: 8px;">Convidar Amigos</h3>
-            <p style="font-size: 13px; color: #666; margin-bottom: 24px; font-weight: 500; line-height: 1.5;">Copie seu link abaixo e ganhe <span style="color: #ff0045; font-weight: 900;">+225 cupons</span> por cada amigo que entrar!</p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 24px; font-weight: 500; line-height: 1.5;">Copie seu link abaixo e ganhe <span style="color: #ff0045; font-weight: 900;">+100 cupons</span> por cada amigo que entrar!</p>
             
             <div style="background: #f8f8f8; border: 1px dashed #ddd; padding: 16px; border-radius: 16px; margin-bottom: 24px; word-break: break-all;">
                 <p id="referral-link-text" style="font-family: monospace; font-size: 11px; color: #333; margin: 0;"></p>
@@ -1934,13 +1953,13 @@
     </style>
     <script src="app.js?v=20240420"></script>
     <!-- Barra de Progresso Global (Controlada via JS) -->
-    <div id="product-progress-container" style="display: none; position: fixed; bottom: 120px; right: 20px; width: 50%; max-width: 220px; z-index: 999999; pointer-events: none;">
-        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 8px;">
-            <span id="product-progress-text" style="font-size: 9px; font-weight: 950; color: #000; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.8;">Termine para publicar.</span>
+    <div id="product-progress-container" style="display: none; position: fixed; bottom: 120px; left: 0; right: 0; padding: 0; z-index: 999999; pointer-events: none;">
+        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 12px 20px; border-radius: 0; border: none; border-top: 1px solid rgba(0,0,0,0.1); border-bottom: 1px solid rgba(0,0,0,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; width: 100%;">
+            <span id="product-progress-text" style="font-size: 9px; font-weight: 950; color: #000; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.8; width: 100%;">Termine para publicar.</span>
             
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
                 <span id="product-progress-percent" style="font-size: 14px; font-weight: 950; color: #000; min-width: 40px;">0%</span>
-                <div style="flex: 1; height: 6px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden;">
+                <div style="flex: 1; height: 6px; background: rgba(0,0,0,0.05); border-radius: 0; overflow: hidden;">
                     <div id="product-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff005c 0%, #0487ff 100%); transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);"></div>
                 </div>
             </div>

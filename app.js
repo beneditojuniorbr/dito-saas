@@ -63,24 +63,48 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        // Helper para salvar no localStorage com segurança (evita QuotaExceeded)
+        // Resolve imagens para renderização (Lida com stripping de memória)
+        rGetPImage(img, name = "D") {
+            if (!img || img === 'stripped_for_cache' || img === 'null' || img === '') {
+                return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=128&bold=true`;
+            }
+            return img;
+        },
+
+        // Helper para salvar no localStorage com segurança (evita QuotaExceeded e otimiza imagens)
         safeLocalStorageSet(key, value) {
             try {
+                // OTIMIZAÇÃO: Se o valor for maior que 300kb, tenta limpar Base64 gigantes
+                if (value.length > 300000) {
+                    try {
+                        let parsed = JSON.parse(value);
+                        if (Array.isArray(parsed)) {
+                            parsed = parsed.map(item => {
+                                // Se imagem for Base64 (string muito longa), remove para o cache local
+                                if (item.image && item.image.length > 10000 && item.image.startsWith('data:')) {
+                                    return { ...item, image: "stripped_for_cache" };
+                                }
+                                return item;
+                            });
+                            value = JSON.stringify(parsed);
+                        }
+                    } catch(e) {}
+                }
+
                 localStorage.setItem(key, value);
                 return true;
             } catch (e) {
                 if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                    console.error("🚨 [Storage] Limite de espaço atingido! Limpando cache não essencial...");
-                    // Limpa caches que podem ser reconstruídos
-                    localStorage.removeItem('dito_network_users');
-                    localStorage.removeItem('dito_usuarios');
-                    localStorage.removeItem('dito_usuarios_vanilla');
+                    console.error("🚨 [Storage] Memória cheia! Limpando caches e otimizando agressivamente...");
+                    // Faxina pesada
+                    const trash = ['dito_network_users', 'dito_usuarios', 'dito_market_products', 'dito_profile_posts', 'dito_last_p_hash'];
+                    trash.forEach(k => localStorage.removeItem(k));
                     
                     try {
                         localStorage.setItem(key, value);
                         return true;
                     } catch (retryErr) {
-                        console.error("🚨 [Storage] Falha crítica: Nem mesmo limpando o cache foi possível salvar.", retryErr);
+                        console.error("🚨 [Storage] Falha crítica de espaço.", retryErr);
                         return false;
                     }
                 }
@@ -349,7 +373,7 @@
                             if (newlyProcessed > 0) {
                                 localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
                                 this.updateCoinsUI();
-                                this.showSystemNotification('Lucro Acumulado', `Voce ganhou +${newlyProcessed * 225} cupons por indicacoes enquanto estava fora!`, 'success');
+                                this.showSystemNotification('Lucro Acumulado', `Voce ganhou +${newlyProcessed * 100} cupons por indicacoes enquanto estava fora!`, 'success');
                             }
                         }
                     }
@@ -620,8 +644,61 @@
                 }
             }
 
-            // 2. Inicia o fluxo de pagamento real via Mercado Pago
+            // Inicia o fluxo de pagamento real via Mercado Pago
             await this.processPaymentMP('pix');
+        },
+
+        async simulateSuccessfulPurchase() {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification("⚠️ Crie uma conta ou faça login antes de testar o fluxo de dinheiro.", "error");
+                return;
+            }
+            if (this.cart.length === 0) {
+                this.showNotification("Seu carrinho está vazio.", "error");
+                return;
+            }
+
+            this.showLoading(true, "Simulando Pagamento e Distribuição...");
+
+            try {
+                const buyerKey = this.getUserKey();
+                
+                for (const prod of this.cart) {
+                    const price = prod.price;
+                    const mentorUsername = prod.seller || prod.author;
+                    const adminUsername = 'janavan'; // PLATAFORMA (VOCÊ)
+
+                    // 1. DISTRIBUIÇÃO E NOTIFICAÇÃO (97/3)
+                    await this.creditSeller(mentorUsername, price, prod.name);
+
+                    // 2. ADICIONA PRODUTO AOS COMPRADOS DO COMPRADOR
+                    if (!this.purchasedProducts.find(p => p.id === prod.id)) {
+                        this.purchasedProducts.unshift({
+                            ...prod,
+                            purchased_at: Date.now()
+                        });
+                    }
+                }
+
+                // 3. SALVA PERMANENTEMENTE NO LOCALSTORAGE
+                this.safeLocalStorageSet(`dito_purchased_products_${buyerKey}`, JSON.stringify(this.purchasedProducts));
+
+                // 4. LIMPA CARRINHO E SUCESSO
+                this.cart = [];
+                localStorage.setItem(`dito_cart_${buyerKey}`, '[]');
+                this.updateCartBadge();
+                this.showLoading(false);
+                this.launchVictoryConfetti();
+                this.showNotification("TESTE OK: Dinheiro distribuído 97/3 e acesso liberado!", "success");
+
+                // Vai para o painel ver o Dashboard com o produto novo
+                this.navigate('dashboard');
+                this.updateBalanceUI();
+            } catch (e) {
+                console.error("Erro na simulação:", e);
+                this.showLoading(false);
+                this.showNotification("Erro ao processar simulação financeira.", "error");
+            }
         },
 
         startPaymentPolling() {
@@ -938,7 +1015,7 @@
             
             const allUsers = JSON.parse(localStorage.getItem('dito_network_users') || '[]');
             const user = allUsers.find(u => u.username === username);
-            const avatarHtml = user && user.avatar ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`;
+                const avatarHtml = `<img src="${this.rGetPImage(user ? user.avatar : null, user ? user.username : 'User')}" style="width:100%;height:100%;object-fit:cover;">`;
             document.getElementById('chat-header-avatar').innerHTML = avatarHtml;
 
             const chatDrawer = document.getElementById('chat-drawer');
@@ -1126,6 +1203,48 @@
             this.setMarketView('live-room');
         },
 
+        async startLiveCamera() {
+            const playerContainer = document.getElementById('live-player-container');
+            if (!playerContainer) return;
+
+            try {
+                this.showNotification("Solicitando permissão de câmera...", "default");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+                
+                playerContainer.innerHTML = `
+                    <div style="position: relative; width: 100%; height: 100%; background: #000; border-radius: 20px; overflow: hidden;">
+                        <video id="live-local-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <div style="position: absolute; top: 20px; left: 20px; background: rgba(255,0,92,0.8); color: #fff; font-size: 10px; font-weight: 900; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; animation: pulse 2s infinite;">
+                            <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> AO VIVO
+                        </div>
+                        <button onclick="app.stopLiveCamera()" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
+                            <i data-lucide="square" style="width: 18px;"></i>
+                        </button>
+                    </div>
+                `;
+
+                const video = document.getElementById('live-local-video');
+                video.srcObject = stream;
+                this.liveStream = stream; // Salva para parar depois
+
+                if (window.lucide) lucide.createIcons();
+                this.showNotification("Transmissão iniciada com sucesso! 🚀", "success");
+            } catch (err) {
+                console.error("Erro ao acessar câmera:", err);
+                this.showNotification("Erro ao acessar câmera. Verifique as permissões.", "error");
+            }
+        },
+
+        stopLiveCamera() {
+            if (this.liveStream) {
+                this.liveStream.getTracks().forEach(track => track.stop());
+                this.liveStream = null;
+            }
+            const p = this.selectedProduct;
+            if (p) this.renderMarketLiveRoom(document.getElementById('market-container'));
+            this.showNotification("Transmissão encerrada.", "default");
+        },
+
         checkLiveAdminStatus() {
             const btn = document.getElementById('btn-live-admin');
             if (!btn) return;
@@ -1209,20 +1328,29 @@
                     </div>
 
                     ${item.checked ? `
-                        <span style="font-size: 8px; font-weight: 900; color: #10b981; text-transform: uppercase;">Concluído</span>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                            <span style="font-size: 8px; font-weight: 950; color: #10b981; text-transform: uppercase;">Concluído</span>
+                            <span style="font-size: 9px; font-weight: 950; color: #000;">+75</span>
+                        </div>
                     ` : (past ? `
-                        <span style="font-size: 8px; font-weight: 950; color: #ccc; text-transform: uppercase;">Expirou</span>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0.6;">
+                            <span style="font-size: 8px; font-weight: 950; color: #ef4444; text-transform: uppercase;">Perdeu</span>
+                            <span style="font-size: 9px; font-weight: 950; color: #999;">-75</span>
+                        </div>
                     ` : (isToday ? `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <div style="display: flex; align-items: center; gap: 2px; color: #000; font-size: 10px; font-weight: 950; margin-bottom: 4px;">
-                                <i data-lucide="ticket" style="width: 10px; color: #ff005c;"></i> +60
+                                <i data-lucide="ticket" style="width: 10px; color: #ff005c;"></i> +75
                             </div>
                             <button onclick="app.claimDailyCheckin(${i})" style="background: #fbbf24; color: #000; border: none; border-radius: 20px; padding: 6px 14px; font-size: 10px; font-weight: 950; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                                  Receber
                             </button>
                         </div>
                     ` : `
-                        <span style="font-size: 8px; font-weight: 900; color: #bbb; text-transform: uppercase;">Aguarde</span>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0.8;">
+                             <span style="font-size: 8px; font-weight: 950; color: #999; text-transform: uppercase;">Aguarde</span>
+                             <span style="font-size: 9px; font-weight: 950; color: #000;">+75</span>
+                        </div>
                     `))}
                 </div>
                 `;
@@ -1350,7 +1478,7 @@
             const claimedEvents = JSON.parse(localStorage.getItem(`dito_claimed_events_${key}`) || '[]');
 
             const eventConfigs = {
-                'flash': { name: 'Missão Veloz', goal: 1, current: salesToday, reward: 150, unit: 'venda', icon: 'ticket', color: '#ef4444' },
+                'flash': { name: 'Missão Veloz', goal: 1, current: salesToday, reward: 300, unit: 'venda', icon: 'ticket', color: '#ef4444' },
                 'master': { name: 'Missão Especialista', goal: 5, current: salesToday, reward: 500, unit: 'vendas', icon: 'ticket', color: '#0487ff' },
                 'king': { name: 'Rei da Rede', goal: 3, current: processedRefs.length, reward: 750, unit: 'indicações', icon: 'ticket', color: '#ffd600' }
             };
@@ -1480,7 +1608,7 @@
                 { 
                     id: 'ref', title: 'Fazedor de Amigos', icon: 'users',
                     stages: [
-                        { goal: 1, reward: 225 }, { goal: 5, reward: 1125 }, { goal: 10, reward: 2250 }, { goal: 25, reward: 5000 }, { goal: 50, reward: 10000 }
+                        { goal: 1, reward: 30 }, { goal: 5, reward: 150 }, { goal: 10, reward: 300 }, { goal: 25, reward: 750 }, { goal: 50, reward: 1500 }
                     ],
                     currentVal: processedRefs.length
                 },
@@ -1494,7 +1622,7 @@
                 { 
                     id: 'fans', title: 'Influenciador', icon: 'heart',
                     stages: [
-                        { goal: 10, reward: 350 }, { goal: 30, reward: 1000 }, { goal: 50, reward: 2500 }, { goal: 75, reward: 5000 }, { goal: 100, reward: 10000 }, { goal: 250, reward: 25000 }
+                        { goal: 10, reward: 300 }, { goal: 30, reward: 900 }, { goal: 50, reward: 1500 }, { goal: 75, reward: 2250 }, { goal: 100, reward: 3000 }, { goal: 250, reward: 7500 }
                     ],
                     currentVal: fansCount
                 }
@@ -1593,6 +1721,7 @@
         claimDailyCheckin(dayIndex) {
             const key = this.getUserKey();
             const storageKey = `dito_missions_${key}`;
+            const historyKey = `dito_checkin_history_${key}`;
             let checklist = JSON.parse(localStorage.getItem(storageKey) || '[]');
             
             if (checklist[dayIndex] && !checklist[dayIndex].checked) {
@@ -1600,29 +1729,37 @@
                 localStorage.setItem(storageKey, JSON.stringify(checklist));
                 
                 let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                currentCoins += 30;
+                const REWARD = 75;
+                currentCoins += REWARD;
                 localStorage.setItem(`dito_coins_${key}`, currentCoins.toString());
+
+                // REGISTRA NO HISTÓRICO PERMANENTE
+                let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+                history.push({ 
+                    date: new Date().toISOString(), 
+                    amount: REWARD, 
+                    day: checklist[dayIndex].dayName,
+                    week: this.getWeekNumber()
+                });
+                localStorage.setItem(historyKey, JSON.stringify(history));
                 
                 // Atualiza saldo na tela IMEDIATAMENTE
                 const balanceEl = document.getElementById('missions-coin-balance');
                 if (balanceEl) balanceEl.innerText = currentCoins.toLocaleString();
 
                 this.launchVictoryConfetti();
-                this.showNotification('30 Cupons coletados! 🎫✨', 'success');
+                this.showNotification(`${REWARD} Cupons coletados! 🎫✨`, 'success');
+                this.showSystemNotification('Check-in Realizado! ✅', `Você ganhou ${REWARD} cupons de bônus diário.`, 'success');
                 
-                // Redesenha para mudar o botão de 'Receber' para 'Concluído'
                 this.renderMissions();
+                this.checkMissionsNotification(); 
                 
-                // --- SINCRONIZA COM SUPABASE (NUVEM) ---
-                if (this.userId) {
-                    supabase.from('profiles').update({ coins: currentCoins }).eq('id', this.userId).then(() => {
-                        console.log('✅ Saldo sincronizado na nuvem.');
+                // Sincronização opcional com Supabase se o perfil existir
+                if (this.currentUser && this.currentUser.username) {
+                    supabase.from('dito_users').update({ balance: currentCoins }).eq('username', this.currentUser.username).then(() => {
+                        console.log('✅ Saldo de check-in sincronizado.');
                     });
                 }
-                
-                this.showSystemNotification('Check-in Realizado! ✅', 'Você ganhou 60 cupons de desconto.', 'success');
-                this.renderMissions(); 
-                this.checkMissionsNotification(); // Apaga o ponto amarelo na hora
             }
         },
 
@@ -1731,7 +1868,8 @@
             let text = inp.value.trim();
             if(!text || !this.currentUser) return;
             let content = text;
-            let receiver = 'GLOBAL';
+            // Se estiver em uma sala (Live ou Sociedade), usa ela como receptor, senão GLOBAL
+            let receiver = this.activeWorldRoom || 'GLOBAL';
             
             // Lógica de Comandos (DDTank Style)
             if (text.startsWith('/s ')) {
@@ -1820,11 +1958,17 @@
             itemDiv.style.lineHeight = '1.3';
             itemDiv.style.borderBottom = '1px solid #f9f9f9'; 
             
-            const user = (this.networkUsers || []).find(u => u.username === msg.sender);
-            const avatarUrl = msg.sender_avatar || (user ? user.avatar : '');
-            const avatarHtml = avatarUrl ? 
-                `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : 
-                `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"><i data-lucide="user" style="width: 14px; color: #ccc;"></i></div>`;
+            let user = (this.networkUsers || []).find(u => u.username === msg.sender);
+            if (!user && this.currentUser && msg.sender === this.currentUser.username) {
+                user = this.currentUser;
+            }
+            // Prioriza o avatar do usuário sincronizado (RAM) sobre o que veio fixo na mensagem antiga
+            const avatarUrl = (user && user.avatar) ? user.avatar : (msg.sender_avatar || "");
+            
+            // ID Único para o container do avatar para permitir atualizações em tempo real se o cache carregar depois
+            const avatarId = `chat-avatar-${msg.sender}-${msgId}`;
+            
+            const avatarHtml = `<img id="${avatarId}" src="${this.rGetPImage(avatarUrl, msg.sender)}" style="width: 100%; height: 100%; object-fit: cover;">`;
 
             itemDiv.innerHTML = `
                 <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 2px;">
@@ -1884,12 +2028,11 @@
 
             try {
                 // 2. BUSCA NO SUPABASE PARA ATUALIZAR O HISTÓRICO REAL
-                const isSocDetail = this.currentView === 'sociedade-detalhe';
-                const socFilter = isSocDetail ? `SOC_${this.currentSocietyId}` : 'SOC_GLOBAL';
+                const currentRoom = this.activeWorldRoom || 'GLOBAL';
                 
                 const { data, error } = await supabase.from('dito_messages')
                     .select('*')
-                    .or(`receiver.eq.GLOBAL,receiver.eq.${socFilter},receiver.eq.${this.currentUser.username},sender.eq.${this.currentUser.username}`)
+                    .eq('receiver', currentRoom)
                     .order('created_at', { ascending: false })
                     .limit(50);
                     
@@ -1940,7 +2083,11 @@
                     this.currentUser.sales = parseFloat(netUser.sales || 0);
                     localStorage.setItem('dito_balance', netUser.balance || '0');
                     this.saveSession(this.currentUser);
+                    this.checkSocietyPendingRequests(); // Verifica se há pedidos de entrada nas minhas sociedades
                 }
+
+                // Sincroniza avatares do chat com as fotos novas carregadas do Banco
+                this.syncChatAvatars();
             } catch (e) {
                 console.warn("⚠️ [Network] Erro na rede:", e);
             } finally {
@@ -1948,24 +2095,24 @@
             }
         },
 
-        safeLocalStorageSet(key, value) {
-            try {
-                localStorage.setItem(key, value);
-            } catch (e) {
-                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                    console.warn("⚠️ [Storage] Memória cheia! Fazendo faxina total...");
-                    // Limpa absolutamente tudo que é cache não essencial
-                    const keysToRemove = ['dito_network_users', 'dito_usuarios', 'dito_market_products', 'dito_last_p_hash', 'dito_profile_posts'];
-                    keysToRemove.forEach(k => localStorage.removeItem(k));
-                    
-                    try {
-                        localStorage.setItem(key, value);
-                    } catch (retryError) {
-                        console.error("❌ [Storage] Espaço insuficiente mesmo após limpeza.");
+        syncChatAvatars() {
+            if (!this.networkUsers) return;
+            this.networkUsers.forEach(u => {
+                if (!u.avatar) return;
+                // Procura todos os elementos de avatar deste usuário no chat e atualiza para a foto nova
+                const avatars = document.querySelectorAll(`[id^="chat-avatar-${u.username}-"]`);
+                avatars.forEach(el => {
+                    if (el.tagName === 'IMG') {
+                        if (el.src !== u.avatar) el.src = u.avatar;
+                    } else {
+                        // Era um placeholder, vira imagem
+                        el.outerHTML = `<img id="${el.id}" src="${u.avatar}" style="width: 100%; height: 100%; object-fit: cover;">`;
                     }
-                }
-            }
+                });
+            });
         },
+
+
 
         async syncUserToNetwork(user) {
             if (!supabase) return;
@@ -2038,7 +2185,8 @@
                     .limit(50);
 
                 if (data && !error) {
-                    const currentHash = JSON.stringify(data);
+                    // Hash ultra-leve para comparação (evita QuotaExceeded por causa de Base64)
+                    const currentHash = data.map(p => `${p.id}-${p.created_at}`).join('|');
                     
                     // Atualiza local anyway para garantir que tudo esteja fresco
                     let local = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -2053,11 +2201,11 @@
                     this.products = local;
 
                     // FORÇA a renderização para o usuário ver o "bounce" de carregamento
-                    if (this.currentView === 'mercado') {
+                    if (this.currentView === 'mercado' && this.marketView === 'home') {
                         this.renderMarketHome();
                     }
                     
-                    localStorage.setItem('dito_last_p_hash', currentHash);
+                    this.safeLocalStorageSet('dito_last_p_hash', currentHash);
                 }
             } catch (e) {
                 console.warn("⚠️ [Network] Erro ao buscar produtos:", e);
@@ -2108,7 +2256,7 @@
                     coverContainer.style.border = '4px solid #ff005c';
                     coverContainer.style.boxShadow = '0 0 30px rgba(255,0,92,0.4)';
                     coverContainer.style.padding = '4px';
-                    coverContainer.innerHTML = p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<div style="width: 100%; height: 100%; background: #ff005c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 40px; font-weight: 900;">${(p.seller || p.name)[0].toUpperCase()}</div>`;
+                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
                     
                     const badge = document.createElement('div');
                     badge.innerHTML = `<span style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 12px; border: 2px solid #fff; letter-spacing: 1px; z-index: 12;">AO VIVO</span>`;
@@ -2118,7 +2266,7 @@
                     coverContainer.style.border = 'none';
                     coverContainer.style.boxShadow = '0 20px 40px rgba(0,0,0,0.03)';
                     coverContainer.style.padding = '0';
-                    coverContainer.innerHTML = p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="shopping-bag" style="width: 60px; color: #eee;"></i>`;
+                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">`;
                 }
             }
 
@@ -2175,22 +2323,22 @@
                 if (isMentoria) {
                     if (hasAccess) {
                         actionsContainer.innerHTML = `
-                            <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
+                            <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
                                 <i data-lucide="check-circle" style="width: 20px;"></i>
                                 ENTRAR NA MENTORIA
                             </button>
                         `;
                     } else {
                         actionsContainer.innerHTML = `
-                            <button onclick="app.ingressLive('${p.id}')" style="flex: 1; height: 64px; background: linear-gradient(90deg, #ff005c, #ff3366); color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,0,92,0.3);">
+                            <button onclick="app.ingressLive('${p.id}')" style="flex: 1; height: 64px; background: linear-gradient(90deg, #ff005c, #ff3366); color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,0,92,0.3);">
                                 <i data-lucide="shopping-cart" style="width: 20px;"></i>
-                                COMPRAR POR R$ ${p.price.toFixed(2)}
+                                COMPRAR INGRESSO POR R$ ${p.price.toFixed(2)}
                             </button>
                         `;
                     }
                 } else {
                     actionsContainer.innerHTML = `
-                        <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                             <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
                         </button>
                     `;
@@ -2251,7 +2399,7 @@
 
             // Limpa o carrinho atual para focar apenas na Live (Venda direta)
             this.cart = [product];
-            localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+            this.safeLocalStorageSet(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
             this.updateCartBadge();
 
             // Vai direto para o Checkout
@@ -2386,35 +2534,49 @@
                     <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Cupons:</span>
                     <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span>% desconto</span>
                 </div>
+                </div>
                 <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
                 <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com cupons: 75%</p>
-                
-                <div id="pix-payment-actions">
-                    ${this.currentUser && this.currentUser.isGuest ? `
-                        <div id="checkout-registration-form" style="background: #fff; border: 1px solid #f0f0f0; padding: 20px; border-radius: 20px; margin-top: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                                <div style="background: #000; color: #fff; width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;">1</div>
-                                <h3 style="font-size: 14px; font-weight: 950; color: #000; margin: 0;">CRIAR SUA CONTA DITO</h3>
-                            </div>
-                            <input type="text" id="reg-checkout-name" placeholder="Seu Nome Completo" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; margin-bottom: 12px; font-weight: 700; font-size: 13px;">
-                            <input type="text" id="reg-checkout-user" placeholder="Como quer ser chamado (usuário)" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; margin-bottom: 12px; font-weight: 700; font-size: 13px;">
-                            <input type="password" id="reg-checkout-pass" placeholder="Crie uma Senha" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; font-weight: 700; font-size: 13px;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-left: 5px;">
-                            <div style="background: #000; color: #fff; width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;">2</div>
-                            <h3 style="font-size: 14px; font-weight: 950; color: #000; margin: 0;">PAGAMENTO</h3>
-                        </div>
-                    ` : ''}
-                    <button onclick="app.processPaymentCheckout()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                        <i data-lucide="diamond" style="width: 18px;"></i> ${this.currentUser && this.currentUser.isGuest ? 'CADASTRAR E GERAR PIX' : 'GERAR PIX AGORA'}
-                    </button>
-                </div>
             `;
-            
             list.appendChild(rewardsSection);
 
-            
+            // 2. Renderiza Ação Final (Botão Pix e Cadastro) em Container Dedicado
+            const dynamicActions = document.getElementById('checkout-dynamic-actions');
+            if (dynamicActions) {
+                dynamicActions.innerHTML = `
+                    <div id="pix-payment-actions">
+                        ${this.currentUser && this.currentUser.isGuest ? `
+                            <div id="checkout-registration-form" style="background: #fff; border: 1px solid #f0f0f0; padding: 20px; border-radius: 20px; margin-top: 10px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                    <div style="background: #000; color: #fff; width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;">1</div>
+                                    <h3 style="font-size: 14px; font-weight: 950; color: #000; margin: 0;">CRIAR SUA CONTA DITO</h3>
+                                </div>
+                                <input type="text" id="reg-checkout-name" placeholder="Seu Nome Completo" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; margin-bottom: 12px; font-weight: 700; font-size: 13px;">
+                                <input type="text" id="reg-checkout-user" placeholder="Como quer ser chamado (usuário)" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; margin-bottom: 12px; font-weight: 700; font-size: 13px;">
+                                <input type="password" id="reg-checkout-pass" placeholder="Crie uma Senha" style="width: 100%; height: 50px; border-radius: 12px; border: 1px solid #eee; padding: 0 16px; font-weight: 700; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-left: 5px;">
+                                <div style="background: #000; color: #fff; width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;">2</div>
+                                <h3 style="font-size: 14px; font-weight: 950; color: #000; margin: 0;">PAGAMENTO</h3>
+                            </div>
+                        ` : ''}
+                        <button id="btn-pix-checkout" onclick="app.processPaymentCheckout()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 100px; font-weight: 900; font-size: 14px; margin-top: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                            <i data-lucide="diamond" style="width: 18px;"></i> ${this.currentUser && this.currentUser.isGuest ? 'CADASTRAR E GERAR PIX' : 'GERAR PIX AGORA'}
+                        </button>
+                        
+                        <!-- BOTÃO DE TESTE (Apenas para Simulação de Fluxo) -->
+                        <div style="margin-top: 16px; text-align: center;">
+                            <button onclick="app.simulateSuccessfulPurchase()" style="background: transparent; border: 1.5px dashed #ccc; color: #999; width: 100%; height: 48px; border-radius: 50px; font-size: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">
+                                🧪 Modo Teste: Simular Compra e Comissões
+                            </button>
+                            <p style="font-size: 9px; color: #bbb; font-weight: 500; margin-top: 8px;">(Isso simula o pagamento Pix e a queda do dinheiro para o Mentor e Plataforma)</p>
+                        </div>
+                    </div>
+                `;
+            }
+
             this.paymentMethod = 'pix'; // Reset para Pix
+
             this.recalculateCheckoutTotal();
 
             // Sincroniza o preenchimento inicial do slider
@@ -2688,7 +2850,8 @@
                 const purchaseDate = p.purchased_at || now; // Fallback para compras antigas
                 const diffTime = now - purchaseDate;
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                const isRefundable = diffTime <= sevenDaysMs;
+                // Reembolso permitido apenas para Curso e Ebook dento de 7 dias
+                const isRefundable = (diffTime <= sevenDaysMs) && (p.type === 'Curso' || p.type === 'Ebook');
                 
                 // Calcula dias restantes para o UI
                 const daysRemaining = Math.max(0, Math.ceil((sevenDaysMs - diffTime) / (1000 * 60 * 60 * 24)));
@@ -2707,7 +2870,7 @@
                                     ${isRefundable ? `<span style="font-size: 9px; color: #f59e0b; font-weight: 800;">• ${daysRemaining}d para reembolso</span>` : ''}
                                 </div>
                             </div>
-                            <button onclick="app.openCourse('${p.id}')" style="width: 42px; height: 42px; background: #000; color: #fff; border: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                            <button onclick="app.openCourse('${p.id}')" style="width: 42px; height: 42px; background: #000; color: #fff; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                                 <i data-lucide="arrow-right" style="width: 18px;"></i>
                             </button>
                         </div>
@@ -2728,6 +2891,11 @@
         async requestRefund(id) {
             const product = this.purchasedProducts.find(p => p.id === id);
             if (!product) return;
+
+            if (product.type === 'Mentoria') {
+                this.showNotification("🚫 Consultorias e Mentorias não são elegíveis para reembolso automático.", "error");
+                return;
+            }
 
             const confirmRefund = confirm(`Deseja solicitar o reembolso de "${product.name}"?\n\nO acesso será removido imediatamente e o valor será estornado conforme a política de 7 dias.`);
             
@@ -3068,27 +3236,35 @@
             }
 
             // Busca usuários e calcula vendas baseadas no CICLO 30 DIAS
+            const now = Date.now();
             const sortedRank = users.map(u => {
                 let salesHistory = [];
+                const userKey = u.username || u.id; // Chave para identificar o dono do histórico
+                
                 try {
-                    // Se for o usuário atual, usa o histórico local para garantir dados em tempo real
+                    // Se for o usuário atual, usa o histórico local com o sufixo correto
                     if (this.currentUser && u.username === this.currentUser.username) {
-                        salesHistory = JSON.parse(localStorage.getItem('dito_real_sales_history') || '[]');
+                        const storageKey = `dito_real_sales_history_${this.getUserKey()}`;
+                        salesHistory = JSON.parse(localStorage.getItem(storageKey) || '[]');
                     } else {
-                        // Para outros, tenta pegar o que veio do banco (se disponível) ou simula
-                        salesHistory = u.purchases ? (typeof u.purchases === 'string' ? JSON.parse(u.purchases) : u.purchases) : [];
+                        // Para outros, tenta pegar o que veio do banco (vendas globais)
+                        salesHistory = u.sales_history ? (typeof u.sales_history === 'string' ? JSON.parse(u.sales_history) : u.sales_history) : [];
                     }
                 } catch(e) {}
 
+                // Cálculo robusto: Vendas dos últimos 30 dias (ms)
                 const cycleSum = Array.isArray(salesHistory) ? salesHistory.reduce((acc, s) => {
-                    const d = new Date(s.timestamp || Date.now()).getDate();
-                    if (d >= 1 && d <= 30) return acc + (Number(s.value) || 0);
+                    const diffDays = (now - new Date(s.timestamp || now).getTime()) / (1000 * 60 * 60 * 24);
+                    if (diffDays <= 30) return acc + (Number(s.value) || 0);
                     return acc;
                 }, 0) : Number(u.sales || 0);
 
+                // Se o usuário ainda resultar em 0 mas tiver saldo no banco, usa o campo fixo de segurança
+                const finalSales = (cycleSum === 0 && u.sales > 0) ? u.sales : cycleSum;
+
                 return {
                     ...u,
-                    sales: cycleSum,
+                    sales: finalSales,
                     username: u.username || 'membro_pro',
                     avatar: u.avatar || ''
                 };
@@ -3222,7 +3398,9 @@
 
         navigate(view, direction = null) { 
             try {
-                console.log("Navegando para:", view);
+                // Notificação de Memória (Opcional - Debug)
+                console.log("🚀 Mudando de Tela:", view);
+                
                 if (view === 'login') console.trace("RASTREIO DE LOGIN:");
                 
                 // Controle da Barra de Progresso Global
@@ -3298,6 +3476,12 @@
                 }
                 
                 if (template) {
+                    // Limpeza de Espaço em Tempo Real (Memória/DOM)
+                    appContainer.innerHTML = ''; 
+                    
+                    // Otimização de Storage Proativa
+                    this.optimizeStorageOnNavigation();
+                    
                     appContainer.innerHTML = template.innerHTML;
                 } else {
                     console.error("Erro crítico: Template do Dashboard não encontrado!");
@@ -3463,12 +3647,24 @@
 
             const saved = data || JSON.parse(localStorage.getItem('dito_societies') || '[]');
             
-            if (saved.length === 0) {
+            // FILTRO DE EXCLUSIVIDADE: 
+            // Se eu já sou dono de uma sociedade ou entrei em uma, só mostro ela (escondo as outras)
+            let displayList = saved;
+            if (this.currentUser) {
+                const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+                const joinedOrAdmin = saved.filter(s => s.owner === this.currentUser.username || myGroups.includes(s.id));
+                
+                if (joinedOrAdmin.length > 0) {
+                    displayList = joinedOrAdmin;
+                }
+            }
+
+            if (displayList.length === 0) {
                 list.innerHTML = `<div style="text-align: center; padding: 40px; color: #ccc; font-weight: 800; font-size: 13px;">Nenhuma sociedade encontrada.<br><span style="font-size: 10px; font-weight: 500;">Crie a primeira agora!</span></div>`;
                 return;
             }
 
-            list.innerHTML = saved.map(s => {
+            list.innerHTML = displayList.map(s => {
                 const isAdmin = this.currentUser && s.owner === this.currentUser.username;
                 return `
                 <div class="society-card">
@@ -3534,9 +3730,12 @@
                 document.getElementById('soc-join-section').style.display = 'none';
                 this.fetchSocietyMural();
             } else {
-                // Verifica se já tem pedido pendente
-                const requests = JSON.parse(localStorage.getItem('society_requests') || '[]');
-                const hasPending = requests.find(r => r.society_id === this.currentSocietyId && r.username === this.currentUser.username);
+                // Sincroniza status do pedido com Supabase
+                const { data: pendingReq } = await supabase.from('dito_society_requests')
+                    .select('id')
+                    .eq('society_id', this.currentSocietyId)
+                    .eq('username', this.currentUser.username)
+                    .maybeSingle();
                 
                 document.getElementById('soc-content-mural').style.display = 'none';
                 document.getElementById('soc-content-membros').style.display = 'none';
@@ -3545,14 +3744,15 @@
 
                 const joinBtn = document.getElementById('btn-society-join');
                 if (joinBtn) {
-                    if (hasPending) {
-                        joinBtn.innerText = 'SOLICITAÇÃO ENVIADA';
+                    if (pendingReq) {
+                        joinBtn.innerText = 'SOLICITAÇÃO EM ANÁLISE';
                         joinBtn.style.background = '#f5f5f5';
                         joinBtn.style.color = '#999';
                         joinBtn.disabled = true;
                     } else {
                         joinBtn.innerText = 'PEDIR PARA PARTICIPAR';
                         joinBtn.style.background = '#000';
+                        joinBtn.style.color = '#fff';
                         joinBtn.disabled = false;
                         joinBtn.onclick = () => this.requestToJoinSociety(soc.id);
                     }
@@ -3610,19 +3810,25 @@
                 if (!reqData) return;
 
                 if (action === 'approve') {
-                    const socs = JSON.parse(localStorage.getItem('dito_societies') || '[]');
-                    const socIndex = socs.findIndex(s => s.id === reqData.society_id);
-                    if (socIndex !== -1) {
-                        const soc = socs[socIndex];
-                        if (!soc.members) soc.members = [];
-                        if (!soc.members.includes(reqData.username)) {
-                            soc.members.push(reqData.username);
-                            soc.membersCount = (soc.membersCount || 0) + 1;
-                        }
-                        await supabase.from('dito_societies').update({ members: soc.members, membersCount: soc.membersCount }).eq('id', soc.id);
-                        localStorage.setItem('dito_societies', JSON.stringify(socs));
+                    // 1. Busca dados ATUAIS da sociedade no banco
+                    const { data: socDb } = await supabase.from('dito_societies').select('*').eq('id', reqData.society_id).single();
+                    if (!socDb) return;
+
+                    let currentMembers = socDb.members || [];
+                    if (!Array.isArray(currentMembers)) currentMembers = [];
+                    
+                    if (!currentMembers.includes(reqData.username)) {
+                        currentMembers.push(reqData.username);
+                        const newCount = (socDb.membersCount || currentMembers.length);
+                        
+                        // 2. Atualiza no Banco (Usa RPC ou Update direto)
+                        await supabase.from('dito_societies').update({ 
+                            members: currentMembers, 
+                            membersCount: currentMembers.length 
+                        }).eq('id', socDb.id);
                     }
-                    this.sendNetworkNotification(reqData.username, 'society', `Aprovado na Sociedade! 🎉`, `Agora você faz parte de uma nova elite. Aproveite!`);
+                    
+                    this.sendNetworkNotification(reqData.username, 'society', `Aprovado na Sociedade! 🎉`, `Gestor aceitou seu pedido. Bem-vindo!`);
                     this.showNotification("Membro aprovado com sucesso!", "success");
                 }
 
@@ -3843,6 +4049,36 @@
             this.renderSocietyDetail();
         },
 
+        async deleteMySociety() {
+            if (!this.currentSocietyId) return;
+            if (!confirm("⚠️ ATENÇÃO: Esta ação é permanente. Deseja realmente EXCLUIR sua sociedade e remover todos os posts e membros?")) return;
+
+            try {
+                // 1. Remove do Supabase
+                const { error: err1 } = await supabase.from('dito_societies').delete().eq('id', this.currentSocietyId);
+                const { error: err2 } = await supabase.from('dito_society_requests').delete().eq('society_id', this.currentSocietyId);
+                
+                if (err1) throw err1;
+
+                // 2. Atualiza LocalStorage (Remove da lista global)
+                let allSocs = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+                allSocs = allSocs.filter(s => s.id !== this.currentSocietyId);
+                localStorage.setItem('dito_societies', JSON.stringify(allSocs));
+
+                // 3. Me remove de 'my_societies' caso eu estivesse nela
+                let myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+                myGroups = myGroups.filter(id => id !== this.currentSocietyId);
+                localStorage.setItem('my_societies', JSON.stringify(myGroups));
+
+                this.showNotification("Sociedade excluída com sucesso.", "success");
+                this.navigate('sociedade');
+                this.fetchNetworkSocieties(); // Recarrega do banco para garantir sincronia
+            } catch (e) {
+                console.error(e);
+                this.showNotification("Erro ao excluir sociedade.", "error");
+            }
+        },
+
         handleLeaveSociety() {
             if (confirm('Sair desta sociedade?')) {
                 const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
@@ -3868,6 +4104,18 @@
         },
 
         createSociety() {
+            // BLOQUEIO: Apenas 1 Sociedade por pessoa
+            const allSocs = JSON.parse(localStorage.getItem('dito_societies') || '[]');
+            const myGroups = JSON.parse(localStorage.getItem('my_societies') || '[]');
+            const isAlreadyManaged = allSocs.some(s => s.owner === this.currentUser?.username);
+            const isAlreadyMember = myGroups.length > 0;
+
+            if (isAlreadyManaged || isAlreadyMember) {
+                const motive = isAlreadyManaged ? "Você já possui uma sociedade ativa." : "Você já participa de uma sociedade.";
+                this.showNotification(`${motive} Saia ou exclua a atual para criar uma nova.`, "error");
+                return;
+            }
+
             const nameEl = document.getElementById('new-soc-name');
             const feeEl = document.getElementById('new-soc-fee');
             
@@ -4193,7 +4441,7 @@
                 <div style="background: #fff; border: 1px solid #f2f2f2; border-radius: 24px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
                     <div style="display: flex; gap: 14px; align-items: center;">
                         <div style="width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: #f5f5f5; border: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
-                            ${user.avatar ? `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="user" style="width: 18px; color: #ccc;"></i>`}
+                            <img src="${this.rGetPImage(user.avatar, user.username)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         <div>
                             <h4 style="font-weight: 900; font-size: 14px; color: #000;">${user.username}</h4>
@@ -4316,7 +4564,7 @@
                     if (card) card.style.display = 'none';
 
                     // Força redesenho instantâneo das abas de produtos
-                    if (this.currentView === 'mercado') this.renderMarketHome();
+                    if (this.currentView === 'mercado' && this.marketView === 'home') this.renderMarketHome();
                     if (this.currentView === 'admin-produtos') this.renderAdminProducts();
                     if (this.currentView === 'produtos') this.renderMyProducts();
 
@@ -4781,7 +5029,7 @@
         participateEvent(type) {
             const key = this.getUserKey();
             const eventMap = {
-                'flash': { name: 'Missão Veloz', goal: 1, reward: 150, desc: 'Realize 1 venda em 1 hora' },
+                'flash': { name: 'Missão Veloz', goal: 1, reward: 300, desc: 'Realize 1 venda em 1 hora' },
                 'master': { name: 'Missão Especialista', goal: 5, reward: 500, desc: 'Realize 5 vendas hoje' },
                 'king': { name: 'Rei da Rede', goal: 3, reward: 750, desc: 'Indique 3 novos usuários' }
             };
@@ -4833,35 +5081,35 @@
             const textLabel = document.getElementById('product-progress-text');
             if (!bar || !percentLabel || !textLabel) return;
 
-            // Cálculo Granular (7 Tarefas)
+            // Cálculo Granular (6 Tarefas)
             let completed = 0;
             const type = this.selectedProductType;
-            if (type) completed++; // 1. Tipo
-            if (this.selectedProductImage) completed++; // 2. Capa
-            if (document.getElementById('prod-name')?.value.trim().length > 3) completed++; // 3. Nome
-            if (document.getElementById('prod-category')?.value) completed++; // 4. Categoria
-            if (document.getElementById('prod-desc')?.value.trim().length > 10) completed++; // 5. Descrição
+            
+            if (this.selectedProductImage) completed++; // 1. Capa
+            if (document.getElementById('prod-name')?.value.trim().length > 3) completed++; // 2. Nome
+            if (document.getElementById('prod-category')?.value) completed++; // 3. Categoria
+            if (document.getElementById('prod-desc')?.value.trim().length > 10) completed++; // 4. Descrição
             
             const price = parseFloat(document.getElementById('prod-price')?.value);
-            if (price > 0) completed++; // 6. Preço
+            if (price > 0) completed++; // 5. Preço
             
-            // 7. Conteúdo Específico
+            // 6. Conteúdo Específico
             let contentOk = false;
             if (type === 'Ebook' && document.getElementById('ebook-file')?.files.length > 0) contentOk = true;
             if (type === 'Curso' && this.courseStructure.length > 0) contentOk = true;
             if (type === 'Mentoria' && document.getElementById('prod-date')?.value) contentOk = true;
             if (contentOk) completed++;
 
-            const progress = Math.round((completed / 7) * 100);
+            const progress = Math.round((completed / 6) * 100);
 
             bar.style.width = `${progress}%`;
             percentLabel.innerText = `${progress}%`;
             
-            textLabel.innerText = `${completed} de 7 tarefas concluídas`;
-            textLabel.style.color = (completed === 7) ? '#22c55e' : '#000';
+            textLabel.innerText = `${completed} de 6 tarefas concluídas`;
+            textLabel.style.color = (completed === 6) ? '#22c55e' : '#000';
             
             // Se terminou, muda a frase motivacional final
-            if (completed === 7) {
+            if (completed === 6) {
                 textLabel.innerText = "PRONTO PARA PUBLICAR! ✨";
             }
 
@@ -4875,6 +5123,37 @@
             const desc = document.getElementById('prod-desc')?.value || "Os detalhes que você escrever aparecerão aqui para o seu cliente...";
             const price = parseFloat(document.getElementById('prod-price')?.value) || 0;
             const formattedPrice = `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            const type = this.selectedProductType;
+            const img = this.selectedProductImage;
+
+            // 0. Image Updates
+            const vitrineImg = document.getElementById('preview-vitrine-image');
+            if (vitrineImg) {
+                if (type === 'Mentoria') {
+                    vitrineImg.style.height = '200px'; // Recuo para a bola caber bem
+                    vitrineImg.style.background = 'transparent';
+                    vitrineImg.innerHTML = `
+                        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto;">
+                            <div class="live-pulse-border" style="position: absolute; inset: -4px; border-radius: 50%; border: 2.5px solid #ff005c; opacity: 0.8;"></div>
+                            <div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${img || ''}'); background-size: cover; background-position: center; background-color: #f9f9f9; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; position: relative; z-index: 2;">
+                                ${!img ? '<i data-lucide="image" style="width: 32px; color: #eee;"></i>' : ''}
+                            </div>
+                            <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: #fff; font-size: 9px; font-weight: 950; padding: 3px 12px; border-radius: 20px; text-transform: uppercase; white-space: nowrap; z-index: 10; box-shadow: 0 4px 12px rgba(255, 0, 92, 0.3);">
+                                Ao Vivo
+                            </div>
+                        </div>
+                    `;
+                    if (window.lucide) lucide.createIcons();
+                } else {
+                    vitrineImg.style.height = '280px';
+                    vitrineImg.style.backgroundImage = img ? `url(${img})` : 'none';
+                    vitrineImg.style.backgroundSize = 'cover';
+                    vitrineImg.style.backgroundPosition = 'center';
+                    vitrineImg.style.backgroundColor = '#f9f9f9';
+                    vitrineImg.innerHTML = !img ? '<i data-lucide="image" style="width: 40px; color: #eee;"></i>' : '';
+                    if (window.lucide) lucide.createIcons();
+                }
+            }
 
             // 1. Vitrine Updates
             const vitrineName = document.getElementById('preview-vitrine-name');
@@ -4997,16 +5276,18 @@
             const form = document.getElementById('create-product-form');
             if (form) form.style.display = 'flex';
 
-            document.getElementById('ebook-upload').style.display = (type === 'Ebook') ? 'block' : 'none';
-            document.getElementById('curso-upload').style.display = (type === 'Curso') ? 'block' : 'none';
-            document.getElementById('mentoria-link').style.display = (type === 'Mentoria') ? 'block' : 'none';
-            document.getElementById('mentoria-fields').style.display = (type === 'Mentoria') ? 'block' : 'none';
-            
-            const cursoStructure = document.getElementById('curso-upload');
-            if (cursoStructure) {
-                cursoStructure.style.display = (type === 'Curso') ? 'flex' : 'none';
+            const ebookEl = document.getElementById('ebook-upload');
+            const cursoEl = document.getElementById('curso-upload');
+            const mentoriaLinkEl = document.getElementById('mentoria-link');
+            const mentoriaFieldsEl = document.getElementById('mentoria-fields');
+
+            if (ebookEl) ebookEl.style.display = (type === 'Ebook') ? 'block' : 'none';
+            if (cursoEl) {
+                cursoEl.style.display = (type === 'Curso') ? 'flex' : 'none';
                 if (type === 'Curso') this.renderCourseStructure();
             }
+            if (mentoriaLinkEl) mentoriaLinkEl.style.display = (type === 'Mentoria') ? 'block' : 'none';
+            if (mentoriaFieldsEl) mentoriaFieldsEl.style.display = (type === 'Mentoria') ? 'block' : 'none';
             
             this.selectedProductType = type;
             this.courseStructure = []; 
@@ -5028,6 +5309,14 @@
         handleProductImage(input) {
             const file = input.files[0];
             if (file) {
+                // Validação de Tamanho Imediata
+                const maxSize = 500 * 1024; // 500kb
+                if (file.size > maxSize) {
+                    this.showNotification(`Imagem muito pesada (${(file.size/1024).toFixed(0)}kb). O máximo permitido é 500kb. Escolha outra!`, "error");
+                    input.value = ""; // Limpa o input
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     this.selectedProductImage = e.target.result;
@@ -5120,14 +5409,41 @@
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
 
-                // Salva na lista global local
-                const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                marketProducts.unshift(newProd);
-                localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
-                localStorage.setItem('dito_products', JSON.stringify(marketProducts)); 
+                // OTIMIZAÇÃO DE ESPAÇO: Se a imagem for grande, salvamos no Local apenas o placeholder
+                // Mas enviamos a imagem FULL para o Supabase (Network)
+                const networkProd = { ...newProd };
+                if (newProd.image && newProd.image.length > 30000) {
+                    newProd.image = 'stripped_for_cache'; 
+                }
 
-                // Compartilha via Supabase
-                app.syncProductToNetwork(newProd);
+                // Salva na lista global local com proteção de cota
+                try {
+                    const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                    marketProducts.unshift(newProd);
+                    localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
+                    localStorage.setItem('dito_products', JSON.stringify(marketProducts));
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        console.warn("🚨 Limpeza de Emergência: Memória Cheia!");
+                        // Limpa lixo agressivamente
+                        const keysToClear = [
+                            'dito_products_vanilla',
+                            'dito_checkin_history', 
+                            'dito_real_sales_history',
+                            'dito_market_notifications'
+                        ];
+                        keysToClear.forEach(k => localStorage.removeItem(k));
+                        
+                        // Tenta salvar APENAS o necessário para o funcionamento
+                        try {
+                            localStorage.setItem('dito_products', JSON.stringify([newProd]));
+                        } catch(inner) {
+                            app.showNotification("Imagem muito grande! Reduza a foto ou use um link.", "error");
+                        }
+                    }
+                }
+                // Compartilha via Supabase (USA A VERSÃO COM IMAGEM FULL)
+                app.syncProductToNetwork(networkProd);
 
                 if (notif) notif.remove();
                 app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
@@ -5342,7 +5658,7 @@
                                 target_username: referrerUsername,
                                 type: 'referral_225',
                                 title: 'Indicação de Sucesso',
-                                message: `O usuário @${username} acaba de criar uma conta pelo seu link! Você ganhou +225 cupons.`,
+                                message: `O usuário @${username} acaba de criar uma conta pelo seu link! Você ganhou +100 cupons.`,
                                 sender: 'Sistema',
                                 read: false
                             };
@@ -5774,9 +6090,14 @@
                 `;
             } else {
                 playerContainer.innerHTML = `
-                    <div style="text-align: center; color: #666; padding: 20px;">
+                    <div style="text-align: center; color: #666; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                         <i data-lucide="video-off" style="width: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
-                        <p style="font-size: 12px; font-weight: 700;">Aguardando início da transmissão pelo mentor...</p>
+                        <p style="font-size: 12px; font-weight: 700; margin-bottom: 20px;">Aguardando início da transmissão pelo mentor...</p>
+                        ${this.currentUser && this.currentUser.username === p.seller ? `
+                            <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 12px 24px; border-radius: 50px; font-weight: 900; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
+                                <i data-lucide="camera" style="width: 16px;"></i> USAR MINHA CÂMERA
+                            </button>
+                        ` : ''}
                     </div>
                 `;
             }
@@ -5861,7 +6182,7 @@
                     <div onclick="app.viewProduct('${p.id}')" style="display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; width: 72px;">
                         <div style="width: 72px; height: 72px; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3);">
                             <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                                ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </div>
                         <span style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; line-height: 1.2;">${p.name}</span>
@@ -5880,12 +6201,12 @@
                         <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible; flex-shrink: 0;">
                             <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
                             <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                                ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </div>
                     ` : `
                         <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden; flex-shrink: 0;">
-                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="package" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
+                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     `;
                     
@@ -5917,12 +6238,12 @@
                     <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible;">
                         <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
                         <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<b style="font-size: 24px; color: #ff005c;">${(p.seller || p.name)[0].toUpperCase()}</b>`}
+                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     </div>
                 ` : `
                     <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden;">
-                        ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="layers" stroke="url(#dito-gradient)" style="width: 20px;"></i>`}
+                        <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                 `;
 
@@ -5953,7 +6274,7 @@
             const product = p2.find(p => p.id === id);
             if (product) {
                 this.cart.push(product);
-                localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+                this.safeLocalStorageSet(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
                 this.updateCartBadge();
                 this.showNotification(`"${product.name}" adicionado à sacola!`, "success");
             }
@@ -6046,7 +6367,7 @@
                     revEl.innerText = (user.showRevenue === false) ? "Privado" : `R$ ${salesVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 }
 
-                if (avatarEl) avatarEl.innerHTML = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="user" style="width: 40px; color: #ccc;"></i>`;
+                if (avatarEl) avatarEl.innerHTML = `<img src="${this.rGetPImage(user.avatar, user.username)}" style="width:100%; height:100%; object-fit:cover;">`;
                 
                 // Atualiza estado do botão Fã
                 if (btnFan) {
@@ -6113,7 +6434,7 @@
         const workingLink = textEl.innerText;
 
         navigator.clipboard.writeText(workingLink).then(() => {
-            app.showSystemNotification('Link Copiado!', 'Mande para seus amigos e garanta seus +225 cupons.', 'success');
+            app.showSystemNotification('Link Copiado!', 'Mande para seus amigos e garanta seus +100 cupons.', 'success');
             
             document.getElementById('referral-modal').style.display = 'none';
         }).catch(err => {
@@ -6281,7 +6602,7 @@
         list.innerHTML = myP.map(p => `
             <div style="background:#fff; border:1px solid #eee; border-radius:24px; padding:16px; display:flex; align-items:center; gap:16px;">
                 <div style="width:60px; height:60px; background:#f9f9f9; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="package" style="width:24px; color:#ccc;"></i>`}
+                    <img src="${this.rGetPImage(p.image, p.name)}" style="width:100%; height:100%; object-fit:cover;">
                 </div>
                 <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
                 <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
@@ -6301,7 +6622,7 @@
             results.innerHTML = filtered.map(p => `
                 <div onclick="app.viewProduct('${p.id}')" style="display:flex; align-items:center; gap:12px; padding:12px; cursor:pointer; border-bottom:1px solid #f9f9f9;">
                     <div style="width:40px; height:40px; background:#f5f5f5; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        ${p.image ? `<img src="${p.image}" style="width:100%; height:100%; object-fit:cover;">` : `<i data-lucide="package" style="width:18px; color:#ccc;"></i>`}
+                        <img src="${this.rGetPImage(p.image, p.name)}" style="width:100%; height:100%; object-fit:cover;">
                     </div>
                     <div><p style="font-weight:900; font-size:13px;">${p.name}</p><p style="font-size:11px; color:#22c55e; font-weight:900;">R$ ${parseFloat(p.price).toFixed(2)}</p></div>
                 </div>`).join('');
@@ -6320,10 +6641,13 @@
     app.toggleNotifDrawer = function(show) {
         const drawer = document.getElementById('notif-drawer');
         const overlay = document.getElementById('notif-overlay');
-        if (drawer && overlay) {
-            overlay.style.display = show ? 'block' : 'none';
+        if (drawer) {
+            if (overlay) overlay.style.display = show ? 'block' : 'none';
             drawer.style.right = show ? '0' : '-100%';
-            if (show) this.markNotificationsAsRead();
+            if (show) {
+                this.renderNotifications();
+                this.markNotificationsAsRead();
+            }
         }
     };
 
@@ -6515,10 +6839,10 @@
             if (!processedRefs.includes(notif.id)) {
                 const key = this.getUserKey();
                 let currentCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                localStorage.setItem(`dito_coins_${key}`, (currentCoins + 225).toString());
+                localStorage.setItem(`dito_coins_${key}`, (currentCoins + 100).toString());
                 processedRefs.push(notif.id);
                 localStorage.setItem('dito_processed_refs', JSON.stringify(processedRefs));
-                this.showSystemNotification('Saldo Atualizado', 'Um amigo entrou! +225 cupons creditados!', 'success');
+                this.showSystemNotification('Saldo Atualizado', 'Um amigo entrou! +100 cupons creditados!', 'success');
                 this.updateCoinsUI();
             }
         }
@@ -6576,8 +6900,26 @@
         if (!container) return;
 
         const list = this.notifications || [];
+        let listHtml = '';
+        
+        // 1. Injeta virtualmente a notificação de Sociedade se houver pendências
+        if (this.hasPendingSocietyRequests) {
+            listHtml += `
+                <div onclick="app.navigate('sociedade'); app.toggleNotifDrawer(false);" style="padding: 16px; background: #fffdf0; border-radius: 20px; border: 1.5px solid #ffd600; display: flex; gap: 14px; position: relative; margin-bottom: 12px; cursor: pointer;">
+                    <div style="position: absolute; top: 12px; right: 12px; width: 8px; height: 8px; background: #ffd600; border-radius: 50%;"></div>
+                    <div style="width: 44px; height: 44px; background: #ffd60020; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i data-lucide="users" style="width: 20px; color: #b8860b;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="font-size: 13px; font-weight: 900; color: #000; margin-bottom: 2px;">Solicitações de Entrada</h4>
+                        <p style="font-size: 11px; font-weight: 600; color: #666; line-height: 1.4;">Existem membros aguardando aprovação na sua Sociedade.</p>
+                        <span style="font-size: 9px; font-weight: 900; color: #b8860b; text-transform: uppercase; margin-top: 8px; display: block;">Clique para gerenciar →</span>
+                    </div>
+                </div>
+            `;
+        }
 
-        if (list.length === 0) {
+        if (list.length === 0 && !this.hasPendingSocietyRequests) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px 20px; color: #ccc;">
                     <i data-lucide="bell-off" style="width: 32px; margin-bottom: 12px; opacity: 0.3;"></i>
@@ -6585,7 +6927,7 @@
                 </div>
             `;
         } else {
-            container.innerHTML = list.map(n => {
+            container.innerHTML = listHtml + list.map(n => {
                 let icon = 'bell';
                 let color = '#000';
                 if (n.type === 'sale') { icon = 'shopping-bag'; color = '#22c55e'; }
@@ -6615,10 +6957,13 @@
         const list = this.notifications || [];
         const unreadCount = list.filter(n => !n.read).length;
         
-        if (dotHeader) dotHeader.style.display = unreadCount > 0 ? 'block' : 'none';
+        // Só mostra se houver unread ou se o número de pedidos de sociedade for MAIOR que o que o usuário já viu
+        const hasNewSociety = (this.societyPendingCount || 0) > (this.lastSeenSocietyCount || 0);
+
+        if (dotHeader) dotHeader.style.display = (unreadCount > 0 || hasNewSociety) ? 'block' : 'none';
         
         if (badge) {
-            badge.style.display = unreadCount > 0 ? 'block' : 'none';
+            badge.style.display = (unreadCount > 0 || hasNewSociety) ? 'block' : 'none';
             if (animate && unreadCount > 0) {
                 const btn = document.getElementById('header-notif-btn');
                 if (btn) {
@@ -6637,6 +6982,10 @@
         try {
             await supabase.from('dito_notifications').update({ read: true }).in('id', unreadIds);
             this.notifications.forEach(n => n.read = true);
+            
+            // "Lê" também as solicitações de sociedade visualmente
+            this.lastSeenSocietyCount = this.societyPendingCount || 0;
+            
             this.updateNotifBadge();
         } catch (e) { console.warn(e); }
     };
@@ -6801,6 +7150,58 @@
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return result;
+    };
+
+    app.checkSocietyPendingRequests = async function() {
+        if (!supabase || !this.currentUser) return;
+        try {
+            const { data: mySocs } = await supabase.from('dito_societies').select('id').eq('owner', this.currentUser.username);
+            if (!mySocs || mySocs.length === 0) {
+                this.hasPendingSocietyRequests = false;
+                this.updateNotifBadge();
+                return;
+            }
+            const socIds = mySocs.map(s => s.id);
+            const { count, error } = await supabase
+                .from('dito_society_requests')
+                .select('*', { count: 'exact', head: true })
+                .in('society_id', socIds);
+            if (!error) {
+                this.societyPendingCount = count || 0;
+                this.hasPendingSocietyRequests = (this.societyPendingCount > 0);
+                this.updateNotifBadge();
+            }
+        } catch (e) {
+            console.error("Erro ao checar solicitações:", e);
+        }
+    };
+
+    app.optimizeStorageOnNavigation = function() {
+        // Remove dados transientes para garantir espaço em tempo real
+        const transientKeys = [
+            'dito_temp_image',
+            'dito_social_results',
+            'dito_last_search'
+        ];
+        transientKeys.forEach(k => localStorage.removeItem(k));
+        
+        // Compacta históricos se estiverem muito grandes (> 50 itens)
+        const historicalKeys = ['dito_checkin_history', 'dito_market_notifications'];
+        historicalKeys.forEach(k => {
+            try {
+                let data = JSON.parse(localStorage.getItem(k) || '[]');
+                if (data.length > 50) {
+                    localStorage.setItem(k, JSON.stringify(data.slice(0, 10))); // Mantém só os 10 mais recentes
+                }
+            } catch(e) {}
+        });
+    };
+
+    app.resetStorage = async function() {
+        if (confirm("⚠️ Isso irá limpar TODA a memória local do app (histórico, produtos locais, etc). Seus dados no Supabase estão seguros. Continuar?")) {
+            localStorage.clear();
+            location.reload();
+        }
     };
 
     window.app = app;
