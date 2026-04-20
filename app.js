@@ -1207,34 +1207,112 @@
 
         async startLiveCamera() {
             const playerContainer = document.getElementById('live-player-container');
-            if (!playerContainer) return;
+            const p = this.selectedProduct;
+            if (!playerContainer || !p) return;
 
             try {
-                this.showNotification("Solicitando permissão de câmera...", "default");
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+                this.showNotification("Iniciando Transmissão Nativa Dito...", "default");
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: 1280, height: 720 }, 
+                    audio: true 
+                });
                 
+                this.liveStream = stream;
+                
+                // UI do Mentor
                 playerContainer.innerHTML = `
                     <div style="position: relative; width: 100%; height: 100%; background: #000; border-radius: 0; overflow: hidden;">
-                        <video id="live-local-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-                        <div style="position: absolute; top: 20px; left: 20px; background: rgba(255,0,92,0.8); color: #fff; font-size: 10px; font-weight: 900; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; animation: pulse 2s infinite;">
-                            <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> AO VIVO
+                        <video id="live-mentor-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <div style="position: absolute; top: 20px; left: 20px; background: #ff005c; color: #fff; font-size: 10px; font-weight: 900; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(255,0,92,0.3); animation: pulse 2s infinite;">
+                            <div style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> TRANSMITINDO AO VIVO (NATIVO DITO)
                         </div>
-                        <button onclick="app.stopLiveCamera()" style="position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
-                            <i data-lucide="square" style="width: 18px;"></i>
+                        <div style="position: absolute; bottom: 20px; left: 20px; display: flex; gap: 8px;">
+                            <div id="live-viewer-count" style="background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; font-weight: 800; padding: 8px 12px; border-radius: 12px; backdrop-filter: blur(10px);">
+                                👤 0 Online
+                            </div>
+                        </div>
+                        <button onclick="app.stopLiveCamera()" style="position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.2); color: #fff; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; backdrop-filter: blur(10px);">
+                             <i data-lucide="square" style="width: 20px;"></i>
                         </button>
                     </div>
                 `;
 
-                const video = document.getElementById('live-local-video');
+                const video = document.getElementById('live-mentor-video');
                 video.srcObject = stream;
-                this.liveStream = stream; // Salva para parar depois
-
+                
                 if (window.lucide) lucide.createIcons();
-                this.showNotification("Transmissão iniciada com sucesso! 🚀", "success");
+
+                // --- LOGICA DE SINALIZACAO WEBRTC (DITO NATIVE) ---
+                this.initMentorSignaling(p.id, stream);
+                
+                // Notifica a rede que a live nativa começou
+                p.sales_link = 'NATIVE_LIVE'; // Flag especial
+                this.syncProductToNetwork(p);
+
+                this.showNotification("Você está AO VIVO no Dito!", "success");
             } catch (err) {
-                console.error("Erro ao acessar câmera:", err);
-                this.showNotification("Erro ao acessar câmera. Verifique as permissões.", "error");
+                console.error("Erro Câmera:", err);
+                this.showNotification("Permissão de câmera negada ou erro técnico.", "error");
             }
+        },
+
+        initMentorSignaling(productId, stream) {
+            if (!supabase) return;
+            const channelName = `live-native-${productId}`;
+            this.mentorChannel = supabase.channel(channelName);
+            this.peerConnections = {}; // Um PC para cada aluno
+
+            this.mentorChannel
+                .on('broadcast', { event: 'request-stream' }, async ({ payload }) => {
+                    const studentId = payload.studentId;
+                    console.log(`Alunos entrando: ${studentId}`);
+                    
+                    // Cria uma conexão direta com esse aluno
+                    const pc = new RTCPeerConnection({
+                        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    });
+                    
+                    this.peerConnections[studentId] = pc;
+                    
+                    // Adiciona as trilhas (vídeo/áudio) do mentor
+                    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+                    // ICE Candidates
+                    pc.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            this.mentorChannel.send({
+                                type: 'broadcast',
+                                event: 'ice-candidate',
+                                payload: { target: studentId, candidate: event.candidate }
+                            });
+                        }
+                    };
+
+                    // Cria Oferta
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+
+                    this.mentorChannel.send({
+                        type: 'broadcast',
+                        event: 'offer',
+                        payload: { target: studentId, offer }
+                    });
+                    
+                    this.updateViewerCount();
+                })
+                .on('broadcast', { event: 'answer' }, async ({ payload }) => {
+                    if (payload.target === this.currentUser.username) {
+                        const pc = this.peerConnections[payload.studentId];
+                        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                    }
+                })
+                .subscribe();
+        },
+
+        updateViewerCount() {
+            const el = document.getElementById('live-viewer-count');
+            const count = Object.keys(this.peerConnections || {}).length;
+            if (el) el.innerText = `👤 ${count} Online`;
         },
 
         stopLiveCamera() {
@@ -6152,7 +6230,23 @@
             }
 
             // Converter link de vendas em Player (YouTube/Vimeo) - Suporte Mobile Robusto
-            if (p.sales_link) {
+            // Converter link de vendas em Player (YouTube/Vimeo) - Suporte Mobile Robusto
+            if (p.sales_link === 'NATIVE_LIVE') {
+                playerContainer.innerHTML = `
+                    <div style="width: 100%; height: 100%; background: #000; position: relative;">
+                        <video id="live-native-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <div style="position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 6px;">
+                           <div style="background: #ff005c; color: #fff; font-size: 10px; font-weight: 950; padding: 6px 12px; border-radius: 50px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(255,0,92,0.3);">
+                               <div class="live-pulse" style="width: 8px; height: 8px; background: #fff; border-radius: 50%;"></div> DITO NATIVE LIVE
+                           </div>
+                           <div id="live-connection-status" style="background: rgba(255,255,255,0.1); color: #fff; font-size: 9px; font-weight: 900; padding: 4px 10px; border-radius: 50px; backdrop-filter: blur(10px);">
+                               CONECTANDO AO MENTOR...
+                           </div>
+                        </div>
+                    </div>
+                `;
+                this.startWatchingNativeLive(p.id);
+            } else if (p.sales_link) {
                 let embedUrl = p.sales_link;
                 if (p.sales_link.includes('youtube.com/watch?v=')) {
                     embedUrl = p.sales_link.replace('watch?v=', 'embed/').split('&')[0] + '?autoplay=1&mute=1&playsinline=1&rel=0';
@@ -6186,11 +6280,11 @@
                         <p style="font-size: 12px; color: #999; font-weight: 500;">A transmissão começará automaticamente à medida que o sinal for detectado.</p>
                         ${this.currentUser && this.currentUser.username === p.seller ? `
                             <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 240px;">
-                                <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
-                                    DEFINIR LINK DE TRANSMISSÃO
+                                <button onclick="app.startLiveCamera()" style="background: #ff005c; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer; box-shadow: 0 10px 20px rgba(255,0,92,0.2);">
+                                    <i data-lucide="camera" style="width: 14px; margin-right: 4px;"></i> INICIAR CÂMERA (DITO NATIVE)
                                 </button>
-                                <button onclick="app.setTestLiveLink('${p.id}')" style="background: #f5f5f5; color: #666; border: none; padding: 10px; border-radius: 12px; font-weight: 800; font-size: 10px; cursor: pointer;">
-                                    USAR VÍDEO DE TESTE (DEMO)
+                                <button onclick="app.updateLiveLink('${p.id}')" style="background: #000; color: #fff; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 11px; cursor: pointer;">
+                                    USAR LINK EXTERNO (YOUTUBE)
                                 </button>
                             </div>
                         ` : ''}
@@ -6260,6 +6354,66 @@
             await this.syncProductToNetwork(p);
             this.showNotification("Vídeo de Teste ativado! Todos já podem ver. 🎥", "success");
             this.renderMarketLiveRoom(document.getElementById('market-container'));
+        },
+
+        startWatchingNativeLive(productId) {
+            if (!supabase) return;
+            const channelName = `live-native-${productId}`;
+            this.studentChannel = supabase.channel(channelName);
+            const myId = this.currentUser ? this.currentUser.username : `guest-${Date.now()}`;
+
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            pc.ontrack = (event) => {
+                const video = document.getElementById('live-native-video');
+                if (video) {
+                    video.srcObject = event.streams[0];
+                    document.getElementById('live-connection-status').innerText = 'SINAL RECEBIDO! EM ALTA DEFINIÇÃO';
+                    document.getElementById('live-connection-status').style.background = '#10b981';
+                }
+            };
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    this.studentChannel.send({
+                        type: 'broadcast',
+                        event: 'answer',
+                        payload: { studentId: myId, target: this.selectedProduct.seller, answer: pc.localDescription }
+                    });
+                }
+            };
+
+            this.studentChannel
+                .on('broadcast', { event: 'offer' }, async ({ payload }) => {
+                    if (payload.target === myId) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        
+                        this.studentChannel.send({
+                            type: 'broadcast',
+                            event: 'answer',
+                            payload: { studentId: myId, target: this.selectedProduct.seller, answer }
+                        });
+                    }
+                })
+                .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+                    if (payload.target === myId) {
+                        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                    }
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        // Solicita o stream ao mentor
+                        this.studentChannel.send({
+                            type: 'broadcast',
+                            event: 'request-stream',
+                            payload: { studentId: myId }
+                        });
+                    }
+                });
         },
 
         toggleMarketFilter() {
