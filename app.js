@@ -301,26 +301,23 @@
                     this.loadUserScopedData(); // Carrega sacola e compras do usuário
                 }
                 
-                // Conexão Única Inicial (Não bloqueante para mobile voar 🚀)
+                // Conexão Única Inicial (Não bloqueante)
                 this.fetchNetworkUsers();
-                this.fetchNetworkProducts();
+                this.fetchNetworkProducts(true);
 
-                this.checkLiveAdminStatus(); // Radar Automático ao Iniciar
+                this.checkLiveAdminStatus();
                 
-                // Polling de segurança (20s - mais suave para não resetar scroll)
+                // Polling de segurança
                 setInterval(() => {
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
-                }, 20000);
+                }, 30000);
 
                 // Inicia Canais Realtime (Supabase)
                 if (supabase) {
-                    // 1. Radar de Produtos
-                    supabase
-                        .channel('public:dito_market_products')
-                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dito_market_products' }, payload => {
-                            console.log('Novo produto detectado em tempo real!');
-                            this.fetchNetworkProducts();
+                    supabase.channel('radar-p-init')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'dito_market_products' }, () => {
+                            this.fetchNetworkProducts(true);
                         })
                         .subscribe();
 
@@ -1197,6 +1194,9 @@
             if (!p) return;
             
             this.showNotification("Acesso Verificado! Abrindo sala...", "success");
+            
+            // Força sincronia para garantir o link mais recente da transmissão
+            this.fetchNetworkProducts(true);
             
             // Define o produto ativo e vai para a sala live interna
             this.selectedProduct = p;
@@ -2205,12 +2205,12 @@
             }
         },
 
-        async fetchNetworkProducts() {
-            // 1. Efeito Visual de "Flash" (Piscada) e Rotação do Ícone
+        async fetchNetworkProducts(force = false) {
+            // 1. Efeito Visual
             const mContainer = document.getElementById('market-actual-content');
             const rIcon = document.getElementById('market-refresh-icon');
 
-            if (rIcon) {
+            if (rIcon && force) {
                 rIcon.style.transition = 'transform 1.5s ease-in-out';
                 rIcon.style.transform = rIcon.style.transform === 'rotate(180deg)' ? 'rotate(0deg)' : 'rotate(180deg)';
             }
@@ -2237,8 +2237,8 @@
                     const currentHash = data.map(p => `${p.id}-${p.created_at}`).join('|');
                     const lastHash = localStorage.getItem('dito_last_p_hash');
 
-                    // Se nada mudou, cancela o processamento pesado
-                    if (currentHash === lastHash && this.products.length > 0) {
+                    // Se nada mudou E não é forçado, cancela
+                    if (!force && currentHash === lastHash && this.products.length > 0) {
                         return;
                     }
                     
@@ -2256,11 +2256,20 @@
                     this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(local));
                     this.products = local;
 
-                    // FORÇA a renderização
+                    // FORÇA a renderização se for o caso
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
                         this.renderMarketHome();
                     }
                     
+                    // Se estivermos na live, atualiza o produto selecionado para pegar novos links (Câmera do Mentor)
+                    if (this.currentView === 'mercado' && this.marketView === 'live-room' && this.selectedProduct) {
+                        const updated = local.find(p => String(p.id) === String(this.selectedProduct.id));
+                        if (updated) {
+                            this.selectedProduct = updated;
+                            this.renderMarketLiveRoom(document.getElementById('market-container'));
+                        }
+                    }
+
                     this.safeLocalStorageSet('dito_last_p_hash', currentHash);
                 }
             } catch (e) {
@@ -6238,11 +6247,7 @@
             // Marca que o usuário viu o mercado agora
             localStorage.setItem('dito_market_last_seen', Date.now().toString());
 
-            const p1 = JSON.parse(localStorage.getItem('dito_products') || '[]');
-            const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            const p3 = JSON.parse(localStorage.getItem('dito_market_products') || '[]');
-            let all = [...p1, ...p2, ...p3]
-                .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+            let all = (this.products || [])
                 .filter(p => p.visible !== false && p.visible !== 'false');
             
             // --- EMBARALHAR PRODUTOS (NOVO) ---
@@ -6817,6 +6822,14 @@
                 this.renderNotifications();
                 this.updateNotifBadge(true);
                 this.playNotifSound();
+            })
+            .subscribe();
+
+        // 3. MONITORAMENTO DE PRODUTOS REAL-TIME (Para Mentor/Live Link)
+        supabase.channel('products-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'dito_market_products' }, payload => {
+                console.log("♻️ [RealTime] Produto atualizado na rede:", payload);
+                this.fetchNetworkProducts(true);
             })
             .subscribe();
 
