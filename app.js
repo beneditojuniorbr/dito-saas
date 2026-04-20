@@ -6146,19 +6146,21 @@
                 chatBtn.onclick = () => this.openWorldChat(`LIVE_${p.id}`, `Chat: ${p.name}`);
             }
 
-            // Converter link de vendas em Player (YouTube/Vimeo) - Auto-start ativado
+            // Converter link de vendas em Player (YouTube/Vimeo) - Suporte Mobile Robusto
             if (p.sales_link) {
                 let embedUrl = p.sales_link;
                 if (p.sales_link.includes('youtube.com/watch?v=')) {
-                    embedUrl = p.sales_link.replace('watch?v=', 'embed/') + '?autoplay=1&mute=1&rel=0';
+                    embedUrl = p.sales_link.replace('watch?v=', 'embed/').split('&')[0] + '?autoplay=1&mute=1&playsinline=1&rel=0';
                 } else if (p.sales_link.includes('youtu.be/')) {
-                    embedUrl = p.sales_link.replace('youtu.be/', 'youtube.com/embed/') + '?autoplay=1&mute=1&rel=0';
+                    embedUrl = p.sales_link.replace('youtu.be/', 'youtube.com/embed/').split('?')[0] + '?autoplay=1&mute=1&playsinline=1&rel=0';
+                } else if (p.sales_link.includes('youtube.com/live/')) {
+                    embedUrl = p.sales_link.replace('/live/', '/embed/') + '?autoplay=1&mute=1&playsinline=1&rel=0';
                 } else if (p.sales_link.includes('vimeo.com/')) {
-                    embedUrl = p.sales_link.replace('vimeo.com/', 'player.vimeo.com/video/') + '?autoplay=1&muted=1';
+                    embedUrl = p.sales_link.replace('vimeo.com/', 'player.vimeo.com/video/') + '?autoplay=1&muted=1&playsinline=1';
                 }
 
                 playerContainer.innerHTML = `
-                    <iframe src="${embedUrl}" style="width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <iframe src="${embedUrl}" style="width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline></iframe>
                 `;
             } else {
                 playerContainer.innerHTML = `
