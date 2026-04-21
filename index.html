@@ -137,7 +137,7 @@
 
             <div id="header-notifications-btn" onclick="app.toggleNotifDrawer(true)" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%;">
                 <i data-lucide="circle" style="width: 18px; color: #000;"></i>
-                <span id="notif-dot-header" style="position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; background: #ffd600; border-radius: 50%; display: none; border: 1.5px solid #fff;"></span>
+                <span id="notif-dot-header" style="position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; background: #ffd600; border-radius: 50%; display: none; border: 2px solid #fff; box-shadow: 0 0 10px rgba(255,214,0,0.4);"></span>
             </div>
 
             <div id="header-logout-btn" onclick="app.logout()" style="width: 40px; height: 40px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
@@ -150,15 +150,12 @@
         <div class="nav-item active-nav" data-view="dashboard" onclick="app.navigate('dashboard')" style="cursor: pointer; padding: 10px;">
             <i data-lucide="home" style="width: 24px; height: 24px; color: #000; transition: 0.3s;"></i>
         </div>
+        <div class="nav-item" data-view="sacar" onclick="app.navigate('sacar')" style="cursor: pointer; padding: 10px;">
+            <i data-lucide="wallet" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
+        </div>
         <div class="nav-item" data-view="mercado" onclick="app.navigate('mercado')" style="position: relative; cursor: pointer; padding: 10px;">
             <i data-lucide="store" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
             <div id="dot-mercado" class="notif-dot" style="position: absolute; top: 8px; right: 8px; display: none;"></div>
-        </div>
-        <div class="nav-item" data-view="sociedade" onclick="app.navigate('sociedade')" style="cursor: pointer; padding: 10px;">
-            <i data-lucide="users" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
-        </div>
-        <div class="nav-item" data-view="sacar" onclick="app.navigate('sacar')" style="cursor: pointer; padding: 10px;">
-            <i data-lucide="wallet" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
         </div>
         <div id="nav-friends" class="nav-item" onclick="app.showOnlineFriends()" style="position: relative; cursor: pointer; padding: 10px;">
             <i data-lucide="users" style="width: 24px; height: 24px; color: #000; fill: transparent; transition: 0.3s;"></i>
@@ -356,6 +353,7 @@
 
             <!-- Minimalist Balance Section -->
             <section style="background: #fff; color: #000; padding: 24px 24px 32px; margin-bottom: 0; text-align: center; border-bottom: 1px solid #f9f9f9;">
+                <p style="font-size: 11px; font-weight: 800; color: #bbb; margin-bottom: 4px; text-transform: none;">Saldo disponível</p>
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 4px; position: relative;">
                     <h2 id="label-balance" style="font-size: 32px; font-weight: 900; letter-spacing: -1.5px; margin: 0;">R$ 0,00</h2>
                     <i data-lucide="eye" id="toggle-balance" onclick="app.toggleBalance()" style="width: 18px; height: 18px; cursor: pointer; color: #000;"></i>
@@ -366,9 +364,10 @@
                         <span id="dashboard-coin-balance" style="font-size: 16px; font-weight: 900; color: #000;">0</span>
                     </div>
                 </div>
-                <p style="font-size: 10px; font-weight: 900; color: #bbb; text-transform: uppercase; letter-spacing: 1px;">Saldo Disponível</p>
                 <p id="dash-pending-balance" style="font-size: 11px; font-weight: 950; color: #ff005c; display: none; margin-top: 12px; background: #fff5f7; padding: 6px 16px; border-radius: 50px; border: 1px solid #fee2e2; width: fit-content; margin-inline: auto;">A liberar: R$ 0,00</p>
-                <div id="active-booster-badge" style="display: none; margin-top: 10px; font-size: 11px; font-weight: 950; letter-spacing: 1.5px; background: linear-gradient(135deg, #ff0045 0%, #0094ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase;">REFORÇO 3X ATIVO</div>
+                <div id="active-booster-badge" style="display: none; margin-top: 10px; font-size: 11px; font-weight: 950; letter-spacing: 1.5px; background: linear-gradient(135deg, #ff0045 0%, #0094ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase;">
+                    REFORÇO 3X ATIVO • <span id="booster-timer" style="font-family: monospace;">00:00:00</span>
+                </div>
             </section>
 
             <div style="padding: 0 24px 32px; display: flex; justify-content: space-between; align-items: center;">
@@ -401,6 +400,13 @@
                         <span id="dot-hall" style="display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; shadow: 0 4px 10px rgba(0,0,0,0.1);"></span>
                     </div>
                     <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Hall da fama</span>
+                </div>
+
+                <div onclick="app.navigate('sociedade', 'right')" class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;">
+                    <div style="width: 56px; height: 56px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                        <i data-lucide="users" style="width: 22px;"></i>
+                    </div>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-secondary); letter-spacing: -0.2px; white-space: nowrap;">Sociedade</span>
                 </div>
 
                 <div class="clickable" style="scroll-snap-align: start; flex-shrink: 0; text-align: center;" onclick="app.navigate('links', 'right')">
@@ -918,8 +924,8 @@
             
             <header style="margin-bottom: 40px; text-align: center;">
                 <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -1.5px; color: #000; margin-bottom: 8px;">Saque</h2>
-                <div id="withdraw-balance" style="font-size: 24px; font-weight: 800; color: #000;">R$ 0,00</div>
-                <p style="font-size: 10px; font-weight: 900; color: #999; letter-spacing: 2px; text-transform: uppercase; margin-top: 8px;">Saldo disponível</p>
+                <p style="font-size: 11px; font-weight: 800; color: #999; margin-bottom: 4px; text-transform: none;">Saldo disponível</p>
+                <div id="withdraw-balance" style="font-size: 32px; font-weight: 950; letter-spacing: -1.5px; color: #000;">R$ 0,00</div>
                 <div id="withdraw-balance-pending-container" style="display: none; margin-top: 12px; background: #fff5f7; padding: 8px 16px; border-radius: 50px; border: 1px solid #fee2e2;">
                     <span style="font-size: 11px; font-weight: 800; color: #ff005c;">A liberar: R$ <span id="withdraw-balance-pending-val">0,00</span> (Garantia)</span>
                 </div>
@@ -1020,16 +1026,12 @@
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div style="text-align: center;">
                         <label style="display: block; font-size: 11px; font-weight: 950; color: #000; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Imagem do Produto</label>
-                        <p style="font-size: 10px; color: #999; margin-bottom: 16px; font-weight: 700;">Upload ou Link Externo</p>
+                        <p style="font-size: 10px; color: #bbb; margin-bottom: 16px; font-weight: 800;">Limite: 5MB por arquivo</p>
                         
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
                             <div onclick="document.getElementById('prod-image-file').click()" style="width: 140px; height: 140px; background: #fbfbfb; border: 2px dashed #eee; border-radius: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: 0.3s; background-size: cover; background-position: center;" id="prod-image-preview">
                                 <i data-lucide="image-plus" style="width: 32px; color: #ddd;"></i>
                                 <span style="font-size: 9px; font-weight: 900; color: #bbb; margin-top: 8px;">Upload</span>
-                            </div>
-                            
-                            <div style="width: 100%; max-width: 300px;">
-                                <input type="text" id="prod-image-url" oninput="app.handleImageUrlInput(this.value)" placeholder="Ou cole o link da imagem aqui..." style="width: 100%; height: 44px; padding: 0 20px; background: #f5f5f5; border: none; border-radius: 50px; font-weight: 700; font-size: 12px; outline: none; text-align: center;">
                             </div>
                         </div>
                         
@@ -1039,13 +1041,19 @@
 
                 <div style="display: flex; flex-direction: column; gap: 28px;">
                     <div>
-                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 2px; margin-left: 10px; text-transform: uppercase;">Nome do produto</label>
-                        <input type="text" id="prod-name" oninput="app.updateProductProgress()" placeholder="" style="width: 100%; height: 48px; padding: 22px 10px 6px; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 800; font-size: 16px; outline: none; transition: 0.3s;">
+                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 0; margin-left: 10px; text-transform: uppercase; line-height: 1;">Nome do produto</label>
+                        <input type="text" id="prod-name" oninput="app.updateProductProgress()" placeholder="" style="width: 100%; margin-top: 0; padding: 2px 10px 0; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 800; font-size: 15px; outline: none; transition: 0.3s; line-height: 0.8; height: 20px;">
                     </div>
 
                     <div>
-                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 2px; margin-left: 10px; text-transform: uppercase;">Categoria</label>
-                        <select id="prod-category" onchange="app.updateProductProgress()" style="width: 100%; height: 48px; padding: 22px 10px 6px; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 800; font-size: 14px; outline: none; appearance: none; cursor: pointer;">
+                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 0; margin-left: 10px; text-transform: uppercase; line-height: 1;">Descrição detalhada</label>
+                        <textarea id="prod-desc" oninput="this.style.height = '0px'; this.style.height = this.scrollHeight + 'px'; app.updateProductProgress();" placeholder="" style="width: 100%; min-height: 0; margin-top: 0; padding: 2px 10px 0; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 700; font-size: 15px; outline: none; resize: none; overflow: hidden; line-height: 0.8; height: 18px;"></textarea>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 0; margin-left: 10px; text-transform: uppercase;">Categoria</label>
+                        <select id="prod-category" onchange="app.updateProductProgress()" style="width: 100%; margin-top: 0; padding: 2px 10px 0; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 800; font-size: 14px; outline: none; appearance: none; cursor: pointer; line-height: 0.8; height: 32px;">
+                            <option value="" disabled selected>Selecione uma categoria</option>
                             <option value="Dinheiro">Dinheiro & Negócios</option>
                             <option value="Saúde">Saúde & Bem-estar</option>
                             <option value="Relacionamento">Relacionamentos</option>
@@ -1054,15 +1062,10 @@
                     </div>
 
                     <div>
-                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 2px; margin-left: 10px; text-transform: uppercase;">Descrição detalhada</label>
-                        <textarea id="prod-desc" oninput="this.style.height = '48px'; this.style.height = this.scrollHeight + 'px'; app.updateProductProgress();" placeholder="" style="width: 100%; min-height: 48px; padding: 22px 10px 6px; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 700; font-size: 14px; outline: none; resize: none; overflow: hidden; line-height: 1.2;"></textarea>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 2px; margin-left: 10px; text-transform: uppercase;">Preço sugerido</label>
-                        <div style="position: relative; height: 48px;">
-                            <span style="position: absolute; left: 10px; top: 26px; font-weight: 900; font-size: 14px; color: #000;">R$</span>
-                            <input type="number" id="prod-price" oninput="app.calculateNetProfit(this.value); app.updateProductProgress();" placeholder="" style="width: 100%; height: 48px; padding: 22px 10px 6px 40px; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 900; font-size: 16px; outline: none;">
+                        <label style="display: block; font-size: 11px; font-weight: 850; color: #777; margin-bottom: 0; margin-left: 10px; text-transform: uppercase;">Preço sugerido</label>
+                        <div style="position: relative; height: 32px; margin-top: 0;">
+                            <span style="position: absolute; left: 10px; top: 4px; font-weight: 900; font-size: 14px; color: #000;">R$</span>
+                            <input type="number" id="prod-price" oninput="app.calculateNetProfit(this.value); app.updateProductProgress();" placeholder="" style="width: 100%; height: 32px; padding: 2px 10px 0 40px; background: transparent; border: none; border-bottom: 2px solid #eee; border-radius: 0; font-weight: 900; font-size: 16px; outline: none; line-height: 0.8;">
                         </div>
                         <div id="profit-calc-label" style="font-size: 11px; font-weight: 900; color: #22c55e; margin-top: 10px; margin-left: 20px;"></div>
                     </div>
@@ -1078,7 +1081,7 @@
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 20px;">
                         <div style="display: flex; flex-direction: column;">
                             <span style="font-size: 11px; font-weight: 850; color: #000; text-transform: uppercase;">Garantia de 7 dias</span>
-                            <span style="font-size: 9px; color: #ff005c; font-weight: 800;">OFF = Saque Imediato</span>
+                            <span style="font-size: 9px; color: #bbb; font-weight: 800; text-transform: uppercase;">Desligado = Saque imediato</span>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="prod-guarantee">
@@ -1308,7 +1311,7 @@
                 </div>
             </div>
 
-            <div id="pix-payment-actions"></div>
+            <div id="checkout-dynamic-actions"></div>
             <div id="paypal-button-container" style="display: none; margin-bottom: 24px;"></div>
 
             <div id="payment-status-message" style="padding: 20px; text-align: center; background: #fdfdfd; border-radius: 24px; border: 1px solid #f0f0f0; margin-top: 12px;">
@@ -1787,6 +1790,9 @@
         </div>
     </div>
 
+    <!-- Overlay Notificações -->
+    <div id="notif-overlay" onclick="app.toggleNotifDrawer(false)" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 2050; display: none; animation: fadeIn 0.3s ease;"></div>
+
 
     <script>
         function closeFriendsDrawer() {
@@ -1912,7 +1918,7 @@
                     </div>
                 </div>
                 <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1.5px; color: #000; line-height: 1.1; margin-bottom: 8px;">Loja de<br><span style="background: linear-gradient(90deg, #ff0045 0%, #0094ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Vantagens</span></h1>
-                <p style="font-size: 13px; color: #666; font-weight: 700;">Turbine seus descontos e acelere seu crescimento.</p>
+                <p style="font-size: 13px; color: #666; font-weight: 700;">O lugar do seu crescimento começa aqui e agora!</p>
             </header>
 
             <!-- PACOTES DE CUPONS -->
@@ -2018,8 +2024,12 @@
                 <p id="referral-link-text" style="font-family: monospace; font-size: 11px; color: #333; margin: 0;"></p>
             </div>
 
-            <button onclick="app.copyReferralLink()" style="width: 100%; background: #000; color: #fff; border: none; padding: 16px; border-radius: 16px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+            <button onclick="app.copyReferralLink()" style="width: 100%; background: #000; color: #fff; border: none; padding: 16px; border-radius: 50px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; margin-bottom: 12px;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
                 <i data-lucide="copy" style="width: 18px;"></i> Copiar Link
+            </button>
+
+            <button onclick="document.getElementById('referral-modal').style.display = 'none'; app.navigate('loja-cupons')" style="width: 100%; background: #fff; color: #000; border: 2px solid #000; padding: 14px; border-radius: 50px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+                <i data-lucide="ticket" style="width: 18px; color: #ff005c;"></i> Comprar Cupons
             </button>
         </div>
     </div>

@@ -65,17 +65,21 @@
 
         // Resolve imagens para renderização (Lida com stripping de memória)
         rGetPImage(img, name = "D") {
-            // Imagem Premium de Lançamento Dito (Fallback oficial)
-            const officialDitoImg = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop";
-            
             if (!img || img === 'stripped_for_cache' || img === 'null' || img === '' || img === 'default_product.png') {
-                // Se for um nome curto (Avatar), usa UI-Avatars. Se for nome de produto, usa a oficial.
+                const officialDitoImg = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop";
                 if (name && name.length < 15) {
                     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=128&bold=true`;
                 }
                 return officialDitoImg;
             }
             return img;
+        },
+
+        rGetMentoriaBg(img) {
+            if (!img || img === "" || img === "null") {
+                return 'linear-gradient(135deg, #ff0045 0%, #0094ff 100%)';
+            }
+            return `url(${img})`;
         },
 
         // Helper para salvar no localStorage com segurança (evita QuotaExceeded e otimiza imagens)
@@ -102,16 +106,24 @@
                 return true;
             } catch (e) {
                 if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                    console.error("🚨 [Storage] Memória cheia! Limpando caches e otimizando agressivamente...");
-                    // Faxina pesada
-                    const trash = ['dito_network_users', 'dito_usuarios', 'dito_market_products', 'dito_profile_posts', 'dito_last_p_hash'];
-                    trash.forEach(k => localStorage.removeItem(k));
+                    console.error("🚨 [Storage] Memória cheia! Limpando agressivamente...");
+                    // Faxina Nível 2
+                    const trash = [
+                        'dito_network_users', 'dito_usuarios', 'dito_market_products', 
+                        'dito_profile_posts', 'dito_last_p_hash', 'dito_real_sales_history',
+                        'dito_notifications_v2', 'dito_market_notifications', 'dito_temp_cache'
+                    ];
+                    trash.forEach(k => {
+                        try { localStorage.removeItem(k); } catch(i) {}
+                    });
                     
                     try {
                         localStorage.setItem(key, value);
                         return true;
                     } catch (retryErr) {
-                        console.error("🚨 [Storage] Falha crítica de espaço.", retryErr);
+                        console.error("🚨 [Storage] Espaço insuficiente mesmo após limpeza.", retryErr);
+                        // Tenta salvar pelo menos o status de login para não deslogar
+                        if(key === 'is_logged_in_vanilla') localStorage.setItem(key, value);
                         return false;
                     }
                 }
@@ -122,12 +134,22 @@
         // Salva a sessão do usuário de forma enxuta
         saveSession(user) {
             if (!user) return;
-            const cleanUser = { ...user };
-            delete cleanUser.posts;
-            delete cleanUser.purchases;
-            delete cleanUser.password;
+            // Cria uma versão leve para o storage
+            const thinUser = { ...user };
+            delete thinUser.posts;
+            delete thinUser.purchases;
+            delete thinUser.password;
             
-            this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(cleanUser));
+            // Otimização Crítica: Se o avatar for um monstro Base64 (não otimizado), limpa para economizar espaço
+            if (thinUser.avatar && thinUser.avatar.startsWith('data:') && thinUser.avatar.length > 100000) {
+                console.warn("🛡️ [Otimização] Foto muito pesada para o cache. Reduzindo...");
+                thinUser.avatar = ""; 
+            }
+
+            const json = JSON.stringify(thinUser);
+            this.safeLocalStorageSet('current_user_vanilla', json);
+            localStorage.setItem('current_user', json);
+            localStorage.setItem('dito_user_id', user.id || user.username);
         },
 
         loadUserScopedData() {
@@ -515,7 +537,7 @@
         // 💰 MERCADO PAGO REAL PAYMENTS
         // ==========================================
 
-        async processPaymentMP(method = 'pix') {
+        async processPaymentMP(method = 'pix', paymentId = null) {
             console.log("Iniciando processPaymentMP...");
             
             // Permite convidados pagarem (eles se cadastram no formulário integrado)
@@ -562,6 +584,7 @@
                         description: `Compra no Dito Pro - ${this.cart.length} itens`,
                         email: email,
                         metadata: {
+                            payment_id: paymentId,
                             user_id: this.currentUser.id || this.currentUser.username,
                             username: this.currentUser.username,
                             cart_items: this.cart.map(p => p.id)
@@ -648,8 +671,51 @@
                 }
             }
 
-            // Inicia o fluxo de pagamento real via Mercado Pago
-            await this.processPaymentMP('pix');
+            // Inicia o fluxo de pagamento real e monitoramento
+            const paymentId = 'pay_' + Date.now();
+            this.startPaymentPolling(paymentId);
+            await this.processPaymentMP('pix', paymentId);
+        },
+
+        startPaymentPolling(paymentId) {
+            console.log(`[Dito] Monitorando pagamento ${paymentId}...`);
+            const pollInterval = setInterval(async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('dito_payments')
+                        .select('status')
+                        .eq('id', paymentId)
+                        .maybeSingle();
+
+                    if (data && data.status === 'approved') {
+                        clearInterval(pollInterval);
+                        this.finalizeSuccessfulPurchase();
+                    }
+                } catch (e) {
+                    console.error("Erro no polling:", e);
+                }
+            }, 4000); 
+
+            setTimeout(() => clearInterval(pollInterval), 15 * 60 * 1000);
+        },
+
+        finalizeSuccessfulPurchase() {
+            this.showLoading(false);
+            this.launchVictoryConfetti();
+            this.showNotification("PAGAMENTO CONFIRMADO! 🚀 Seu acesso foi liberado.", "success");
+            
+            this.cart.forEach(p => {
+                const purchasedKey = `dito_purchased_${this.currentUser.username}`;
+                const list = JSON.parse(localStorage.getItem(purchasedKey) || '[]');
+                if (!list.find(pp => pp.id === p.id)) {
+                    list.unshift(p);
+                    localStorage.setItem(purchasedKey, JSON.stringify(list));
+                }
+            });
+            
+            this.cart = [];
+            this.saveCart();
+            setTimeout(() => this.navigate('dashboard'), 2000);
         },
 
         async simulateSuccessfulPurchase() {
@@ -1928,47 +1994,198 @@
         },
 
         openLiveAdmin() {
+            const existing = document.getElementById('live-production-hub');
+            if (existing) {
+                existing.remove();
+                // Não paramos a câmera aqui para permitir que ela continue rodando em background se estiver em live
+                return;
+            }
+
             const actions = [
-                { icon: 'play-circle', label: 'Iniciar Transmissão', color: '#10b981', call: "app.updateLiveStatus('AO VIVO')" },
-                { icon: 'pause-circle', label: 'Pausar Live', color: '#f59e0b', call: "app.updateLiveStatus('PAUSADO')" },
-                { icon: 'x-circle', label: 'Encerrar Live', color: '#ef4444', call: "app.updateLiveStatus('ENCERRADO')" },
-                { icon: 'refresh-ccw', label: 'Remover Mentoria da Vitrine', color: '#6366f1', call: "app.updateLiveVisibility(false)" }
+                { icon: 'play-circle', label: 'Iniciar', color: '#000', call: "app.updateLiveStatus('AO VIVO')" },
+                { icon: 'pause-circle', label: 'Pausar', color: '#000', call: "app.updateLiveStatus('PAUSADO')" },
+                { icon: 'x-circle', label: 'Encerrar', color: '#000', call: "app.updateLiveStatus('ENCERRADO')" },
+                { icon: 'refresh-ccw', label: 'Sair', color: '#000', call: "app.updateLiveVisibility(false)" }
             ];
 
-            const html = actions.map(a => `
-                <button onclick="${a.call}; this.parentElement.parentElement.remove()" style="width: 100%; padding: 16px; border-radius: 12px; border: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; cursor: pointer; text-align: left; font-family: inherit;">
-                    <i data-lucide="${a.icon}" style="width: 18px; color: ${a.color};"></i>
-                    <span style="font-weight: 800; font-size: 13px;">${a.label}</span>
+            const buttonsHtml = actions.map(a => `
+                <button onclick="${a.call}" style="flex: 1; padding: 12px 6px; border-radius: 12px; border: 1px solid #f2f2f2; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; transition: 0.2s;">
+                    <i data-lucide="${a.icon}" style="width: 20px; color: ${a.color};"></i>
+                    <span style="font-weight: 800; font-size: 8px; text-transform: uppercase; color: #000;">${a.label}</span>
                 </button>
             `).join('');
 
-            // Cria um modal temporário simples
-            const modal = document.createElement('div');
-            modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;";
-            modal.innerHTML = `
-                <div style="background:#fff; border-radius:30px; width:100%; max-width:350px; padding:24px; animation: slideBottom 0.3s ease;">
-                    <h3 style="font-weight:900; margin-bottom:20px; text-align:center;">Controle da transmissão</h3>
-                    ${html}
-                    <button onclick="this.parentElement.parentElement.remove()" style="width:100%; padding:15px; background:#f5f5f5; border:none; border-radius:15px; font-weight:900; margin-top:10px; cursor:pointer;">Fechar</button>
+            const hub = document.createElement('div');
+            hub.id = 'live-production-hub';
+            hub.style = `
+                position: fixed; 
+                top: 50%; 
+                left: 50%; 
+                transform: translate(-50%, -50%); 
+                width: 320px; 
+                background: #fff; 
+                border-radius: 32px; 
+                box-shadow: 0 30px 100px rgba(0,0,0,0.5); 
+                z-index: 4000; 
+                overflow: hidden; 
+                animation: slideHub 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+                border: 1px solid rgba(0,0,0,0.05);
+            `;
+
+            // Adiciona um overlay de fundo para foco
+            const overlayHub = document.createElement('div');
+            overlayHub.id = 'live-hub-overlay';
+            overlayHub.style = "position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(5px); z-index:3999;";
+            overlayHub.onclick = () => { hub.remove(); overlayHub.remove(); };
+            document.body.appendChild(overlayHub);
+            
+            hub.innerHTML = `
+                <!-- Cabeçalho de Ativação -->
+                <div style="padding: 16px 16px 12px; background: #fff; border-bottom: 1px solid #f5f5f5;">
+                    <button onclick="app.activateLiveCamera()" style="width: 100%; height: 44px; background: #000; color: #fff; border: none; border-radius: 12px; font-weight: 950; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+                        <i data-lucide="video" style="width: 16px;"></i>
+                        Iniciar minha câmera
+                    </button>
+                </div>
+
+                <div id="live-monitor-container" style="width: 100%; height: 160px; background: #0b0b0b; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <video id="live-preview-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; display: none;"></video>
+                    <div id="live-overlay-status" style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 5;">
+                         <i data-lucide="pause" style="width: 32px; color: #fff; margin-bottom: 8px;"></i>
+                         <span style="color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 2px;">PAUSADO</span>
+                    </div>
+                    <div id="live-placeholder" style="color: #fff; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-align: center; opacity: 0.4;">
+                        <i data-lucide="video-off" style="width: 32px; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"></i>
+                        ESTÚDIO DESLIGADO
+                    </div>
+                    <div style="position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 100px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); z-index: 10;">
+                        <div id="live-indicator-dot" style="width: 6px; height: 6px; background: #666; border-radius: 50%;"></div>
+                        <span id="live-indicator-text" style="color: #fff; font-size: 8px; font-weight: 900; letter-spacing: 0.5px;">STBY</span>
+                    </div>
+                </div>
+
+                <div style="padding: 18px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                        <h3 style="font-weight: 950; font-size: 11px; text-transform: uppercase; margin: 0; letter-spacing: 0.5px; color: #999;">Console de Direção</h3>
+                        <div onclick="document.getElementById('live-production-hub').remove(); document.getElementById('live-hub-overlay').remove();" style="width: 28px; height: 28px; border-radius: 50%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                            <i data-lucide="x" style="width: 14px; color: #666;"></i>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 6px;">
+                        ${buttonsHtml}
+                    </div>
+
+                    <div style="margin-top: 14px; padding: 12px; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="activity" style="width: 16px; color: #fff;"></i>
+                            </div>
+                            <span style="font-weight: 900; font-size: 11px; color: #000;">Sinal 100%</span>
+                        </div>
+                        <span style="font-weight: 900; font-size: 9px; color: #10b981;">ESTÁVEL</span>
+                    </div>
                 </div>
             `;
-            document.body.appendChild(modal);
+
+            document.body.appendChild(hub);
             if (window.lucide) lucide.createIcons();
+
+            // Se já estiver ao vivo ao abrir, reconecta o preview
+            if (this.currentLiveStatus === 'AO VIVO' && this.liveStream) {
+                 const video = document.getElementById('live-preview-video');
+                 if (video) {
+                     video.srcObject = this.liveStream;
+                     video.style.display = 'block';
+                     if(document.getElementById('live-placeholder')) document.getElementById('live-placeholder').style.display = 'none';
+                     const dot = document.getElementById('live-indicator-dot');
+                     if(dot) { dot.style.background = '#ef4444'; dot.style.animation = 'pulse 1s infinite'; }
+                     const text = document.getElementById('live-indicator-text');
+                     if(text) text.innerText = 'LIVE';
+                 }
+            }
+        },
+
+        async activateLiveCamera() {
+            try {
+                if (!this.liveStream) {
+                    this.liveStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                }
+                const video = document.getElementById('live-preview-video');
+                const placeholder = document.getElementById('live-placeholder');
+                if (video && placeholder) {
+                    video.srcObject = this.liveStream;
+                    video.play();
+                    video.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    this.showNotification("Sinal de vídeo ativado no estúdio.", "info");
+                }
+            } catch (e) {
+                console.error("Erro ao ativar câmera:", e);
+                this.showNotification("Não foi possível acessar sua câmera.", "error");
+            }
         },
 
         async updateLiveStatus(status) {
-            const msg = `📢 [SISTEMA] O status da transmissão mudou para: ${status}`;
-            this.showNotification(msg, 'info');
-            
-            // Envia mensagem global do sistema
+            this.currentLiveStatus = status;
+            const video = document.getElementById('live-preview-video');
+            const placeholder = document.getElementById('live-placeholder');
+            const overlay = document.getElementById('live-overlay-status');
+            const dot = document.getElementById('live-indicator-dot');
+            const text = document.getElementById('live-indicator-text');
+
+            if (status === 'AO VIVO') {
+                if (!this.liveStream) {
+                    try {
+                        this.liveStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    } catch (e) {
+                        this.showNotification("Não foi possível acessar a câmera.", "error");
+                        return;
+                    }
+                }
+                if (video) {
+                    video.srcObject = this.liveStream;
+                    video.play();
+                    video.style.display = 'block';
+                    if(placeholder) placeholder.style.display = 'none';
+                    if(overlay) overlay.style.display = 'none';
+                    if(dot) { dot.style.background = '#000'; dot.style.animation = 'pulse 1s infinite'; }
+                    if(text) text.innerText = 'AO VIVO';
+                }
+                this.showNotification("TRANSMISSÃO INICIADA! 🚀", "success");
+            } 
+            else if (status === 'PAUSADO') {
+                if (video) video.pause();
+                if (overlay) overlay.style.display = 'flex';
+                if (dot) { dot.style.background = '#333'; dot.style.animation = 'none'; }
+                if(text) text.innerText = 'PAUSADO';
+                this.showNotification("Transmissão Pausada.", "info");
+            } 
+            else if (status === 'ENCERRADO') {
+                if (this.liveStream) {
+                    this.liveStream.getTracks().forEach(track => track.stop());
+                    this.liveStream = null;
+                }
+                if (video) {
+                    video.srcObject = null;
+                    video.style.display = 'none';
+                }
+                if(placeholder) placeholder.style.display = 'flex';
+                if(overlay) overlay.style.display = 'none';
+                if(dot) { dot.style.background = '#999'; dot.style.animation = 'none'; }
+                if(text) text.innerText = 'OFFLINE';
+                this.showNotification("Transmissão Encerrada.", "error");
+            }
+
+            // Notifica os usuários via Chat
             if (supabase) {
                 await supabase.from('dito_messages').insert([{
                     sender: 'Dito System',
                     receiver: 'GLOBAL',
-                    content: msg
+                    content: `📢 [ESTÚDIO] Status: ${status}`
                 }]);
             }
-            alert(`Status alterado para ${status}! Todos os usuários no chat foram notificados.`);
+            if (window.lucide) lucide.createIcons();
         },
 
         async updateLiveVisibility(visible) {
@@ -2227,26 +2444,40 @@
                     this.currentUser ? supabase.from('dito_users').select('*').eq('username', this.currentUser.username).maybeSingle() : Promise.resolve({ data: null })
                 ]);
 
-                if (hallRes.data) {
+                if (hallRes && hallRes.data) {
                     this.networkUsers = hallRes.data.map(u => this.cleanPublicProfile(u));
-                    
-                    // Atualiza apenas se a view for a correta
+                    this.safeLocalStorageSet('dito_network_users', JSON.stringify(this.networkUsers));
                     if (this.currentView === 'hall') this.renderHallOfFame();
                     if (this.currentView === 'admin-contas') this.renderAdminUsers(true); 
                 }
 
-                if (meRes.data && this.currentUser) {
+                if (meRes && meRes.data && this.currentUser) {
                     const netUser = meRes.data;
                     this.currentUser.sales = parseFloat(netUser.sales || 0);
                     localStorage.setItem('dito_balance', netUser.balance || '0');
-                    this.saveSession(this.currentUser);
-                    this.checkSocietyPendingRequests(); // Verifica se há pedidos de entrada nas minhas sociedades
-                }
+                    
+                    // RESTAURAÇÃO DE SEGURANÇA (Caso cache tenha sido limpo)
+                    const key = this.getUserKey();
+                    if (netUser.coins !== undefined) {
+                        localStorage.setItem(`dito_coins_${key}`, String(netUser.coins || 0));
+                    }
+                    if (netUser.booster_expiry !== undefined) {
+                        localStorage.setItem(`dito_booster_expiry_${key}`, String(netUser.booster_expiry || 0));
+                    }
 
-                // Sincroniza avatares do chat com as fotos novas carregadas do Banco
+                    this.saveSession(this.currentUser);
+                    this.updateCoinsUI();
+                    this.updateBoosterUI();
+                    this.checkSocietyPendingRequests(); 
+                }
                 this.syncChatAvatars();
-            } catch (e) {
-                console.warn("⚠️ [Network] Erro na rede:", e);
+            } catch (err) {
+                console.warn("⚠️ [REDE] Radar offline. Usando cache.");
+                const cached = localStorage.getItem('dito_network_users');
+                if (cached) {
+                    this.networkUsers = JSON.parse(cached);
+                    if (this.currentView === 'hall') this.renderHallOfFame();
+                }
             } finally {
                 this.isFetchingUsers = false;
             }
@@ -2375,9 +2606,13 @@
 
                     this.safeLocalStorageSet('dito_last_p_hash', currentHash);
                 }
-            } catch (e) {
-                console.warn("⚠️ [Network] Erro ao buscar produtos:", e);
-                // Erros silenciosos ou apenas logs para manter a UI limpa
+            } catch (err) {
+                console.warn("⚠️ [REDE] Mercado offline. Usando cache local.");
+                const cached = localStorage.getItem('dito_products_vanilla');
+                if (cached) {
+                    this.products = JSON.parse(cached);
+                    if (this.currentView === 'mercado' && this.marketView === 'home') this.renderStore();
+                }
             }
         },
 
@@ -2426,7 +2661,14 @@
                     coverContainer.style.border = '4px solid #ff005c';
                     coverContainer.style.boxShadow = '0 0 30px rgba(255,0,92,0.4)';
                     coverContainer.style.padding = '4px';
-                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                    
+                    const bg = this.rGetMentoriaBg(p.image);
+                    if (bg.startsWith('linear-gradient')) {
+                        coverContainer.style.background = bg;
+                        coverContainer.innerHTML = `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 40px;">${p.name[0].toUpperCase()}</div>`;
+                    } else {
+                        coverContainer.innerHTML = `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                    }
                     
                     const badge = document.createElement('div');
                     badge.innerHTML = `<span style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 12px; border: 2px solid #fff; letter-spacing: 1px; z-index: 12;">AO VIVO</span>`;
@@ -2436,7 +2678,7 @@
                     coverContainer.style.border = 'none';
                     coverContainer.style.boxShadow = '0 20px 40px rgba(0,0,0,0.03)';
                     coverContainer.style.padding = '0';
-                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">`;
                 }
             }
 
@@ -2868,6 +3110,24 @@
             const buyerKey = this.getUserKey();
 
             for (let product of productsToUnlock) {
+                // 0. TRATAMENTO DE VANTAGENS (PRODUTOS VIRTUAIS)
+                if (product.type === 'Vantagem') {
+                    const key = this.getUserKey();
+                    if (product.id.startsWith('VIRTUAL_COINS_')) {
+                        const amount = parseInt(product.id.replace('VIRTUAL_COINS_', ''));
+                        const current = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                        localStorage.setItem(`dito_coins_${key}`, current + amount);
+                        this.showNotification(`+${amount} Cupons adicionados!`, "success");
+                    } else if (product.id === 'VIRTUAL_BOOSTER_3X') {
+                        const expiry = Date.now() + (24 * 60 * 60 * 1000);
+                        localStorage.setItem(`dito_booster_expiry_${key}`, expiry);
+                        this.updateBoosterUI();
+                        this.showNotification("Reforço 3x Ativado por 24h! 🔥", "success");
+                    }
+                    this.launchVictoryConfetti();
+                    continue; // Vantagens não entram na lista de produtos comprados
+                }
+
                 // 1. REGISTRA PARA O COMPRADOR (Com Timestamp para Reembolso)
                 if (!this.purchasedProducts.find(p => p.id === product.id)) {
                     this.purchasedProducts.push({ 
@@ -3174,7 +3434,7 @@
                 contentArea.innerHTML = `<div style="text-align: center;"><i data-lucide="book-open" style="width: 60px; margin-bottom: 12px;"></i><p style="font-weight: 900; font-size: 14px;">LEITURA DISPONÍVEL</p><button style="margin-top: 16px; background: #fff; color: #000; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase;">Baixar PDF</button></div>`;
                 controls.style.display = 'none';
             } else if (course.type === 'Mentoria') {
-                contentArea.innerHTML = `<div style="text-align: center;"><i data-lucide="users" style="width: 60px; margin-bottom: 12px;"></i><p style="font-weight: 900; font-size: 14px;">MENTORIA AO VIVO</p><button style="margin-top: 16px; background: #ee4d2d; color: #fff; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase;">Entrar na Sala</button></div>`;
+                contentArea.innerHTML = `<div style="text-align: center;"><i data-lucide="users" style="width: 60px; margin-bottom: 12px;"></i><p style="font-weight: 900; font-size: 14px;">MENTORIA AO VIVO</p><button onclick="app.enterMentorshipRoom('${course.id}')" style="margin-top: 16px; background: #ee4d2d; color: #fff; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 12px; cursor: pointer; text-transform: uppercase;">Entrar na Sala</button></div>`;
                 controls.style.display = 'none';
             } else {
                 // Course (Video)
@@ -5113,49 +5373,59 @@
 
         handleAvatarUpload(e) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const avatarData = event.target.result;
+            if (!file) return;
+
+            // Compressor de Imagem (Para evitar QuotaExceededError)
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = async () => {
+                    // Define o tamanho máximo (Ex: 256px para perfil)
+                    const MAX_SIZE = 256;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Converte para JPG leve
+                    const avatarData = canvas.toDataURL('image/jpeg', 0.7);
+                    
                     const cont = document.getElementById('profile-avatar-container');
                     if (cont) cont.innerHTML = `<img src="${avatarData}" style="width: 100%; height: 100%; object-fit: cover;">`;
                     
                     if (this.currentUser) {
                         this.currentUser.avatar = avatarData;
-                        this.safeLocalStorageSet('current_user_vanilla', JSON.stringify(this.currentUser));
+                        this.saveSession(); // Usa o método centralizado
                         
-                        // Atualiza no Banco de Dados Local (Persistência pós-logout)
-                        let localDB = JSON.parse(localStorage.getItem('dito_users_db') || '[]');
-                        let dbIdx = localDB.findIndex(u => u.username === this.currentUser.username);
-                        if (dbIdx !== -1) {
-                            localDB[dbIdx].avatar = avatarData;
-                            this.safeLocalStorageSet('dito_users_db', JSON.stringify(localDB));
-                        }
-
-                        // Garante que o usuário global também tenha o avatar atualizado nas outras listas
-                        const allLists = ['dito_usuarios_vanilla', 'dito_usuarios', 'dito_network_users'];
-                        allLists.forEach(listKey => {
-                            let list = JSON.parse(localStorage.getItem(listKey) || '[]');
-                            let idx = list.findIndex(u => u.username === this.currentUser.username);
-                            if (idx !== -1) {
-                                list[idx].avatar = avatarData;
-                                this.safeLocalStorageSet(listKey, JSON.stringify(list));
-                            }
-                        });
-
-                        // Sincroniza com o Supabase (Nuvem)
-                        await this.syncUserToNetwork(this.currentUser);
+                        // Atualiza no Banco de Dados Local proativamente
+                        this.syncUserToNetwork(this.currentUser);
                         
-                        // Atualiza UI Imediatamente
+                        // Limpa caches antigos de usuários para abrir espaço
+                        this.optimizeStorageOnNavigation();
+                        
                         this.renderProfile();
-                        this.updateBalanceUI();
-                        if (this.currentView === 'hall') this.renderHallOfFame();
-                        
-                        this.showNotification('Sua foto foi salva permanentemente! ✨', 'success');
+                        this.showNotification('Sua foto foi otimizada e salva! ✨', 'success');
                     }
                 };
-                reader.readAsDataURL(file);
-            }
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
         },
         
         async removeAvatar(event) {
@@ -5266,22 +5536,22 @@
                 this.showNotification("⚠️ Entre na sua conta para comprar cupons.", "error");
                 return;
             }
-            if (confirm(`Confirmar compra de ${amount} cupons por R$ ${price.toFixed(2)}?`)) {
-                this.showLoading(true, "Processando pagamento...");
-                
-                setTimeout(() => {
-                    const key = this.getUserKey();
-                    const current = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-                    const newVal = current + amount;
-                    localStorage.setItem(`dito_coins_${key}`, newVal);
-                    
-                    this.showLoading(false);
-                    this.launchVictoryConfetti();
-                    this.showNotification(`${amount} cupons adicionados à sua carteira! 💎`, "success");
-                    this.renderLojaCupons(document.getElementById('app-container'));
-                    this.updateBalanceUI();
-                }, 1500);
-            }
+            
+            // Cria um produto virtual para o checkout
+            const virtualProd = {
+                id: `VIRTUAL_COINS_${amount}`,
+                name: `${amount} Cupons Dito`,
+                price: price,
+                type: 'Vantagem',
+                image: '', // Removido
+                seller: 'Ditão'
+            };
+
+            this.cart = [virtualProd];
+            this.safeLocalStorageSet(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+            this.marketView = 'checkout';
+            this.navigate('mercado');
+            setTimeout(() => this.renderStore(), 50);
         },
 
         buyBooster(type, price) {
@@ -5289,31 +5559,51 @@
                 this.showNotification("⚠️ Entre na sua conta para adquirir reforços.", "error");
                 return;
             }
-            if (confirm(`Confirmar ativação do Reforço Rápido 3x por R$ ${price.toFixed(2)}? (Válido por 24h)`)) {
-                this.showLoading(true, "Ativando Reforço...");
-                
-                setTimeout(() => {
-                    const key = this.getUserKey();
-                    const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24h
-                    localStorage.setItem(`dito_booster_expiry_${key}`, expiry);
-                    
-                    this.showLoading(false);
-                    this.launchVictoryConfetti();
-                    this.showNotification(`REFORÇO ATIVADO! 🔥 Pelas próximas 24h, você ganhará 3x mais cupons!`, "success");
-                    this.updateBoosterUI();
-                    this.updateBalanceUI();
-                }, 1500);
-            }
+
+            const virtualProd = {
+                id: `VIRTUAL_BOOSTER_3X`,
+                name: `Reforço Rápido 3x (24h)`,
+                price: price,
+                type: 'Vantagem',
+                image: '', // Removido
+                seller: 'Ditão'
+            };
+
+            this.cart = [virtualProd];
+            this.safeLocalStorageSet(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+            this.marketView = 'checkout';
+            this.navigate('mercado');
+            setTimeout(() => this.renderStore(), 50);
         },
 
         updateBoosterUI() {
             const key = this.getUserKey();
             const expiry = parseInt(localStorage.getItem(`dito_booster_expiry_${key}`) || '0');
-            const isActive = expiry > Date.now();
+            const now = Date.now();
+            const isActive = expiry > now;
             
             const badge = document.getElementById('active-booster-badge');
+            const timer = document.getElementById('booster-timer');
+            
             if (badge) {
                 badge.style.display = isActive ? 'inline-block' : 'none';
+                
+                if (isActive && timer) {
+                    const diff = expiry - now;
+                    const hours = Math.floor(diff / 3600000);
+                    const mins = Math.floor((diff % 3600000) / 60000);
+                    const secs = Math.floor((diff % 60000) / 1000);
+                    
+                    timer.innerText = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    
+                    // Agenda o próximo tick se não houver um ativo
+                    if (!this.boosterInterval) {
+                        this.boosterInterval = setInterval(() => this.updateBoosterUI(), 1000);
+                    }
+                } else if (!isActive && this.boosterInterval) {
+                    clearInterval(this.boosterInterval);
+                    this.boosterInterval = null;
+                }
             }
             return isActive;
         },
@@ -5337,9 +5627,15 @@
                 this.showNotification(`${msg} • ${reason}`, "success");
             }
 
-            // Opcional: Sincroniza com Supabase se necessário
+            // Sincroniza com Supabase para segurança contra limpeza de cache
             if (supabase && this.currentUser && !this.currentUser.isGuest) {
-                supabase.from('profiles').update({ coins: newVal }).eq('username', this.currentUser.username).then(() => {});
+                const expiry = parseInt(localStorage.getItem(`dito_booster_expiry_${key}`) || '0');
+                supabase.from('dito_users').update({ 
+                    coins: newVal,
+                    booster_expiry: expiry
+                }).eq('username', this.currentUser.username).then(() => {
+                    console.log("☁️ [Cloud] Saldo e Booster sincronizados!");
+                });
             }
             
             return finalAmount;
@@ -6457,7 +6753,13 @@
             const p = this.selectedProduct;
             if (!p) return this.setMarketView('home');
 
-            if (!container) return; // Proteção contra renderização em background sem o container no DOM
+            if (!container) return; 
+            
+            // Notifica o Mentor sobre a entrada se não for o próprio mentor
+            const host = p.seller || p.author;
+            if (host && this.currentUser && host !== this.currentUser.username) {
+                this.sendNetworkNotification(host, 'visit', '👣 Novo Espectador!', `${this.currentUser.username} acabou de entrar na sua Mentoria.`);
+            }
             
             const temp = document.getElementById('template-live-room');
             if (!temp) return;
@@ -6846,11 +7148,12 @@
                 hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
                 hContainer.innerHTML = arrival.map(p => {
                     const isMentoria = p.type === 'Mentoria';
+                    const hasImage = p.image && p.image !== "" && p.image !== "null";
                     const imgContainer = isMentoria ? `
                         <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible; flex-shrink: 0;">
                             <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
-                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: ${hasImage ? '#fff' : this.rGetMentoriaBg(null)}; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; background-size: cover; background-position: center;">
+                                ${hasImage ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
                             </div>
                         </div>
                     ` : `
@@ -7662,6 +7965,19 @@
         }
     };
 
+    app.enterMentorshipRoom = function(id) {
+        const prod = this.products.find(p => String(p.id) === String(id));
+        if (prod) {
+            this.selectedProduct = prod;
+            this.navigate('mercado');
+            setTimeout(() => {
+                this.setMarketView('live-room');
+            }, 50);
+        } else {
+            this.showNotification("Não foi possível acessar a sala agora.", "error");
+        }
+    };
+
     app.playNotifSound = function() {
         if (navigator.vibrate) navigator.vibrate(100);
     };
@@ -7763,11 +8079,6 @@
                         <button onclick="app.copyToClipboard('${shareUrl}', 'Link de Venda copiado!')" title="Copiar link para clientes" style="width: 40px; height: 40px; border-radius: 12px; background: #000; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <i data-lucide="share-2" style="width: 18px;"></i>
                         </button>
-                        ${isLocalFile ? `
-                            <button onclick="localStorage.removeItem('dito_last_processed_checkout'); window.location.href='${localTestUrl}'" title="Testar Checkout Agora" style="width: 40px; height: 40px; border-radius: 12px; background: #f5f5f5; color: #000; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                <i data-lucide="external-link" style="width: 18px;"></i>
-                            </button>
-                        ` : ''}
                     </div>
                 </div>
             `;
