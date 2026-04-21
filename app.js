@@ -664,8 +664,8 @@
                         this.finalizeSuccessfulPurchase(productFromMeta);
                     } else {
                         this.showLoading(false);
-                        const isAdm = this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Bvs');
-                        const admBtn = isAdm ? `<br><br><button onclick="app.finalizeSuccessfulPurchase()" style="background:#000; color:#fff; border:none; padding:8px 15px; border-radius:10px; font-size:10px; cursor:pointer; font-weight:900;">FORÇAR LIBERAÇÃO AGORA (ADM)</button>` : '';
+                        const isAdm = this.currentUser && this.currentUser.username === 'Ditão';
+                        const admBtn = isAdm ? `<br><br><button onclick="app.finalizeSuccessfulPurchase()" style="background:#000; color:#fff; border:none; padding:8px 15px; border-radius:10px; font-size:10px; cursor:pointer; font-weight:900;">FORÇAR LIBERAÇÃO AGORA (DITÃO)</button>` : '';
                         this.showNotification(`Pagamento ainda não identificado. Se você já pagou, aguarde 30 segundos e clique novamente.${admBtn}`, "info");
                     }
                 } else {
@@ -921,10 +921,11 @@
                         JÁ PAGUEI, LIBERAR ACESSO
                     </button>
 
-                    ${(this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Bvs')) ? `
-                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
-                            <button onclick="app.finalizeSuccessfulPurchase()" style="background: #f5f5f5; color: #999; border: none; padding: 12px 24px; border-radius: 12px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.3s; width: 100%; text-transform: uppercase; letter-spacing: 1px;" onmouseover="this.style.background='#000'; this.style.color='#fff'" onmouseout="this.style.background='#f5f5f5'; this.style.color='#999'">
-                                <i data-lucide="shield-check" style="width: 14px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Liberar Acesso Manual (ADM)
+                    ${(this.currentUser && this.currentUser.username === 'Ditão') ? `
+                        <div style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 15px;">
+                            <p style="font-size: 10px; color: #ff005c; font-weight: 950; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">⚙️ Painel de Testes (DITÃO)</p>
+                            <button onclick="app.finalizeSuccessfulPurchase()" style="background: #ff005c; color: #fff; border: none; padding: 12px 20px; border-radius: 12px; font-size: 11px; font-weight: 950; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(255,0,92,0.2); transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                <i data-lucide="zap" style="width: 14px;"></i> SIMULAR PAGAMENTO (COMPRA TESTE)
                             </button>
                         </div>
                     ` : ''}
@@ -7295,19 +7296,30 @@
                     `;
                     
                     return `
-                    <div onclick="app.viewProduct('${p.id}')" style="width: 165px; min-width: 165px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-                        ${imgContainer}
-                        <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
-                        <div style="display: flex; gap: 2px; margin-bottom: 6px;">
-                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-                            <span style="font-weight: 900; font-size: 14px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                    <div onclick="app.viewProduct('${p.id}')" style="width: 165px; min-width: 165px; background: #fff; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; scroll-snap-align: start; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow: hidden; transition: 0.3s; position: relative;">
+                        ${isMentoria ? `
+                            <div style="padding: 12px; display: flex; flex-direction: column; align-items: center;">
+                                ${imgContainer}
+                            </div>
+                        ` : `
+                            <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden;">
+                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                        `}
+                        
+                        <div style="padding: 10px; display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+                            <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                            <div style="display: flex; gap: 2px;">
+                                <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                                <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                                <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                                <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                                <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                                <span style="font-weight: 900; font-size: 14px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                                <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                            </div>
                         </div>
                     </div>
                 `}).join('');
@@ -7332,19 +7344,30 @@
                 `;
 
                 return `
-                <div onclick="app.viewProduct('${p.id}')" style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-                    ${imgContainer}
-                    <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; color: #000;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
-                    <div style="display: flex; gap: 2px; margin-bottom: 6px;">
-                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                        <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-                        <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                        <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                <div onclick="app.viewProduct('${p.id}')" style="background: #fff; border-radius: 6px; border: 1px solid #f2f2f2; cursor: pointer; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow: hidden; transition: 0.3s; position: relative;">
+                    ${isMentoria ? `
+                        <div style="padding: 12px; display: flex; flex-direction: column; align-items: center;">
+                            ${imgContainer}
+                        </div>
+                    ` : `
+                        <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden;">
+                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    `}
+                    
+                    <div style="padding: 10px; display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+                        <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; color: #000;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                        <div style="display: flex; gap: 2px;">
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                            <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                            <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
+                            <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                        </div>
                     </div>
                 </div>
             `}).join('');
