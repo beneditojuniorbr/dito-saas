@@ -606,8 +606,8 @@
                     this.displayPixModal(data.qr_code, total);
                     this.showNotification('Pix gerado com sucesso! ✨', 'success');
                     
-                    // Inicia polling para detectar a confirmação
-                    this.startPaymentPolling();
+                    // Inicia polling para detectar a confirmação passando o ID correto
+                    this.startPaymentPolling(paymentId);
                 } else {
                     console.error("❌ [Pagamento] Falha: qr_code não encontrado no JSON", data);
                     throw new Error(data.error || data.message || 'O servidor de pagamento não retornou um código Pix válido.');
@@ -702,20 +702,10 @@
         finalizeSuccessfulPurchase() {
             this.showLoading(false);
             this.launchVictoryConfetti();
-            this.showNotification("PAGAMENTO CONFIRMADO! 🚀 Seu acesso foi liberado.", "success");
+            this.showNotification("PAGAMENTO CONFIRMADO! 🚀", "success");
             
-            this.cart.forEach(p => {
-                const purchasedKey = `dito_purchased_${this.currentUser.username}`;
-                const list = JSON.parse(localStorage.getItem(purchasedKey) || '[]');
-                if (!list.find(pp => pp.id === p.id)) {
-                    list.unshift(p);
-                    localStorage.setItem(purchasedKey, JSON.stringify(list));
-                }
-            });
-            
-            this.cart = [];
-            this.saveCart();
-            setTimeout(() => this.navigate('dashboard'), 2000);
+            // Usa a função mestre de desbloqueio para garantir consistência (Mentoria, Vantagens, etc)
+            this.unlockPurchasedProducts();
         },
 
         async simulateSuccessfulPurchase() {
@@ -837,6 +827,14 @@
                     </div>
 
                     <p style="font-size: 11px; color: #999; font-weight: 700; line-height: 1.6;">O acesso aos seus produtos é liberado **automaticamente** após a confirmação do pagamento pelo Mercado Pago.</p>
+                    
+                    ${(this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro')) ? `
+                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+                            <button onclick="app.finalizeSuccessfulPurchase()" style="background: #f5f5f5; color: #999; border: none; padding: 12px 24px; border-radius: 12px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.3s; width: 100%; text-transform: uppercase; letter-spacing: 1px;" onmouseover="this.style.background='#000'; this.style.color='#fff'" onmouseout="this.style.background='#f5f5f5'; this.style.color='#999'">
+                                <i data-lucide="shield-check" style="width: 14px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Liberar Acesso Manual (ADM)
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `;
             
