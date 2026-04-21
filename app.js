@@ -645,16 +645,21 @@
                     });
                     
                     const check = await resp.json();
-                    if (check.status === 'approved') {
+                    console.log("🔍 [Debug MP] Resultado da ponte:", check);
+
+                    if (check.status === 'approved' || check.payment_status === 'approved') {
+                        this.showNotification("Confirmado pelo Mercado Pago! ✨", "success");
                         this.finalizeSuccessfulPurchase();
                     } else {
                         this.showLoading(false);
-                        this.showNotification("Pagamento ainda não identificado. Aguarde um instante.", "info");
+                        const statusMsg = check.status || check.message || "Pendente";
+                        this.showNotification(`Mercado Pago diz: ${statusMsg}. Se você já pagou, aguarde 30 segundos.`, "info");
                     }
                 }
             } catch (e) {
+                console.error("🚨 [Verify Error]:", e);
                 this.showLoading(false);
-                this.showNotification("Não conseguimos consultar agora. Tente em instantes.", "error");
+                this.showNotification("Não conseguimos consultar seu Pix agora. Tente novamente.", "error");
             }
         },
 
@@ -711,6 +716,10 @@
 
             // Inicia o fluxo de pagamento real e monitoramento
             const paymentId = 'pay_' + Date.now();
+            
+            // Trava o paymentId no localStorage para não perder em caso de F5
+            localStorage.setItem('dito_active_checkout_id', paymentId);
+            
             this.startPaymentPolling(paymentId);
             await this.processPaymentMP('pix', paymentId);
         },
@@ -3202,6 +3211,16 @@
             this.cart = [];
             localStorage.setItem(`dito_cart_${buyerKey}`, '[]');
             this.updateCartBadge();
+            
+            // SINCRONIZAÇÃO COM A NUVEM (Crucial para não perder o acesso no F5)
+            if (supabase && this.currentUser && !this.currentUser.isGuest) {
+                console.log("☁️ [Cloud] Sincronizando acesso aos produtos comprados...");
+                supabase.from('dito_users').update({ 
+                    purchases: this.purchasedProducts 
+                }).eq('username', this.currentUser.username).then(() => {
+                    console.log("✅ [Cloud] Compras salvas com sucesso!");
+                });
+            }
             
             setTimeout(() => {
                 const wasMentoria = productsToUnlock.some(p => p.type === 'Mentoria');
