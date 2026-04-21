@@ -603,7 +603,7 @@
                 
                 if (data.qr_code) {
                     this.showLoading(false);
-                    this.displayPixModal(data.qr_code, total);
+                    this.displayPixModal(data.qr_code, total, paymentId); // Passa o ID para o modal
                     this.showNotification('Pix gerado com sucesso! ✨', 'success');
                     
                     // Inicia polling para detectar a confirmação passando o ID correto
@@ -617,6 +617,44 @@
                 console.error("🚨 [Pagamento] Erro Crítico:", e);
                 this.showLoading(false);
                 this.showNotification(`Erro ao gerar Pix: ${e.message}`, 'error');
+            }
+        },
+
+        async verifyPaymentDirectly(paymentId) {
+            if (!paymentId) return;
+            this.showLoading(true, "Verificando com o Mercado Pago...");
+            
+            try {
+                const { data, error } = await supabase
+                    .from('dito_payments')
+                    .select('status')
+                    .eq('id', paymentId)
+                    .maybeSingle();
+
+                if (data && data.status === 'approved') {
+                    this.finalizeSuccessfulPurchase();
+                } else {
+                    // Se não estiver aprovado no banco, tenta forçar um check na ponte
+                    const resp = await fetch(`${SUPABASE_URL}/functions/v1/mercado-pago-bridge`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ action: 'check-status', payment_id: paymentId })
+                    });
+                    
+                    const check = await resp.json();
+                    if (check.status === 'approved') {
+                        this.finalizeSuccessfulPurchase();
+                    } else {
+                        this.showLoading(false);
+                        this.showNotification("Pagamento ainda não identificado. Aguarde um instante.", "info");
+                    }
+                }
+            } catch (e) {
+                this.showLoading(false);
+                this.showNotification("Não conseguimos consultar agora. Tente em instantes.", "error");
             }
         },
 
@@ -796,7 +834,7 @@
             }
         },
 
-        displayPixModal(qrCode, amount) {
+        displayPixModal(qrCode, amount, paymentId) {
             const modalBody = document.getElementById('modal-body');
             const modalContainer = document.getElementById('modal-container');
             
@@ -828,6 +866,10 @@
 
                     <p style="font-size: 11px; color: #999; font-weight: 700; line-height: 1.6;">O acesso aos seus produtos é liberado **automaticamente** após a confirmação do pagamento pelo Mercado Pago.</p>
                     
+                    <button onclick="app.verifyPaymentDirectly('${paymentId}')" style="margin-top: 16px; background: #fff; color: #000; border: 2px solid #eee; padding: 12px 24px; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; width: 100%; transition: 0.3s;" onmouseover="this.style.borderColor='#000'" onmouseout="this.style.borderColor='#eee'">
+                        JÁ PAGUEI, LIBERAR ACESSO
+                    </button>
+
                     ${(this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro')) ? `
                         <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
                             <button onclick="app.finalizeSuccessfulPurchase()" style="background: #f5f5f5; color: #999; border: none; padding: 12px 24px; border-radius: 12px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.3s; width: 100%; text-transform: uppercase; letter-spacing: 1px;" onmouseover="this.style.background='#000'; this.style.color='#fff'" onmouseout="this.style.background='#f5f5f5'; this.style.color='#999'">
