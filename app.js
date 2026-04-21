@@ -662,7 +662,9 @@
                         this.finalizeSuccessfulPurchase();
                     } else {
                         this.showLoading(false);
-                        this.showNotification(`Pagamento ainda não identificado. Se você já pagou, aguarde 30 segundos e clique novamente.`, "info");
+                        const isAdm = this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Bvs');
+                        const admBtn = isAdm ? `<br><br><button onclick="app.finalizeSuccessfulPurchase()" style="background:#000; color:#fff; border:none; padding:8px 15px; border-radius:10px; font-size:10px; cursor:pointer; font-weight:900;">FORÇAR LIBERAÇÃO AGORA (ADM)</button>` : '';
+                        this.showNotification(`Pagamento ainda não identificado. Se você já pagou, aguarde 30 segundos e clique novamente.${admBtn}`, "info");
                     }
                 } else {
                     this.showLoading(false);
