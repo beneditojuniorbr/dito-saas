@@ -606,8 +606,9 @@
                     this.displayPixModal(data.qr_code, total, paymentId); // Passa o ID para o modal
                     this.showNotification('Pix gerado com sucesso! ✨', 'success');
                     
-                    // Inicia polling para detectar a confirmação passando o ID correto
+                    // Inicia polling e REALTIME para detecção instantânea
                     this.startPaymentPolling(paymentId);
+                    this.initPaymentRealtime(paymentId);
                 } else {
                     console.error("❌ [Pagamento] Falha: qr_code não encontrado no JSON", data);
                     throw new Error(data.error || data.message || 'O servidor de pagamento não retornou um código Pix válido.');
@@ -635,7 +636,7 @@
                     .select('*')
                     .eq('status', 'approved')
                     .gte('created_at', twentyMinsAgo)
-                    .filter('metadata->>username', 'eq', this.currentUser.username)
+                    .filter('metadata->>username', 'ilike', this.currentUser.username)
                     .order('created_at', { ascending: false });
 
                 // Se achar um pagamento aprovado recente, libera na hora!
@@ -652,14 +653,14 @@
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                        },
                         body: JSON.stringify({ action: 'check-status', payment_id: paymentId })
                     });
                     
                     const check = await resp.json();
                     if (check.status === 'approved' || check.payment_status === 'approved') {
                         this.showNotification("Confirmado pelo Mercado Pago! ✨", "success");
-                        this.finalizeSuccessfulPurchase();
+                        const productFromMeta = check.metadata ? check.metadata.product : null;
+                        this.finalizeSuccessfulPurchase(productFromMeta);
                     } else {
                         this.showLoading(false);
                         const isAdm = this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Bvs');
@@ -738,6 +739,27 @@
             await this.processPaymentMP('pix', paymentId);
         },
 
+        initPaymentRealtime(paymentId) {
+            if (!supabase || !paymentId) return;
+            console.log(`🔌 [Realtime] Escutando pagamento: ${paymentId}`);
+            
+            supabase
+                .channel(`pay_${paymentId}`)
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'dito_payments',
+                    filter: `id=eq.${paymentId}` 
+                }, payload => {
+                    console.log('⚡ [Realtime] Mudança de status detectada:', payload.new.status);
+                    if (payload.new.status === 'approved') {
+                        this.finalizeSuccessfulPurchase();
+                        supabase.removeChannel(`pay_${paymentId}`);
+                    }
+                })
+                .subscribe();
+        },
+
         startPaymentPolling(paymentId) {
             if (this.paymentPollingInterval) clearInterval(this.paymentPollingInterval);
             console.log(`🕒 [Dito] Vigilante de Pagamento Ativo: ${paymentId}`);
@@ -746,56 +768,52 @@
             
             this.paymentPollingInterval = setInterval(async () => {
                 try {
-                    // 1. CHOCA O STATUS DO PAGAMENTO NO BANCO
+                    // 1. CHECA O STATUS DO PAGAMENTO NO BANCO (Fallback se o Realtime falhar)
                     if (paymentId) {
-                        const { data, error } = await supabase
+                        const { data } = await supabase
                             .from('dito_payments')
                             .select('status')
                             .eq('id', paymentId)
                             .maybeSingle();
 
                         if (data && data.status === 'approved') {
-                            console.log("✅ [Pagamento] Confirmado via Tabela de Pagamentos!");
+                            console.log("✅ [Pagamento] Confirmado via Tabela!");
                             clearInterval(this.paymentPollingInterval);
                             this.finalizeSuccessfulPurchase();
                             return;
                         }
                     }
 
-                    // 2. CHOCA SE O PRODUTO JÁ FOI ENTREGUE (Webhook Direto)
+                    // 2. CHECK DE SEGURANÇA NA CONTA DO USUÁRIO
                     if (supabase && this.currentUser && !this.currentUser.isGuest) {
                         await this.fetchPurchasedProducts();
                         if (this.purchasedProducts.length > initialCount) {
-                            console.log("✅ [Pagamento] Confirmado via Entrega de Produto!");
+                            console.log("✅ [Pagamento] Confirmado via Entrega!");
                             clearInterval(this.paymentPollingInterval);
-                            this.launchVictoryConfetti();
-                            this.showNotification("Acesso Liberado! 🚀", "success");
-                            
-                            // Se for Mentoria, redireciona
-                            const wasMentoria = this.purchasedProducts.some(p => p.type === 'Mentoria');
-                            if (wasMentoria) {
-                                setTimeout(() => this.setMarketView('live-room'), 1500);
-                            } else {
-                                this.navigate('meus-cursos');
-                            }
+                            this.finalizeSuccessfulPurchase();
                         }
                     }
-                } catch (e) {
-                    console.error("Erro no polling de pagamento:", e);
-                }
-            }, 4000); 
+                } catch (e) {}
+            }, 5000); 
 
-            // Time-out de segurança (15 minutos)
-            setTimeout(() => clearInterval(this.paymentPollingInterval), 15 * 60 * 1000);
+            setTimeout(() => clearInterval(this.paymentPollingInterval), 10 * 60 * 1000);
         },
 
-        finalizeSuccessfulPurchase() {
+        finalizeSuccessfulPurchase(productData = null) {
             this.showLoading(false);
             this.launchVictoryConfetti();
             this.showNotification("PAGAMENTO CONFIRMADO! 🚀", "success");
             
-            // Usa a função mestre de desbloqueio para garantir consistência (Mentoria, Vantagens, etc)
-            this.unlockPurchasedProducts();
+            // Se recebemos os dados do produto pelo recibo, usamos eles. Caso contrário, liberamos o carrinho.
+            if (productData) {
+                // Converte de volta de JSON se necessário
+                const p = typeof productData === 'string' ? JSON.parse(productData) : productData;
+                this.unlockPurchasedProducts(p.id, p);
+            } else {
+                this.unlockPurchasedProducts();
+            }
+            
+            this.closeModal(); // Fecha o Pix automaticamente após o sucesso
         },
 
         async simulateSuccessfulPurchase() {
@@ -902,7 +920,7 @@
                         JÁ PAGUEI, LIBERAR ACESSO
                     </button>
 
-                    ${(this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro')) ? `
+                    ${(this.currentUser && (this.currentUser.username === 'Ditão' || this.currentUser.username === 'benedito_pro' || this.currentUser.username === 'Bvs')) ? `
                         <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
                             <button onclick="app.finalizeSuccessfulPurchase()" style="background: #f5f5f5; color: #999; border: none; padding: 12px 24px; border-radius: 12px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.3s; width: 100%; text-transform: uppercase; letter-spacing: 1px;" onmouseover="this.style.background='#000'; this.style.color='#fff'" onmouseout="this.style.background='#f5f5f5'; this.style.color='#999'">
                                 <i data-lucide="shield-check" style="width: 14px; display: inline-block; vertical-align: middle; margin-right: 6px;"></i> Liberar Acesso Manual (ADM)
@@ -3187,10 +3205,29 @@
             }).render('#paypal-button-container');
         },
 
-        async unlockPurchasedProducts(productId) {
-            this.showNotification("Compra confirmada!", "success");
+        async unlockPurchasedProducts(productId = null, directProduct = null) {
+            this.showNotification("Acesso Liberado!", "success");
             
-            const productsToUnlock = productId ? [this.products.find(p => p.id === productId) || { name: 'Produto Dito', id: productId }] : this.cart;
+            // Lógica de descoberta do produto:
+            // 1. directProduct (veio do recibo do pagamento)
+            // 2. productId (busca na lista local)
+            // 3. fallback: usa o carrinho atual (this.cart)
+            let productsToUnlock = [];
+            
+            if (directProduct) {
+                productsToUnlock = [directProduct];
+            } else if (productId) {
+                const found = this.products.find(p => String(p.id) === String(productId));
+                productsToUnlock = [found || { name: 'Produto Dito', id: productId }];
+            } else {
+                productsToUnlock = [...this.cart];
+            }
+
+            if (productsToUnlock.length === 0) {
+                console.warn("⚠️ [Unlock] Nenhum produto identificado para liberar.");
+                return;
+            }
+
             const buyerKey = this.getUserKey();
 
             for (let product of productsToUnlock) {
