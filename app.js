@@ -587,7 +587,7 @@
                             payment_id: paymentId,
                             user_id: this.currentUser.id || this.currentUser.username,
                             username: this.currentUser.username,
-                            cart_items: this.cart.map(p => p.id)
+                            product: this.cart[0] // Envia o primeiro produto (Mentoria/Curso) para liberação automática
                         }
                     })
                 });
