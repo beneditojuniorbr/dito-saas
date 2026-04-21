@@ -621,20 +621,32 @@
         },
 
         async verifyPaymentDirectly(paymentId) {
-            if (!paymentId) return;
-            this.showLoading(true, "Verificando com o Mercado Pago...");
+            this.showLoading(true, "Estamos buscando seu pagamento...");
             
             try {
-                const { data, error } = await supabase
+                const key = this.getUserKey();
+                
+                // 1. BUSCA INTELIGENTE: Procura QUALQUER pagamento aprovado deste usuário nos últimos 20 minutos
+                const twentyMinsAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+                
+                // Busca pagamentos onde o status é aprovado, recente, e o username no metadata bate com o atual
+                const { data: recentPayments, error: searchError } = await supabase
                     .from('dito_payments')
-                    .select('status')
-                    .eq('id', paymentId)
-                    .maybeSingle();
+                    .select('*')
+                    .eq('status', 'approved')
+                    .gte('created_at', twentyMinsAgo)
+                    .filter('metadata->>username', 'eq', this.currentUser.username)
+                    .order('created_at', { ascending: false });
 
-                if (data && data.status === 'approved') {
+                // Se achar um pagamento aprovado recente, libera na hora!
+                if (recentPayments && recentPayments.length > 0) {
+                    console.log("💎 [PAGAMENTO] Encontramos um pagamento aprovado recente! Liberando...");
                     this.finalizeSuccessfulPurchase();
-                } else {
-                    // Se não estiver aprovado no banco, tenta forçar um check na ponte
+                    return;
+                }
+
+                // 2. Se não achou no banco, tenta forçar um check na ponte do Mercado Pago para o ID específico
+                if (paymentId) {
                     const resp = await fetch(`${SUPABASE_URL}/functions/v1/mercado-pago-bridge`, {
                         method: 'POST',
                         headers: {
@@ -645,21 +657,21 @@
                     });
                     
                     const check = await resp.json();
-                    console.log("🔍 [Debug MP] Resultado da ponte:", check);
-
                     if (check.status === 'approved' || check.payment_status === 'approved') {
                         this.showNotification("Confirmado pelo Mercado Pago! ✨", "success");
                         this.finalizeSuccessfulPurchase();
                     } else {
                         this.showLoading(false);
-                        const statusMsg = check.status || check.message || "Pendente";
-                        this.showNotification(`Mercado Pago diz: ${statusMsg}. Se você já pagou, aguarde 30 segundos.`, "info");
+                        this.showNotification(`Pagamento ainda não identificado. Se você já pagou, aguarde 30 segundos e clique novamente.`, "info");
                     }
+                } else {
+                    this.showLoading(false);
+                    this.showNotification("Aguardando confirmação do banco...", "info");
                 }
             } catch (e) {
                 console.error("🚨 [Verify Error]:", e);
                 this.showLoading(false);
-                this.showNotification("Não conseguimos consultar seu Pix agora. Tente novamente.", "error");
+                this.showNotification("Erro na consulta. Tente novamente em alguns instantes.", "error");
             }
         },
 
