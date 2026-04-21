@@ -2454,7 +2454,7 @@
                     this.currentUser.sales = parseFloat(netUser.sales || 0);
                     localStorage.setItem('dito_balance', netUser.balance || '0');
                     
-                    // RESTAURAÇÃO DE SEGURANÇA (Caso cache tenha sido limpo)
+                    // RESTAURAÇÃO DE SEGURANÇA (Caso cache tenha sido limpo ou compra manual por ADM)
                     const key = this.getUserKey();
                     if (netUser.coins !== undefined) {
                         localStorage.setItem(`dito_coins_${key}`, String(netUser.coins || 0));
@@ -2462,10 +2462,22 @@
                     if (netUser.booster_expiry !== undefined) {
                         localStorage.setItem(`dito_booster_expiry_${key}`, String(netUser.booster_expiry || 0));
                     }
+                    
+                    // Restaura os produtos comprados da nuvem
+                    if (netUser.purchases) {
+                        try {
+                            const cloudPurchases = typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases;
+                            if (Array.isArray(cloudPurchases) && cloudPurchases.length > 0) {
+                                this.purchasedProducts = cloudPurchases;
+                                this.safeLocalStorageSet(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
+                            }
+                        } catch (e) { console.error("Erro ao restaurar compras:", e); }
+                    }
 
                     this.saveSession(this.currentUser);
                     this.updateCoinsUI();
                     this.updateBoosterUI();
+                    if (this.currentView === 'meus-cursos') this.renderPurchasedProducts();
                     this.checkSocietyPendingRequests(); 
                 }
                 this.syncChatAvatars();
