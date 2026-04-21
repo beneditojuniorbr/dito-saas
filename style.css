@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
     --primary: #000000;
@@ -38,15 +38,26 @@
     padding: 0;
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.015em;
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--background);
     color: var(--text);
     line-height: 1.5;
     overflow-x: hidden;
-    overscroll-behavior-x: none; /* Desativa o 'arrastar para voltar' do navegador */
+    overscroll-behavior-x: none;
+}
+
+input, textarea, select, button {
+    font-family: inherit;
+    letter-spacing: inherit;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #bbb;
+    font-weight: 500;
 }
 
 /* Animations */

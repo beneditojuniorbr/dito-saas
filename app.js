@@ -65,8 +65,15 @@
 
         // Resolve imagens para renderização (Lida com stripping de memória)
         rGetPImage(img, name = "D") {
-            if (!img || img === 'stripped_for_cache' || img === 'null' || img === '') {
-                return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=128&bold=true`;
+            // Imagem Premium de Lançamento Dito (Fallback oficial)
+            const officialDitoImg = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop";
+            
+            if (!img || img === 'stripped_for_cache' || img === 'null' || img === '' || img === 'default_product.png') {
+                // Se for um nome curto (Avatar), usa UI-Avatars. Se for nome de produto, usa a oficial.
+                if (name && name.length < 15) {
+                    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=128&bold=true`;
+                }
+                return officialDitoImg;
             }
             return img;
         },
@@ -666,7 +673,7 @@
                     const adminUsername = 'janavan'; // PLATAFORMA (VOCÊ)
 
                     // 1. DISTRIBUIÇÃO E NOTIFICAÇÃO (97/3)
-                    await this.creditSeller(mentorUsername, price, prod.name);
+                    await this.creditSeller(mentorUsername, price, prod.name, prod);
 
                     // 2. ADICIONA PRODUTO AOS COMPRADOS DO COMPRADOR
                     if (!this.purchasedProducts.find(p => p.id === prod.id)) {
@@ -1170,17 +1177,16 @@
             this.activeWorldRoom = roomId;
             const headerTitle = document.querySelector('#world-chat-drawer h3');
             if (headerTitle) {
-                const icon = roomId === 'GLOBAL' ? 'globe' : 'video';
-                headerTitle.innerHTML = `<i data-lucide="${icon}" style="width: 20px; color:#000;"></i> ${roomTitle}`;
+                // Sempre usa message-circle agora
+                headerTitle.innerHTML = `<i data-lucide="message-circle" style="width: 22px; color:#000;"></i> ${roomTitle}`;
             }
 
-            // Agora carrega do histórico persistente imediatamente
             this.fetchWorldChatMessages();
 
-            document.getElementById('world-chat-drawer').classList.add('active');
-            document.getElementById('world-chat-drawer').style.bottom = '0';
+            const drawer = document.getElementById('world-chat-drawer');
+            drawer.classList.add('active');
+            drawer.style.left = '0';
             
-            // Limpa notificação ao abrir
             const dot = document.getElementById('dot-world-chat');
             if (dot) dot.style.display = 'none';
 
@@ -2010,8 +2016,9 @@
         },
 
         closeWorldChat() {
-            document.getElementById('world-chat-drawer').classList.remove('active');
-            document.getElementById('world-chat-drawer').style.bottom = '-100%';
+            const drawer = document.getElementById('world-chat-drawer');
+            drawer.classList.remove('active');
+            drawer.style.left = '-100%';
         },
 
         async sendWorldMessage() {
@@ -2100,7 +2107,7 @@
             const isMe = msg.sender === this.currentUser?.username;
             const itemDiv = document.createElement('div');
             itemDiv.id = `world-msg-${msgId}`;
-            itemDiv.style.padding = '4px 0'; // Mais espaçamento no modo claro
+            itemDiv.style.padding = '4px 0'; 
             itemDiv.style.color = channelColor;
             itemDiv.style.fontSize = '14px';
             itemDiv.style.fontWeight = '700';
@@ -2108,16 +2115,16 @@
             itemDiv.style.lineHeight = '1.3';
             itemDiv.style.borderBottom = '1px solid #f9f9f9'; 
             
+            // Remove emojis da mensagem
+            const cleanContent = (msg.content || "").replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+
             let user = (this.networkUsers || []).find(u => u.username === msg.sender);
             if (!user && this.currentUser && msg.sender === this.currentUser.username) {
                 user = this.currentUser;
             }
-            // Prioriza o avatar do usuário sincronizado (RAM) sobre o que veio fixo na mensagem antiga
+            
             const avatarUrl = (user && user.avatar) ? user.avatar : (msg.sender_avatar || "");
-            
-            // ID Único para o container do avatar para permitir atualizações em tempo real se o cache carregar depois
             const avatarId = `chat-avatar-${msg.sender}-${msgId}`;
-            
             const avatarHtml = `<img id="${avatarId}" src="${this.rGetPImage(avatarUrl, msg.sender)}" style="width: 100%; height: 100%; object-fit: cover;">`;
 
             itemDiv.innerHTML = `
@@ -2127,7 +2134,7 @@
                     </div>
                     <div style="flex: 1; line-height: 1.4;">
                         <span onclick="app.viewPublicProfile('${msg.sender}')" style="cursor: pointer; color: ${isMe ? '#ff005c' : channelColor}; font-weight: 950; font-size: 13px;">${msg.sender}</span>
-                        <span style="font-weight: 600; color: #333; font-size: 13px; margin-left: 2px;">${msg.content}</span>
+                        <span style="font-weight: 600; color: #333; font-size: 13px; margin-left: 2px;">${cleanContent}</span>
                     </div>
                 </div>
             `;
@@ -2387,6 +2394,7 @@
                     author: product.author,
                     seller: product.seller,
                     visible: product.visible,
+                    guarantee: product.guarantee,
                     sales_link: product.sales_link, // Essencial para transmitir Native Live e Links
                     content: JSON.stringify(product.content || [])
                 }, { onConflict: 'id' });
@@ -2680,6 +2688,30 @@
                 </div>
             `).join('');
 
+            // Adiciona Selo de Garantia / Saque Imediato
+            const mainProd = this.cart[0];
+            const hasWarranty = mainProd && (mainProd.guarantee === true || mainProd.guarantee === 'true');
+            
+            const warrantyBadge = document.createElement('div');
+            warrantyBadge.style.margin = '20px 0';
+            warrantyBadge.style.padding = '12px 16px';
+            warrantyBadge.style.borderRadius = '14px';
+            warrantyBadge.style.background = hasWarranty ? '#f0fdf4' : '#fffcfc';
+            warrantyBadge.style.border = `1px solid ${hasWarranty ? '#dcfce7' : '#fee2e2'}`;
+            warrantyBadge.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <i data-lucide="${hasWarranty ? 'shield-check' : 'zap'}" style="width: 20px; color: ${hasWarranty ? '#16a34a' : '#ff005c'}; flex-shrink: 0;"></i>
+                    <div style="flex: 1;">
+                        <p style="font-size: 13px; font-weight: 950; color: #000; margin-bottom: 2px;">${hasWarranty ? 'Compra com Garantia (7 dias)' : 'Venda Final (Entrega Imediata)'}</p>
+                        <p style="font-size: 11px; font-weight: 700; color: #666; line-height: 1.3;">
+                            ${hasWarranty ? 'Seu dinheiro fica protegido pela plataforma por 7 dias.' : 'Sem garantias de devolução. Saque imediato para o produtor.'}
+                        </p>
+                    </div>
+                </div>
+            `;
+            list.appendChild(warrantyBadge);
+            if (window.lucide) lucide.createIcons();
+
             const hasPurchased = localStorage.getItem('dito_purchased_products');
             const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
             const key = this.getUserKey();
@@ -2726,14 +2758,6 @@
                         <button id="btn-pix-checkout" onclick="app.processPaymentCheckout()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 100px; font-weight: 900; font-size: 14px; margin-top: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
                             <i data-lucide="diamond" style="width: 18px;"></i> ${this.currentUser && this.currentUser.isGuest ? 'CADASTRAR E GERAR PIX' : 'GERAR PIX AGORA'}
                         </button>
-                        
-                        <!-- BOTÃO DE TESTE (Apenas para Simulação de Fluxo) -->
-                        <div style="margin-top: 16px; text-align: center;">
-                            <button onclick="app.simulateSuccessfulPurchase()" style="background: transparent; border: 1.5px dashed #ccc; color: #999; width: 100%; height: 48px; border-radius: 50px; font-size: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">
-                                🧪 Modo Teste: Simular Compra e Comissões
-                            </button>
-                            <p style="font-size: 9px; color: #bbb; font-weight: 500; margin-top: 8px;">(Isso simula o pagamento Pix e a queda do dinheiro para o Mentor e Plataforma)</p>
-                        </div>
                     </div>
                 `;
             }
@@ -2883,7 +2907,7 @@
             }, 1000);
         },
 
-        async creditSeller(sellerUsername, amount, productName) {
+        async creditSeller(sellerUsername, amount, productName, fullProduct = null) {
             if (!supabase) return;
             try {
                 const totalAmount = parseFloat(amount);
@@ -2893,19 +2917,37 @@
                 // 1. CREDITA O VENDEDOR (97%)
                 const { data: sellerData } = await supabase.from('dito_users').select('*').eq('username', sellerUsername).maybeSingle();
                 if (sellerData) {
-                    const newBalance = (parseFloat(sellerData.balance || 0) + sellerNet).toFixed(2);
+                    const isGuaranteed = fullProduct && (fullProduct.guarantee === true || fullProduct.guarantee === 'true');
+                    
+                    const currentBalance = parseFloat(sellerData.balance || 0);
+                    const currentPending = parseFloat(sellerData.pending_balance || 0);
+                    
+                    let newBalance = currentBalance;
+                    let newPending = currentPending;
+
+                    if (isGuaranteed) {
+                        newPending = (currentPending + sellerNet).toFixed(2);
+                    } else {
+                        newBalance = (currentBalance + sellerNet).toFixed(2);
+                    }
+
                     const newSalesTotal = (parseFloat(sellerData.sales || 0) + sellerNet).toFixed(2);
                     let history = [];
                     try { history = sellerData.purchases ? (typeof sellerData.purchases === 'string' ? JSON.parse(sellerData.purchases) : sellerData.purchases) : []; } catch(e) {}
-                    history.push({ item: productName, value: sellerNet, timestamp: new Date().toISOString(), type: 'sale', fee_deducted: appFee.toFixed(2) });
+                    history.push({ item: productName, value: sellerNet, timestamp: new Date().toISOString(), type: 'sale', guarantee: isGuaranteed, fee_deducted: appFee.toFixed(2) });
 
                     await supabase.from('dito_users').update({
                         balance: newBalance,
+                        pending_balance: newPending,
                         sales: newSalesTotal,
                         purchases: JSON.stringify(history)
                     }).eq('username', sellerUsername);
 
-                    this.sendNetworkNotification(sellerUsername, 'venda', 'Venda Realizada! 💰', `Você vendeu "${productName}". Valor líquido: R$ ${sellerNet.toFixed(2)} (Taxa app: 3%)`);
+                    const msg = isGuaranteed ? 
+                        `Você vendeu "${productName}". R$ ${sellerNet.toFixed(2)} em garantia (7 dias).` : 
+                        `Venda Realizada! R$ ${sellerNet.toFixed(2)} disponível para saque imediato! 🔥`;
+
+                    this.sendNetworkNotification(sellerUsername, 'venda', isGuaranteed ? 'Venda Garantida 🔒' : 'Dinheiro na Mão! ⚡', msg);
                 }
 
                 // 2. NOTIFICA O COMPRADOR (Entrega/Liberação)
@@ -3680,6 +3722,7 @@
                     case 'meus-cursos': this.renderPurchasedProducts(); break;
                     case 'curso-player': this.renderCoursePlayer(); break;
                     case 'missoes': this.renderMissions(); break;
+                    case 'loja-cupons': this.renderLojaCupons(appContainer); break;
                     case 'links': this.renderLinks(); break;
                     case 'checkout-direto': this.renderMarketCheckout(appContainer, 'template-checkout-direto'); break;
                     case 'admin-painel-unificado': break;
@@ -5153,8 +5196,20 @@
                 const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
                 const salesTotal = realSales.reduce((acc, s) => acc + (parseFloat(s.value || s.amount || 0)), 0);
                 
+                const pendingBase = parseFloat(localStorage.getItem(`user_pending_vanilla_${key}`) || '0');
+                
                 const total = baseBalance + salesTotal;
                 target.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
+
+                // Checa Booster Ativo no Dashboard
+                this.updateBoosterUI();
+
+                // Se houver saldo pendente, mostra no dashboard (opcional)
+                const pendingDashEl = document.getElementById('dash-pending-balance');
+                if (pendingDashEl) {
+                    pendingDashEl.innerText = `A liberar: R$ ${pendingBase.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                    pendingDashEl.style.display = pendingBase > 0 ? 'block' : 'none';
+                }
             };
 
             updateEl(el);
@@ -5188,6 +5243,106 @@
             if (missCoins) missCoins.innerText = coins;
             if (markCoins) markCoins.innerText = coins;
             if (podCoins) podCoins.innerText = coins;
+            
+            // Sincroniza loja também se estiver aberta
+            const storeCoins = document.getElementById('store-coin-balance');
+            if (storeCoins) storeCoins.innerText = coins;
+        },
+
+        renderLojaCupons(container) {
+            const temp = document.getElementById('template-loja-cupons');
+            if (!temp) return;
+            container.innerHTML = temp.innerHTML;
+            if (window.lucide) lucide.createIcons();
+
+            const key = this.getUserKey();
+            const currentCoins = localStorage.getItem(`dito_coins_${key}`) || '0';
+            const balEl = document.getElementById('store-coin-balance');
+            if (balEl) balEl.innerText = currentCoins;
+        },
+
+        buyCouponPack(amount, price) {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification("⚠️ Entre na sua conta para comprar cupons.", "error");
+                return;
+            }
+            if (confirm(`Confirmar compra de ${amount} cupons por R$ ${price.toFixed(2)}?`)) {
+                this.showLoading(true, "Processando pagamento...");
+                
+                setTimeout(() => {
+                    const key = this.getUserKey();
+                    const current = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+                    const newVal = current + amount;
+                    localStorage.setItem(`dito_coins_${key}`, newVal);
+                    
+                    this.showLoading(false);
+                    this.launchVictoryConfetti();
+                    this.showNotification(`${amount} cupons adicionados à sua carteira! 💎`, "success");
+                    this.renderLojaCupons(document.getElementById('app-container'));
+                    this.updateBalanceUI();
+                }, 1500);
+            }
+        },
+
+        buyBooster(type, price) {
+            if (!this.currentUser || this.currentUser.isGuest) {
+                this.showNotification("⚠️ Entre na sua conta para adquirir reforços.", "error");
+                return;
+            }
+            if (confirm(`Confirmar ativação do Reforço Rápido 3x por R$ ${price.toFixed(2)}? (Válido por 24h)`)) {
+                this.showLoading(true, "Ativando Reforço...");
+                
+                setTimeout(() => {
+                    const key = this.getUserKey();
+                    const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24h
+                    localStorage.setItem(`dito_booster_expiry_${key}`, expiry);
+                    
+                    this.showLoading(false);
+                    this.launchVictoryConfetti();
+                    this.showNotification(`REFORÇO ATIVADO! 🔥 Pelas próximas 24h, você ganhará 3x mais cupons!`, "success");
+                    this.updateBoosterUI();
+                    this.updateBalanceUI();
+                }, 1500);
+            }
+        },
+
+        updateBoosterUI() {
+            const key = this.getUserKey();
+            const expiry = parseInt(localStorage.getItem(`dito_booster_expiry_${key}`) || '0');
+            const isActive = expiry > Date.now();
+            
+            const badge = document.getElementById('active-booster-badge');
+            if (badge) {
+                badge.style.display = isActive ? 'inline-block' : 'none';
+            }
+            return isActive;
+        },
+
+        awardCoins(baseAmount, reason = "") {
+            const key = this.getUserKey();
+            const expiry = parseInt(localStorage.getItem(`dito_booster_expiry_${key}`) || '0');
+            const isBoosterActive = expiry > Date.now();
+            
+            const multiplier = isBoosterActive ? 3 : 1;
+            const finalAmount = baseAmount * multiplier;
+            
+            const current = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
+            const newVal = current + finalAmount;
+            
+            localStorage.setItem(`dito_coins_${key}`, newVal);
+            this.updateCoinsUI();
+            
+            if (reason) {
+                const msg = isBoosterActive ? `+${finalAmount} Cupons (BOOSTER 3X 🔥)` : `+${finalAmount} Cupons`;
+                this.showNotification(`${msg} • ${reason}`, "success");
+            }
+
+            // Opcional: Sincroniza com Supabase se necessário
+            if (supabase && this.currentUser && !this.currentUser.isGuest) {
+                supabase.from('profiles').update({ coins: newVal }).eq('username', this.currentUser.username).then(() => {});
+            }
+            
+            return finalAmount;
         },
 
         startEventsCarousel() {
@@ -5434,15 +5589,23 @@
         selectProductType(type, btn) {
             this.selectedProductType = type;
             
-            // Visual logic for selection - Gradient Border highlight
+            // Visual logic for selection - Reset others
             document.querySelectorAll('.product-type-btn').forEach(b => {
                 b.style.background = '#f5f5f5';
                 b.style.border = '2px solid transparent';
+                b.style.boxShadow = 'none';
+                b.style.transform = 'scale(1)';
+                const icon = b.querySelector('i') || b.querySelector('svg');
+                if (icon) icon.style.color = '#777';
             });
             
-            // Apply Premium Gradient Border (No Shadow)
-            btn.style.background = 'linear-gradient(#f5f5f5, #f5f5f5) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
+            // Select effect: Background white + Gradient Border + Deep Luxury Shadow
+            btn.style.background = 'linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, #ff005c 0%, #0094ff 100%) border-box';
             btn.style.border = '2px solid transparent';
+            btn.style.transform = 'scale(1.1)';
+            
+            const selectedIcon = btn.querySelector('i') || btn.querySelector('svg');
+            if (selectedIcon) selectedIcon.style.color = '#000';
 
             // Show form and conditional fields
             const form = document.getElementById('create-product-form');
@@ -5533,12 +5696,49 @@
             }
         },
 
+
+        handleImageUrlInput(url) {
+            if (!url) {
+                this.selectedProductImage = null;
+                const preview = document.getElementById('prod-image-preview');
+                if (preview) {
+                    preview.style.backgroundImage = 'none';
+                    preview.innerHTML = '<i data-lucide="image-plus" style="width: 32px; color: #ddd;"></i><span style="font-size: 9px; font-weight: 900; color: #bbb; margin-top: 8px;">Upload</span>';
+                    if (window.lucide) lucide.createIcons();
+                }
+                return;
+            }
+            this.selectedProductImage = url;
+            const preview = document.getElementById('prod-image-preview');
+            const vPreview = document.getElementById('preview-vitrine-image');
+            const cPreview = document.getElementById('preview-checkout-thumb');
+            const hPreview = document.getElementById('preview-content-hero');
+            
+            if (preview) {
+                preview.style.backgroundImage = `url(${url})`;
+                preview.innerHTML = '';
+            }
+            if (vPreview) {
+                vPreview.style.backgroundImage = `url(${url})`;
+                vPreview.innerHTML = '';
+            }
+            if (cPreview) {
+                cPreview.style.backgroundImage = `url(${url})`;
+                cPreview.innerHTML = '';
+            }
+            if (hPreview) {
+                hPreview.style.backgroundImage = `url(${url})`;
+                hPreview.innerHTML = '';
+            }
+        },
+
         saveProduct() {
             const name = document.getElementById('prod-name').value.trim();
             const desc = document.getElementById('prod-desc')?.value.trim() || "";
             const price = parseFloat(document.getElementById('prod-price').value) || 0;
             const category = document.getElementById('prod-category')?.value || "Dinheiro";
             const visible = document.getElementById('prod-visible').checked;
+            const hasGuarantee = document.getElementById('prod-guarantee').checked;
             const salesLink = document.getElementById('prod-sales-link')?.value.trim() || "";
 
             if (!this.selectedProductType) {
@@ -5561,6 +5761,9 @@
             this.launchVictoryConfetti();
 
             setTimeout(() => {
+                const urlInput = document.getElementById('prod-image-url')?.value.trim();
+                const finalImage = urlInput || this.selectedProductImage || null;
+
                 const newProd = {
                     id: 'p-' + Date.now(),
                     name: name,
@@ -5571,10 +5774,12 @@
                     visible: visible,
                     rating: 5.0,
                     sales: 0,
-                    image: this.selectedProductImage || null,
+                    image: finalImage,
+                    image_url: finalImage,
                     author: this.currentUser?.username || "Você",
                     seller: this.currentUser?.username || "Você",
                     sales_link: salesLink,
+                    guarantee: hasGuarantee,
                     category: category,
                     createdAt: Date.now(),
                     slug: this.generateRandomSlug(),
@@ -5642,9 +5847,19 @@
             const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
             const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
             const salesTotal = realSales.reduce((acc, s) => acc + (s.value || 0), 0);
+            
+            const pendingBase = parseFloat(localStorage.getItem(`user_pending_vanilla_${key}`) || '0');
             const total = baseBalance + salesTotal;
 
             if (balanceEl) balanceEl.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+
+            // Atualiza Saldo Pendente
+            const pendingContainer = document.getElementById('withdraw-balance-pending-container');
+            const pendingVal = document.getElementById('withdraw-balance-pending-val');
+            if (pendingContainer && pendingVal) {
+                pendingVal.innerText = pendingBase.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                pendingContainer.style.display = pendingBase > 0 ? 'inline-block' : 'none';
+            }
 
             // Preenche dados salvos
             if (pixInp) pixInp.value = this.currentUser.withdrawPixKey || '';
@@ -6140,7 +6355,7 @@
                     return `
                     <div style="background: #fff; padding: 16px; border-radius: 24px; border: 1px solid #f2f2f2; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
                         <div style="width: 70px; height: 70px; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex-shrink: 0;">
-                            ${p.image ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i data-lucide="${iconName}" stroke="url(#dito-gradient)" style="width: 24px;"></i>`}
+                            <img src="${this.rGetPImage(p.image || p.image_url || "", p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
