@@ -39,6 +39,7 @@
         balance: 0.00,
         showBalance: true,
         purchasedProducts: [],
+        selectedProductImages: [], // Novo: Suporte a múltiplas fotos
         
         // Helper para individualizar o armazenamento
         getUserKey() {
@@ -2758,32 +2759,40 @@
             const isMentoria = p.type === 'Mentoria';
 
             // Customizar capa ou foto de perfil (Live)
-            const coverContainer = document.getElementById('product-cover-container');
-            if (coverContainer) {
-                if (isMentoria) {
-                    coverContainer.style.borderRadius = '50%';
-                    coverContainer.style.border = '4px solid #ff005c';
-                    coverContainer.style.boxShadow = '0 0 30px rgba(255,0,92,0.4)';
-                    coverContainer.style.padding = '4px';
+            const galleryContainer = document.getElementById('product-gallery-container');
+            const dotsContainer = document.getElementById('gallery-dots');
+            
+            if (galleryContainer && dotsContainer && p) {
+                galleryContainer.innerHTML = '';
+                dotsContainer.innerHTML = '';
+                
+                // Pegar todas as imagens ou apenas a principal se for antigo
+                const images = p.images && p.images.length > 0 ? p.images : [p.image];
+                
+                images.forEach((imgUrl, idx) => {
+                    // Slide da Imagem
+                    const slide = document.createElement('div');
+                    slide.style.cssText = `min-width: 100%; height: 100%; scroll-snap-align: start; display: flex; align-items: center; justify-content: center; background: #fff;`;
+                    slide.innerHTML = `<img src="${this.rGetPImage(imgUrl, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    galleryContainer.appendChild(slide);
                     
-                    const bg = this.rGetMentoriaBg(p.image);
-                    if (bg.startsWith('linear-gradient')) {
-                        coverContainer.style.background = bg;
-                        coverContainer.innerHTML = `<div style="width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 40px;">${p.name[0].toUpperCase()}</div>`;
-                    } else {
-                        coverContainer.innerHTML = `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                    // Pontinho indicador (se houver mais de uma foto)
+                    if (images.length > 1) {
+                        const dot = document.createElement('div');
+                        dot.style.cssText = `width: 6px; height: 6px; border-radius: 50%; background: ${idx === 0 ? '#000' : 'rgba(0,0,0,0.1)'}; transition: 0.3s;`;
+                        dotsContainer.appendChild(dot);
                     }
-                    
-                    const badge = document.createElement('div');
-                    badge.innerHTML = `<span style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 12px; border: 2px solid #fff; letter-spacing: 1px; z-index: 12;">AO VIVO</span>`;
-                    coverContainer.appendChild(badge);
-                } else {
-                    coverContainer.style.borderRadius = '40px';
-                    coverContainer.style.border = 'none';
-                    coverContainer.style.boxShadow = '0 20px 40px rgba(0,0,0,0.03)';
-                    coverContainer.style.padding = '0';
-                    coverContainer.innerHTML = `<img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 40px;">`;
-                }
+                });
+
+                // Lógica simples para atualizar os pontinhos ao rolar
+                galleryContainer.onscroll = () => {
+                    const idx = Math.round(galleryContainer.scrollLeft / galleryContainer.offsetWidth);
+                    Array.from(dotsContainer.children).forEach((dot, i) => {
+                        dot.style.background = (i === idx) ? '#000' : 'rgba(0,0,0,0.1)';
+                        dot.style.width = (i === idx) ? '12px' : '6px';
+                        dot.style.borderRadius = (i === idx) ? '3px' : '50%';
+                    });
+                };
             }
 
             // Customizar Informações (Nome, Preço, Descrição, Avaliações)
@@ -6080,41 +6089,79 @@
         },
 
         handleProductImage(input) {
-            const file = input.files[0];
-            if (file) {
-                // Validação de Tamanho Imediata
-                const maxSize = 500 * 1024; // 500kb
+            if (!this.selectedProductImages) this.selectedProductImages = [];
+            const gallery = document.getElementById('product-images-gallery-preview');
+            
+            const files = Array.from(input.files);
+            const maxSize = 800 * 1024; // 800kb
+
+            files.forEach((file, index) => {
                 if (file.size > maxSize) {
-                    this.showNotification(`Imagem muito pesada (${(file.size/1024).toFixed(0)}kb). O máximo permitido é 500kb. Escolha outra!`, "error");
-                    input.value = ""; // Limpa o input
+                    this.showNotification(`A foto é muito pesada (${(file.size/1024).toFixed(0)}kb). Máximo 800kb.`, "error");
                     return;
                 }
 
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    this.selectedProductImage = e.target.result;
-                    const preview = document.getElementById('prod-image-preview');
-                    if (preview) {
-                        preview.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
-                    }
+                    const dataUrl = e.target.result;
+                    this.selectedProductImages.push(dataUrl);
+                    this.renderProductImageGallery(); // Nova função para redesenhar a galeria
                     
-                    // Update Previews with the image
-                    const url = e.target.result;
-                    const vitrineImg = document.getElementById('preview-vitrine-image');
-                    const checkoutThumb = document.getElementById('preview-checkout-thumb');
-                    const contentHero = document.getElementById('preview-content-hero');
-                    
-                    if (vitrineImg) {
-                        vitrineImg.style.backgroundImage = `url(${url})`;
-                        vitrineImg.innerHTML = ''; // Remove icon
+                    // Se for a primeira imagem total, atualiza as prévias principais
+                    if (this.selectedProductImages.length === 1) {
+                        this.selectedProductImage = dataUrl;
+                        const mainPreview = document.getElementById('prod-image-preview');
+                        if (mainPreview) mainPreview.innerHTML = `<img src="${dataUrl}" style="width: 100%; height: 100%; object-fit: cover;">`;
                     }
-                    if (checkoutThumb) checkoutThumb.style.backgroundImage = `url(${url})`;
-                    if (contentHero) contentHero.style.backgroundImage = `url(${url})`;
 
                     this.updateProductProgress();
                 };
                 reader.readAsDataURL(file);
+            });
+            input.value = ''; // Limpa para permitir selecionar o mesmo arquivo novamente
+        },
+
+        renderProductImageGallery() {
+            const gallery = document.getElementById('product-images-gallery-preview');
+            if (!gallery) return;
+            
+            gallery.innerHTML = '';
+            
+            // Renderiza as fotos atuais
+            this.selectedProductImages.forEach((img, idx) => {
+                const thumb = document.createElement('div');
+                thumb.style.cssText = `width: 60px; height: 60px; border-radius: 12px; background: #fff; border: 1px solid #f0f0f0; flex-shrink: 0; overflow: hidden; position: relative;`;
+                thumb.innerHTML = `
+                    <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div onclick="app.removeProductImage(${idx})" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 950; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 1;">×</div>
+                `;
+                gallery.appendChild(thumb);
+            });
+
+            // Botão "ADICIONAR MAIS" (+)
+            const addBtn = document.createElement('div');
+            addBtn.onclick = () => document.getElementById('prod-image-file').click();
+            addBtn.style.cssText = `width: 60px; height: 60px; border-radius: 12px; background: #fbfbfb; border: 2px dashed #eee; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s;`;
+            addBtn.onmouseover = () => addBtn.style.borderColor = '#ff005c';
+            addBtn.onmouseout = () => addBtn.style.borderColor = '#eee';
+            addBtn.innerHTML = `<i data-lucide="plus" style="width: 20px; color: #ccc;"></i>`;
+            gallery.appendChild(addBtn);
+            
+            if (window.lucide) lucide.createIcons();
+        },
+
+        removeProductImage(index) {
+            this.selectedProductImages.splice(index, 1);
+            this.renderProductImageGallery();
+            if (this.selectedProductImages.length > 0) {
+                this.selectedProductImage = this.selectedProductImages[0];
+            } else {
+                this.selectedProductImage = null;
+                const mainPreview = document.getElementById('prod-image-preview');
+                if (mainPreview) mainPreview.innerHTML = `<i data-lucide="image-plus" style="width: 32px; color: #ddd;"></i><span style="font-size: 9px; font-weight: 900; color: #bbb; margin-top: 8px;">Upload</span>`;
+                if (window.lucide) lucide.createIcons();
             }
+            this.updateProductProgress();
         },
 
         handleFileUpload(input, targetId) {
@@ -6213,6 +6260,7 @@
                     rating: 5.0,
                     sales: 0,
                     image: finalImage,
+                    images: this.selectedProductImages && this.selectedProductImages.length > 0 ? this.selectedProductImages : [finalImage], // Galeria completa
                     image_url: finalImage,
                     author: this.currentUser?.username || "Você",
                     seller: this.currentUser?.username || "Você",
@@ -6224,11 +6272,11 @@
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
 
-                // OTIMIZAÇÃO DE ESPAÇO: Se a imagem for grande, salvamos no Local apenas o placeholder
-                // Mas enviamos a imagem FULL para o Supabase (Network)
+                // Mantém imagens completas para o local storage (até o limite do QuotaExceededError)
                 const networkProd = { ...newProd };
-                if (newProd.image && newProd.image.length > 30000) {
-                    newProd.image = 'stripped_for_cache'; 
+                // Apenas avisar se for GIGANTE para o Supabase, mas salvar local full
+                if (networkProd.image && networkProd.image.length > 200000) {
+                     console.warn("Imagem muito grande para nuvem, enviando compactada...");
                 }
 
                 // Salva na Nuvem (Supabase)
@@ -6795,10 +6843,11 @@
             } else {
                 list.innerHTML = this.cart.map((p, index) => {
                     const iconName = p.type === 'Ebook' ? 'book-open' : (p.type === 'Curso' ? 'play-circle' : 'package');
+                    const productImg = (p.images && p.images.length > 0) ? p.images[0] : (p.image || p.image_url || "");
                     return `
                     <div style="background: #fff; padding: 16px; border-radius: 24px; border: 1px solid #f2f2f2; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
                         <div style="width: 70px; height: 70px; background: #f9f9f9; border-radius: 16px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex-shrink: 0;">
-                            <img src="${this.rGetPImage(p.image || p.image_url || "", p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="${this.rGetPImage(productImg, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <h4 style="font-weight: 900; font-size: 11px; color: #000; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</h4>
@@ -7735,25 +7784,75 @@
     };
 
 
+    app.toggleMarketSearch = function(show) {
+        const title = document.getElementById('market-title-container');
+        const container = document.getElementById('market-search-container');
+        const input = document.getElementById('market-search');
+        const searchBtn = document.getElementById('btn-market-search');
+        const closeBtn = document.getElementById('btn-market-close-search');
+        const results = document.getElementById('market-search-results');
+
+        if (show) {
+            if(title) { title.style.opacity = '0'; title.style.transform = 'translateX(-50%) translateY(-20px)'; }
+            if(container) { 
+                container.style.opacity = '1'; 
+                container.style.transform = 'translateX(0)'; 
+                container.style.pointerEvents = 'all';
+            }
+            if(searchBtn) searchBtn.style.display = 'none';
+            if(closeBtn) closeBtn.style.display = 'flex';
+            if(input) {
+                setTimeout(() => input.focus(), 400);
+            }
+        } else {
+            if(title) { title.style.opacity = '1'; title.style.transform = 'translateX(-50%) translateY(0)'; }
+            if(container) { 
+                container.style.opacity = '0'; 
+                container.style.transform = 'translateX(100%)'; 
+                container.style.pointerEvents = 'none';
+            }
+            if(searchBtn) searchBtn.style.display = 'flex';
+            if(closeBtn) closeBtn.style.display = 'none';
+            if(input) {
+                input.value = '';
+                this.filterMarket('');
+            }
+            if(results) results.style.display = 'none';
+        }
+    };
+
 
     app.filterMarket = function(query) {
         const results = document.getElementById('market-search-results');
-        if (!query || query.length < 1) { if (results) results.style.display = 'none'; return; }
+        if (!query || query.length < 1) { 
+            if (results) {
+                results.classList.remove('active');
+                results.style.display = 'none';
+            }
+            return; 
+        }
+        
         const market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
         const filtered = market.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+        
         if (filtered.length > 0) {
-            results.style.display = 'block';
             results.innerHTML = filtered.map(p => `
-                <div onclick="app.viewProduct('${p.id}')" style="display:flex; align-items:center; gap:12px; padding:12px; cursor:pointer; border-bottom:1px solid #f9f9f9;">
-                    <div style="width:40px; height:40px; background:#f5f5f5; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                <div onclick="app.viewProduct('${p.id}')" style="display:flex; align-items:center; gap:14px; padding:16px; cursor:pointer; border-bottom:1px solid #f5f5f5; transition: 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='#fff'">
+                    <div style="width:44px; height:44px; background:#f0f0f0; border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink: 0;">
                         <img src="${this.rGetPImage(p.image, p.name)}" style="width:100%; height:100%; object-fit:cover;">
                     </div>
-                    <div><p style="font-weight:900; font-size:13px;">${p.name}</p><p style="font-size:11px; color:#22c55e; font-weight:900;">R$ ${parseFloat(p.price).toFixed(2)}</p></div>
+                    <div style="flex: 1;">
+                        <p style="font-weight:900; font-size:13px; color: #000; margin: 0; line-height: 1.2;">${p.name}</p>
+                        <p style="font-size:11px; color:#10b981; font-weight:900; margin-top: 2px;">R$ ${parseFloat(p.price).toFixed(2)}</p>
+                    </div>
+                    <i data-lucide="chevron-right" style="width: 14px; color: #ccc;"></i>
                 </div>`).join('');
+            
+            results.classList.add('active');
             if (window.lucide) lucide.createIcons();
         } else {
-            results.innerHTML = `<div style="padding:16px; color:#999; text-align:center;">Nenhum produto.</div>`;
-            results.style.display = 'block';
+            results.innerHTML = `<div style="padding:20px; color:#999; text-align:center; font-size: 11px; font-weight: 800;">NENHUM PRODUTO ENCONTRADO</div>`;
+            results.classList.add('active');
         }
     };
 
