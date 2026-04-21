@@ -8006,6 +8006,13 @@
                 if (myItems.length > 0) {
                     this.purchasedProducts = myItems;
                     localStorage.setItem(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
+                    
+                    // Atualiza a tela se o usuário estiver vendo os cursos
+                    if (this.currentView === 'meus-cursos') {
+                        this.renderPurchasedProducts();
+                    }
+                    // Atualiza o Dashboard se houver lista de compras lá também
+                    this.updateBalanceUI(); 
                 }
             }
         } catch (e) {
