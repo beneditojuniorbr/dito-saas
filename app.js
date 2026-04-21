@@ -725,25 +725,54 @@
         },
 
         startPaymentPolling(paymentId) {
-            console.log(`[Dito] Monitorando pagamento ${paymentId}...`);
-            const pollInterval = setInterval(async () => {
+            if (this.paymentPollingInterval) clearInterval(this.paymentPollingInterval);
+            console.log(`🕒 [Dito] Vigilante de Pagamento Ativo: ${paymentId}`);
+            
+            const initialCount = this.purchasedProducts.length;
+            
+            this.paymentPollingInterval = setInterval(async () => {
                 try {
-                    const { data, error } = await supabase
-                        .from('dito_payments')
-                        .select('status')
-                        .eq('id', paymentId)
-                        .maybeSingle();
+                    // 1. CHOCA O STATUS DO PAGAMENTO NO BANCO
+                    if (paymentId) {
+                        const { data, error } = await supabase
+                            .from('dito_payments')
+                            .select('status')
+                            .eq('id', paymentId)
+                            .maybeSingle();
 
-                    if (data && data.status === 'approved') {
-                        clearInterval(pollInterval);
-                        this.finalizeSuccessfulPurchase();
+                        if (data && data.status === 'approved') {
+                            console.log("✅ [Pagamento] Confirmado via Tabela de Pagamentos!");
+                            clearInterval(this.paymentPollingInterval);
+                            this.finalizeSuccessfulPurchase();
+                            return;
+                        }
+                    }
+
+                    // 2. CHOCA SE O PRODUTO JÁ FOI ENTREGUE (Webhook Direto)
+                    if (supabase && this.currentUser && !this.currentUser.isGuest) {
+                        await this.fetchPurchasedProducts();
+                        if (this.purchasedProducts.length > initialCount) {
+                            console.log("✅ [Pagamento] Confirmado via Entrega de Produto!");
+                            clearInterval(this.paymentPollingInterval);
+                            this.launchVictoryConfetti();
+                            this.showNotification("Acesso Liberado! 🚀", "success");
+                            
+                            // Se for Mentoria, redireciona
+                            const wasMentoria = this.purchasedProducts.some(p => p.type === 'Mentoria');
+                            if (wasMentoria) {
+                                setTimeout(() => this.setMarketView('live-room'), 1500);
+                            } else {
+                                this.navigate('meus-cursos');
+                            }
+                        }
                     }
                 } catch (e) {
-                    console.error("Erro no polling:", e);
+                    console.error("Erro no polling de pagamento:", e);
                 }
             }, 4000); 
 
-            setTimeout(() => clearInterval(pollInterval), 15 * 60 * 1000);
+            // Time-out de segurança (15 minutos)
+            setTimeout(() => clearInterval(this.paymentPollingInterval), 15 * 60 * 1000);
         },
 
         finalizeSuccessfulPurchase() {
@@ -808,27 +837,7 @@
             }
         },
 
-        startPaymentPolling() {
-            if (this.paymentPollingInterval) clearInterval(this.paymentPollingInterval);
-            
-            const buyerKey = this.getUserKey();
-            const initialCount = this.purchasedProducts.length;
-            
-            console.log("🕒 [Payment] Iniciando monitoramento de entrega para:", buyerKey);
-            
-            this.paymentPollingInterval = setInterval(async () => {
-                // 1. Tenta sincronizar via Supabase
-                if (supabase && this.currentUser && !this.currentUser.isGuest) {
-                    await this.fetchPurchasedProducts();
-                    if (this.purchasedProducts.length > initialCount) {
-                        console.log("✅ [Payment] Entrega confirmada via polling!");
-                        clearInterval(this.paymentPollingInterval);
-                        this.launchVictoryConfetti();
-                        this.showSystemNotification('Pagamento Confirmado! ✅', 'Seu produto já está liberado na área de membros.', 'success');
-                    }
-                }
-            }, 4000); // Checa a cada 4 segundos
-        },
+        //startPaymentPolling unificado acima
 
         launchVictoryConfetti() {
             if (typeof confetti === 'function') {
