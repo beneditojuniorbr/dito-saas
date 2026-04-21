@@ -5344,13 +5344,8 @@
                     if (this.currentUser && this.currentUser.showRevenue === false) {
                         revEl.innerText = "Privado";
                     } else {
-                        // Calcula o saldo real (Base + Vendas)
-                        const key = this.getUserKey();
-                        const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
-                        const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
-                        const salesTotal = realSales.reduce((acc, s) => acc + (parseFloat(s.value || s.amount || 0)), 0);
-                        const total = baseBalance + salesTotal;
-                        
+                        // Calcula o saldo real (Vindo direto do Supabase via currentUser)
+                        const total = parseFloat(this.currentUser.balance || 0);
                         revEl.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
                 }
@@ -5589,36 +5584,18 @@
         },
 
         updateBalanceUI() {
-            const el = document.getElementById('label-balance'); // ID correto conforme index.html
-            const dashEl = document.getElementById('dash-total-balance'); // ID alternativo usado em alguns templates
+            const el = document.getElementById('label-balance');
+            const dashEl = document.getElementById('dash-total-balance');
             
             const updateEl = (target) => {
                 if (!target) return;
-                const key = this.getUserKey();
-                const baseBalance = parseFloat(localStorage.getItem(`user_balance_vanilla_${key}`) || '0');
-                const realSales = JSON.parse(localStorage.getItem(`dito_real_sales_history_${key}`) || '[]');
-                const salesTotal = realSales.reduce((acc, s) => acc + (parseFloat(s.value || s.amount || 0)), 0);
-                
-                const pendingBase = parseFloat(localStorage.getItem(`user_pending_vanilla_${key}`) || '0');
-                
-                const total = baseBalance + salesTotal;
+                const total = parseFloat(this.currentUser?.balance || 0);
                 target.innerText = this.showBalance ? `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '••••••••';
-
-                // Checa Booster Ativo no Dashboard
                 this.updateBoosterUI();
-
-                // Se houver saldo pendente, mostra no dashboard (opcional)
-                const pendingDashEl = document.getElementById('dash-pending-balance');
-                if (pendingDashEl) {
-                    pendingDashEl.innerText = `A liberar: R$ ${pendingBase.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                    pendingDashEl.style.display = pendingBase > 0 ? 'block' : 'none';
-                }
             };
 
             updateEl(el);
             updateEl(dashEl);
-            
-            // Sincroniza também os cupons
             this.updateCoinsUI();
 
             // Atualiza o nome da saudação
@@ -5626,11 +5603,43 @@
             if (nameEl && this.currentUser) {
                 nameEl.innerText = this.currentUser.name || this.currentUser.username;
             }
+        },
 
-            // Exibe as bolinhas de notificação se ainda não viu
-            // Status de Conexão (Privado para o Ditão)
-            const statusEl = document.getElementById('network-status-indicator');
-            if (statusEl) statusEl.innerHTML = '';
+        async requestWithdrawal() {
+            const balance = parseFloat(this.currentUser?.balance || 0);
+            if (balance <= 0) {
+                alert("Você não tem saldo disponível para saque no momento.");
+                return;
+            }
+
+            const pixKey = prompt(`Saldo disponível: R$ ${balance.toFixed(2)}\n\nDigite sua chave PIX para o saque:`);
+            if (!pixKey) return;
+
+            const confirmDraw = confirm(`Confirmar pedido de saque de R$ ${balance.toFixed(2)} para a chave:\n${pixKey}?`);
+            if (!confirmDraw) return;
+
+            try {
+                const { error } = await supabase.from('dito_withdrawals').insert([{
+                    username: this.currentUser.username,
+                    amount: balance,
+                    pix_key: pixKey,
+                    status: 'pending'
+                }]);
+
+                if (error) throw error;
+
+                // Zera saldo localmente e no banco
+                this.currentUser.balance = 0;
+                await supabase.from('dito_users').update({ balance: 0 }).eq('username', this.currentUser.username);
+                
+                this.updateBalanceUI();
+                if (this.currentView === 'perfil') this.renderProfile();
+                
+                alert("Pedido de saque enviado com sucesso! ✅\nO dinheiro cairá na sua conta em breve.");
+            } catch (err) {
+                console.error(err);
+                alert("Erro ao processar pedido de saque. Tente novamente.");
+            }
         },
 
         updateCoinsUI() {
@@ -6221,6 +6230,11 @@
                 if (newProd.image && newProd.image.length > 30000) {
                     newProd.image = 'stripped_for_cache'; 
                 }
+
+                // Salva na Nuvem (Supabase)
+                supabase.from('dito_products').insert([networkProd]).then(({ error }) => {
+                    if (error) console.error("Erro ao subir produto para nuvem:", error);
+                });
 
                 // Salva na lista global local com proteção de cota
                 try {
