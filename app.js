@@ -4020,10 +4020,10 @@
                 
                 if (view === 'login') console.trace("RASTREIO DE LOGIN:");
                 
-                // Controle da Barra de Progresso Global
+                // Controle da Barra de Progresso Global - Desativado
                 const progressContainer = document.getElementById('product-progress-container');
                 if (progressContainer) {
-                    progressContainer.style.display = (view === 'criar-produto') ? 'flex' : 'none';
+                    progressContainer.style.display = 'none';
                 }
 
                 const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
@@ -4142,7 +4142,6 @@
                     nav.style.display = (isAuthPage || isCheckoutPage) ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
                         const targetView = item.getAttribute('data-view');
-                        const icon = item.querySelector('i');
                         if (targetView === view) {
                             item.classList.add('active-nav');
                         } else {
@@ -4150,6 +4149,16 @@
                         }
                     });
                 }
+
+                // Sincroniza Sidebar Desktop (PC)
+                document.querySelectorAll('.sidebar-item').forEach(item => {
+                    const targetView = item.getAttribute('data-view');
+                    if (targetView === view) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
                 
                 const worldChatBtn = document.getElementById('btn-world-chat');
                 const missionsBtn = document.getElementById('btn-missions');
@@ -5847,44 +5856,11 @@
         },
 
         updateProductProgress() {
-            const bar = document.getElementById('product-progress-bar');
-            const percentLabel = document.getElementById('product-progress-percent');
-            const textLabel = document.getElementById('product-progress-text');
-            if (!bar || !percentLabel || !textLabel) return;
-
-            // Cálculo Granular (6 Tarefas)
-            let completed = 0;
-            const type = this.selectedProductType;
-            
-            if (this.selectedProductImage) completed++; // 1. Capa
-            if (document.getElementById('prod-name')?.value.trim().length > 3) completed++; // 2. Nome
-            if (document.getElementById('prod-category')?.value) completed++; // 3. Categoria
-            if (document.getElementById('prod-desc')?.value.trim().length > 10) completed++; // 4. Descrição
-            
-            const price = parseFloat(document.getElementById('prod-price')?.value);
-            if (price > 0) completed++; // 5. Preço
-            
-            // 6. Conteúdo Específico
-            let contentOk = false;
-            if (type === 'Ebook' && document.getElementById('ebook-file')?.files.length > 0) contentOk = true;
-            if (type === 'Curso' && this.courseStructure.length > 0) contentOk = true;
-            if (type === 'Mentoria' && document.getElementById('prod-date')?.value) contentOk = true;
-            if (contentOk) completed++;
-
-            const progress = Math.round((completed / 6) * 100);
-
-            bar.style.width = `${progress}%`;
-            percentLabel.innerText = `${progress}%`;
-            
-            textLabel.innerText = `${completed} de 6 tarefas concluídas`;
-            textLabel.style.color = (completed === 6) ? '#22c55e' : '#000';
-            
-            // Se terminou, muda a frase motivacional final
-            if (completed === 6) {
-                textLabel.innerText = "PRONTO PARA PUBLICAR! ✨";
-            }
-
+            // Atualiza a visualização em tempo real sempre que houver progresso/entrada
             this.updateProductPreview();
+            
+            const container = document.getElementById('product-progress-container');
+            if (container) container.style.display = 'none'; 
         },
 
         updateProductPreview() {
@@ -5937,14 +5913,26 @@
             // 2. Checkout Updates
             const checkoutName = document.getElementById('preview-checkout-name');
             const checkoutPrice = document.getElementById('preview-checkout-price');
+            const checkoutThumb = document.getElementById('preview-checkout-thumb');
             if (checkoutName) checkoutName.innerText = name;
             if (checkoutPrice) checkoutPrice.innerText = formattedPrice;
+            if (checkoutThumb) {
+                checkoutThumb.style.backgroundImage = img ? `url(${img})` : 'none';
+                checkoutThumb.style.backgroundSize = 'cover';
+                checkoutThumb.style.backgroundPosition = 'center';
+            }
 
             // 3. Content Area Updates
             const contentName = document.getElementById('preview-content-name');
             const contentDesc = document.getElementById('preview-content-desc');
+            const contentHero = document.getElementById('preview-content-hero');
             if (contentName) contentName.innerText = name;
             if (contentDesc) contentDesc.innerText = desc;
+            if (contentHero) {
+                contentHero.style.backgroundImage = img ? `url(${img})` : 'none';
+                contentHero.style.backgroundSize = 'cover';
+                contentHero.style.backgroundPosition = 'center';
+            }
 
             // Sync Modules List
             const previewModules = document.getElementById('preview-content-modules');
@@ -5995,9 +5983,9 @@
             if (dotDash) dotDash.style.display = 'none';
             if (dotHeader) dotHeader.style.display = 'none';
 
-            // Show Global Progress Bar
+            // Show Global Progress Bar - Desativado
             const container = document.getElementById('product-progress-container');
-            if (container) container.style.display = 'flex';
+            if (container) container.style.display = 'none';
 
             this.selectedProductType = null;
             const form = document.getElementById('create-product-form');
@@ -6051,7 +6039,7 @@
             // Navega e inicializa apenas a estrutura básica sem resetar campos
             this.navigate('criar-produto');
             const container = document.getElementById('product-progress-container');
-            if (container) container.style.display = 'flex';
+            if (container) container.style.display = 'none';
             
             // Força a seleção do tipo de produto e pula para o formulário
             this.selectedProductType = prod.type;
@@ -6178,6 +6166,7 @@
                         if (mainPreview) mainPreview.innerHTML = `<img src="${dataUrl}" style="width: 100%; height: 100%; object-fit: cover;">`;
                     }
 
+                    this.updateProductPreview(); // Garante que o preview mude com a foto
                     this.updateProductProgress();
                 };
                 reader.readAsDataURL(file);

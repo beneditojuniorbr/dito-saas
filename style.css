@@ -131,6 +131,39 @@ input::placeholder, textarea::placeholder {
     animation: spin 0.8s linear infinite;
 }
 
+/* Visibility Utilities */
+.mobile-only { display: block; }
+.desktop-only { display: none; }
+
+@media (min-width: 1024px) {
+    .mobile-only { display: none !important; }
+    .desktop-only { display: block !important; }
+    .desktop-only-flex { display: flex !important; }
+}
+
+/* Botões Flutuantes Globais (Missão e Chat) */
+#global-fixed-actions {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+@media (min-width: 1024px) {
+    #global-fixed-actions {
+        bottom: 32px;
+    }
+}
+
+@media (max-width: 1023px) {
+    #global-fixed-actions {
+        bottom: 95px; /* Altura ideal para mobile, acima da nav */
+    }
+}
+
 /* Utilities */
 .hidden { display: none !important; }
 
@@ -152,6 +185,38 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     padding: 80px 24px 40px;
     background: var(--background);
+}
+
+@media (min-width: 1024px) {
+    .login-screen {
+        padding: 60px 0;
+        justify-content: center;
+        align-items: center;
+        background: #fbfbfb; /* Fundo sutil para desktop */
+        overflow-x: hidden;
+    }
+    
+    /* Container que envolve o Header e o Formulário no Desktop */
+    .login-screen > div:not([style*="margin-top: 100px"]) {
+        background: #fff;
+        padding: 60px;
+        border-radius: 40px;
+        box-shadow: 0 40px 100px rgba(0,0,0,0.06);
+        border: 1px solid #f0f0f0;
+        width: 100% !important;
+        max-width: 500px !important;
+        margin-bottom: 24px;
+    }
+
+    /* Ajuste para a Landing Page (Seção de Benefícios) no Desktop */
+    .login-screen > div[style*="margin-top: 100px"] {
+        max-width: 1000px;
+        margin: 80px auto 0 !important;
+        border-radius: 40px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.03);
+        border: 1px solid #f9f9f9;
+        padding: 80px !important;
+    }
 }
 
 .login-header {
@@ -610,8 +675,34 @@ input::placeholder, textarea::placeholder {
     margin-bottom: 8px;
 }
 
-@media (min-width: 501px) {
+/* ==========================================================================
+   RESPONSIVIDADE PREMIUM (MOBILE FIRST -> DESKTOP)
+   ========================================================================== */
+
+/* MOBILE / TABLET (PADRÃO) */
+.desktop-sidebar { display: none; }
+
+#global-header {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    height: 70px;
+    background: #fff;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 1001;
+    transition: all 0.3s ease;
+}
+
+@media (min-width: 501px) and (max-width: 1023px) {
     .app-container {
+        max-width: 500px;
+        margin: 0 auto;
         border-left: 1px solid var(--border);
         border-right: 1px solid var(--border);
         box-shadow: 0 0 40px rgba(0,0,0,0.05);
@@ -623,19 +714,131 @@ input::placeholder, textarea::placeholder {
         transform: translateX(-50%);
     }
 
-    .modal-overlay {
+    .modal-content {
+        max-width: 450px;
+        margin: 0 auto;
+        border-radius: 24px;
+    }
+}
+
+/* DESKTOP PREMIUM (Telas maiores que 1024px) */
+@media (min-width: 1024px) {
+    body {
+        background: #f8f9fa; /* Fundo levemente cinza no PC para destacar os cards brancos */
+    }
+
+    .app-container {
+        width: calc(100% - 80px); /* Ocupa o resto da tela */
+        max-width: none;
+        margin: 0 0 0 80px; 
+        padding-bottom: 40px;
+        background: transparent;
+    }
+
+    /* Ocultar Navegação Mobile */
+    #global-nav { display: none !important; }
+
+    /* Exibir Sidebar Minimalista */
+    .desktop-sidebar {
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Centraliza no eixo X */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 80px;
+        height: 100vh;
+        background: #fff;
+        border-right: 1px solid #f0f0f0;
+        padding: 32px 0;
+        z-index: 1000;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.02);
+    }
+
+    /* Expansão do Header no PC */
+    #global-header {
+        left: 80px !important; 
+        transform: none !important;
+        width: calc(100% - 80px) !important;
+        max-width: none !important;
+        padding: 0 40px !important;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .sidebar-logo {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 48px;
+    }
+
+    .sidebar-logo img { width: 40px; height: 40px; border-radius: 12px; }
+    .logo-text { display: none; } /* Esconde o texto da logo no PC */
+
+    .sidebar-nav {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .sidebar-item {
+        display: flex;
         align-items: center;
         justify-content: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: 0.3s;
+        color: #666;
+    }
+
+    .sidebar-item:hover {
+        background: transparent;
+        color: #000;
+        transform: scale(1.1);
+    }
+
+    .sidebar-item.active {
+        background: transparent;
+        color: #000;
+    }
+
+    .sidebar-item i { width: 22px; height: 22px; }
+
+    /* Estilos do Botão de Criar Removidos */
+
+    /* Grids Hero Desktop */
+    .market-grid {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+        gap: 24px !important;
+        padding: 0 40px !important;
+    }
+
+    /* Ajuste de seções */
+    .header-section, .quick-actions, .product-list {
+        padding: 0 40px;
+    }
+
+    .horizontal-scroll {
+        padding: 24px 40px;
+    }
+
+    /* Modais Estilo Desktop */
+    .modal-overlay {
+        justify-content: center;
+        align-items: center;
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(4px);
     }
 
     .modal-content {
-        max-width: 450px;
-        border-radius: 24px;
+        max-width: 500px;
+        border-radius: 32px;
         transform: scale(0.9);
-    }
-
-    .modal-overlay.active .modal-content {
-        transform: scale(1);
+        margin: 0;
     }
 }
 /* Societies */
@@ -1024,4 +1227,52 @@ input[type=range].coin-slider::-webkit-slider-thumb {
 @keyframes modalEnter {
     from { opacity: 0; transform: scale(0.9) translateY(20px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+
+/* --- DUAL LAYOUT SYSTEM (MOBILE INTACT / PC PREMIUM) --- */
+
+/* DASHBOARD HEADER */
+.dash-header-container { display: flex; flex-direction: column; background: #fff; }
+.dash-greeting-block { padding: 32px 24px 8px; text-align: center; order: 2; }
+.dash-oii { color: #999; font-size: 15px; font-weight: 800; }
+.dash-balance-section { padding: 24px 24px 32px; text-align: center; order: 1; border-bottom: 1px solid #f9f9f9; }
+.dash-balance-label { font-size: 11px; font-weight: 800; color: #bbb; margin-bottom: 4px; }
+.dash-balance-row { display: flex; align-items: center; justify-content: center; gap: 12px; position: relative; }
+.dash-balance-amount { font-size: 32px; font-weight: 900; letter-spacing: -1.5px; margin: 0; }
+.dash-eye-icon { width: 18px; height: 18px; cursor: pointer; color: #000; }
+.dash-cupons-badge { position: absolute; right: 0; display: flex; align-items: center; gap: 6px; }
+
+/* PROFILE HEADER */
+.profile-container { padding: 24px; }
+.profile-header-layout { display: flex; flex-direction: column; align-items: center; gap: 24px; margin-bottom: 24px; }
+.profile-avatar-box { width: 86px; height: 86px; border-radius: 50%; background: #f5f5f5; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; position: relative; }
+.avatar-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); flex-direction: column; align-items: center; justify-content: center; color: #fff; cursor: pointer; }
+.btn-remove-avatar { position: absolute; top: -5px; right: -5px; width: 28px; height: 28px; background: #ff005c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.profile-stats-layout { display: flex; flex: 1; flex-direction: column; width: 100%; gap: 16px; }
+.stat-val { font-weight: 950; font-size: 18px; letter-spacing: -0.5px; color: #000; margin: 0; }
+.stat-label { font-size: 9px; font-weight: 900; color: #ccc; text-transform: uppercase; margin: 0; }
+.profile-stats-group { display: flex; justify-content: space-around; text-align: center; }
+.btn-sacar-inline { background: #000; color: #fff; border: none; padding: 6px 12px; border-radius: 20px; font-size: 8px; font-weight: 950; cursor: pointer; text-transform: uppercase; }
+
+.profile-bio-container { margin-bottom: 24px; text-align: left; }
+.profile-display-name { font-weight: 950; font-size: 18px; margin-bottom: 4px; }
+.profile-display-bio { font-size: 14px; font-weight: 700; color: #666; line-height: 1.5; }
+.profile-display-link { color: #000; font-size: 13px; font-weight: 900; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+
+/* --- DESKTOP PREMIUM OVERRIDES ( > 1024px ) --- */
+@media (min-width: 1025px) {
+    .dash-header-container { padding-top: 20px; flex-direction: column; }
+    .dash-greeting-block { order: 1; text-align: left; padding: 20px 24px 0; }
+    .dash-balance-section { order: 2; text-align: left; border-bottom: none; padding: 8px 24px 32px; }
+    .dash-balance-row { justify-content: flex-start; }
+    .dash-balance-amount { font-size: 42px; letter-spacing: -2px; }
+    .dash-eye-icon { width: 24px; height: 24px; }
+
+    .profile-header-layout { flex-direction: row; align-items: flex-start; gap: 32px; }
+    .profile-avatar-box { width: 100px; height: 100px; }
+    .profile-stats-group { justify-content: flex-start; gap: 32px; text-align: left; }
+    .profile-stat-item { border-bottom: 1px solid #f9f9f9; padding-bottom: 8px; }
+    .btn-sacar-inline { font-size: 10px; padding: 8px 20px; }
+    .stat-val { font-size: 20px; }
 }
