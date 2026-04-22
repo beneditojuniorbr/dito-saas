@@ -1,15 +1,14 @@
 @echo off
-title Dito Ecosystem - Servidor Local
-echo ---------------------------------------------------
-echo           INICIANDO ECOSSISTEMA DITO
-echo ---------------------------------------------------
 echo.
-echo [1/3] Limpando cache e preparando ambiente...
-echo [2/3] Abrindo o navegador em http://localhost:5000...
-start http://localhost:5000
-echo [3/3] Ligando o motor do App...
+echo ======================================================
+echo           DITO - SERVIDOR DE SEGURANCA
+echo ======================================================
 echo.
-echo DICA: Nao feche esta janela enquanto estiver usando o App!
+echo [1/2] Iniciando o motor do Dito...
+echo [2/2] Abrindo no seu navegador sem erros...
 echo.
-npx serve -p 5000 .
+echo Por favor, nao feche esta janela enquanto estiver usando o Dito!
+echo.
+start http://localhost:8080
+npx -y http-server -p 8080
 pause

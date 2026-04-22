@@ -40,6 +40,7 @@
         showBalance: true,
         purchasedProducts: [],
         selectedProductImages: [], // Novo: Suporte a múltiplas fotos
+        editingProductId: null,    // Novo: ID do produto em edição
         
         // Helper para individualizar o armazenamento
         getUserKey() {
@@ -86,15 +87,15 @@
         // Helper para salvar no localStorage com segurança (evita QuotaExceeded e otimiza imagens)
         safeLocalStorageSet(key, value) {
             try {
-                // OTIMIZAÇÃO: Se o valor for maior que 300kb, tenta limpar Base64 gigantes
-                if (value.length > 300000) {
+                // OTIMIZAÇÃO: Apenas limpa se for algo ABSURDO (evita quebra do app)
+                if (value.length > 2000000) { // 2MB
                     try {
                         let parsed = JSON.parse(value);
                         if (Array.isArray(parsed)) {
                             parsed = parsed.map(item => {
-                                // Se imagem for Base64 (string muito longa), remove para o cache local
-                                if (item.image && item.image.length > 10000 && item.image.startsWith('data:')) {
-                                    return { ...item, image: "stripped_for_cache" };
+                                // Apenas limpa galeria se for extremamente pesada no cache local
+                                if (item.images && item.images.length > 5 && value.length > 4000000) {
+                                    return { ...item, images: ["stripped_for_cache"] };
                                 }
                                 return item;
                             });
@@ -5276,11 +5277,7 @@
             }
 
             // Notificação de Salvando (1 segundo)
-            const notif = document.createElement('div');
-            notif.className = 'center-notification';
-            notif.innerText = 'Salvando...';
-            document.body.appendChild(notif);
-
+            const notif = { remove: () => {} }; // Mock para não quebrar o código posterior
             setTimeout(async () => {
                 // Atualiza o objeto do usuário
                 const newEmail = document.getElementById('edit-profile-email') ? document.getElementById('edit-profile-email').value.trim() : this.currentUser.email;
@@ -5991,6 +5988,7 @@
         },
 
         initCreateProduct() {
+            this.editingProductId = null; // Reset estado de edição
             this.hasSeenCreateProd = true;
             const dotDash = document.getElementById('create-product-dot');
             const dotHeader = document.getElementById('header-create-dot');
@@ -6008,8 +6006,18 @@
             if (selection) selection.style.display = 'flex';
             
             this.courseStructure = [];
+            this.selectedProductImages = [];
+            const gallery = document.getElementById('product-images-gallery-preview');
+            if (gallery) gallery.innerHTML = '';
             
             // Reset fields
+            if(document.getElementById('prod-name')) document.getElementById('prod-name').value = '';
+            if(document.getElementById('prod-desc')) document.getElementById('prod-desc').value = '';
+            if(document.getElementById('prod-price')) document.getElementById('prod-price').value = '';
+            if(document.getElementById('prod-image-preview')) {
+                document.getElementById('prod-image-preview').innerHTML = `<i data-lucide="image-plus" style="width: 32px; color: #ddd;"></i><span style="font-size: 9px; font-weight: 900; color: #bbb; margin-top: 8px;">Upload</span>`;
+            }
+
             const profitLabel = document.getElementById('profit-calc-label');
             if (profitLabel) profitLabel.innerText = "Você receberá: R$ 0,00";
             
@@ -6033,7 +6041,63 @@
             }
         },
 
+        editProduct(id) {
+            const market = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+            const prod = market.find(p => p.id === id);
+            if (!prod) return;
+
+            this.editingProductId = id;
+            
+            // Navega e inicializa apenas a estrutura básica sem resetar campos
+            this.navigate('criar-produto');
+            const container = document.getElementById('product-progress-container');
+            if (container) container.style.display = 'flex';
+            
+            // Força a seleção do tipo de produto e pula para o formulário
+            this.selectedProductType = prod.type;
+            
+            setTimeout(() => {
+                const selection = document.getElementById('product-type-selection');
+                const form = document.getElementById('create-product-form');
+                if (selection) selection.style.display = 'none';
+                if (form) form.style.display = 'block';
+
+                if(document.getElementById('prod-name')) document.getElementById('prod-name').value = prod.name || '';
+                if(document.getElementById('prod-desc')) document.getElementById('prod-desc').value = prod.description || '';
+                if(document.getElementById('prod-price')) {
+                    document.getElementById('prod-price').value = prod.price || '';
+                    const val = parseFloat(prod.price) || 0;
+                    const net = (val * 0.97).toFixed(2);
+                    const label = document.getElementById('profit-calc-label');
+                    if (label) label.innerText = `Você receberá: R$ ${net} (Taxa de 3% inclusa)`;
+                }
+                
+                // Carrega Galeria
+                this.selectedProductImages = prod.images && prod.images.length > 0 ? [...prod.images] : (prod.image ? [prod.image] : []);
+                this.renderProductImageGallery();
+                
+                if (this.selectedProductImages.length > 0) {
+                    const mainPreview = document.getElementById('prod-image-preview');
+                    if (mainPreview) {
+                        mainPreview.innerHTML = `<img src="${this.rGetPImage(this.selectedProductImages[0], prod.name)}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    }
+                }
+                
+                this.updateProductProgress();
+                if (window.lucide) lucide.createIcons();
+            }, 50);
+        },
+
         selectProductType(type, btn) {
+            if (type === 'App') {
+                this.showNotification("📱 A criação de Apps está temporariamente bloqueada.", "info");
+                const form = document.getElementById('create-product-form');
+                if (form) form.style.display = 'none';
+                this.selectedProductType = null;
+                // Efeito visual de erro/bloqueio temporário no botão
+                btn.style.transform = 'shake 0.5s'; 
+                return;
+            }
             this.selectedProductType = type;
             
             // Visual logic for selection - Reset others
@@ -6132,7 +6196,7 @@
                 const thumb = document.createElement('div');
                 thumb.style.cssText = `width: 60px; height: 60px; border-radius: 12px; background: #fff; border: 1px solid #f0f0f0; flex-shrink: 0; overflow: hidden; position: relative;`;
                 thumb.innerHTML = `
-                    <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <img src="${this.rGetPImage(img)}" style="width: 100%; height: 100%; object-fit: cover;">
                     <div onclick="app.removeProductImage(${idx})" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: #000; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 950; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); line-height: 1;">×</div>
                 `;
                 gallery.appendChild(thumb);
@@ -6237,10 +6301,7 @@
             }
 
             // Notificação Central de 3 segundos
-            const notif = document.createElement('div');
-            notif.className = 'center-notification';
-            notif.innerText = 'Enviando...';
-            document.body.appendChild(notif);
+            const notif = { remove: () => {} }; // Mock para não quebrar o código posterior
 
             // Disparar festa IMEDIATAMENTE ao clicar
             this.launchVictoryConfetti();
@@ -6249,8 +6310,8 @@
                 const urlInput = document.getElementById('prod-image-url')?.value.trim();
                 const finalImage = urlInput || this.selectedProductImage || null;
 
-                const newProd = {
-                    id: 'p-' + Date.now(),
+                let newProd = {
+                    id: this.editingProductId || ('p-' + Date.now()),
                     name: name,
                     description: desc,
                     price: price,
@@ -6272,22 +6333,27 @@
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
 
-                // Mantém imagens completas para o local storage (até o limite do QuotaExceededError)
+                const isEdit = !!this.editingProductId;
                 const networkProd = { ...newProd };
-                // Apenas avisar se for GIGANTE para o Supabase, mas salvar local full
                 if (networkProd.image && networkProd.image.length > 200000) {
                      console.warn("Imagem muito grande para nuvem, enviando compactada...");
                 }
 
-                // Salva na Nuvem (Supabase)
-                supabase.from('dito_products').insert([networkProd]).then(({ error }) => {
-                    if (error) console.error("Erro ao subir produto para nuvem:", error);
+                // Salva na Nuvem (Supabase) - Usa UPSERT para atualizar se existir
+                supabase.from('dito_products').upsert([networkProd]).then(({ error }) => {
+                    if (error) console.error("Erro ao sincronizar produto na nuvem:", error);
                 });
 
                 // Salva na lista global local com proteção de cota
                 try {
-                    const marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                    marketProducts.unshift(newProd);
+                    let marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                    if (isEdit) {
+                        const idx = marketProducts.findIndex(p => p.id === this.editingProductId);
+                        if (idx !== -1) marketProducts[idx] = newProd;
+                        else marketProducts.unshift(newProd);
+                    } else {
+                        marketProducts.unshift(newProd);
+                    }
                     localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
                     localStorage.setItem('dito_products', JSON.stringify(marketProducts));
                 } catch (e) {
@@ -6759,6 +6825,7 @@
         },
 
         showNotification(msg, type = 'default') {
+            return; // Notificações desativadas por solicitação do usuário
             const container = document.getElementById('notification-container');
             if (!container) {
                 const newContainer = document.createElement('div');
@@ -7776,8 +7843,9 @@
                 </div>
                 <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
                 <div style="display:flex; gap:8px;">
-                    <button onclick="app.openCourse('${String(p.id)}')" style="width:40px; height:40px; background:#f0f9ff; color:#0369a1; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="external-link" style="width:18px;"></i></button>
-                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                    <button onclick="app.openCourse('${String(p.id)}')" title="Ver Produto" style="width:40px; height:40px; background:#f0f9ff; color:#0369a1; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="external-link" style="width:18px;"></i></button>
+                    <button onclick="app.editProduct('${String(p.id)}')" title="Editar" style="width:40px; height:40px; background:#f5faff; color:#0e7490; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="edit-3" style="width:18px;"></i></button>
+                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" title="Excluir" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
                 </div>
             </div>`).join('');
         if (window.lucide) lucide.createIcons();
