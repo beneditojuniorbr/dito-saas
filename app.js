@@ -203,7 +203,7 @@
                     currentCheckoutId = pathParts[1]; // O ID ou Slug após /p/ ou /checkout/
                 }
                 
-                // Fallback para Slugs puro no path (ex: ditoapp.com.br/meu-produto)
+                // Fallback para Slugs puro no path (ex: www.diapp.com.br/meu-produto)
                 if (!currentCheckoutId && pathParts.length === 1 && !pathParts[0].includes('.')) {
                     currentCheckoutId = pathParts[0];
                 }
@@ -5376,7 +5376,7 @@
                     if (usernameEl) usernameEl.innerText = this.currentUser.username;
                     if (nameEl) nameEl.innerText = this.currentUser.name || this.currentUser.username;
                     if (bioEl) bioEl.innerText = this.currentUser.bio || "Bio vazia...";
-                    if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "dito.app/" + this.currentUser.username;
+                    if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "www.diapp.com.br/" + this.currentUser.username;
                     if (linkEl) linkEl.href = this.currentUser.link && this.currentUser.link.startsWith('http') ? this.currentUser.link : 'https://' + this.currentUser.link;
                     
                     // Atualiza o Avatar na UI
@@ -7648,7 +7648,7 @@
 
         const code = app.getUserReferralCode();
         // Domínio oficial e profissional solicitado
-        const domain = "dito-saas.vercel.app";
+        const domain = "www.diapp.com.br";
         const prettyLink = `https://${domain}/convite/${code}`;
         
         const modal = document.getElementById('referral-modal');
@@ -7769,7 +7769,7 @@
 
     app.initRewards = function() {
         const user = this.currentUser || { username: 'usuario' };
-        const linkStr = `dito.app/ref/${user.username}`;
+        const linkStr = `www.diapp.com.br/ref/${user.username}`;
         const linkD = document.getElementById('profile-ref-link-display');
         const linkF = document.getElementById('referral-link-text');
         if (linkD) linkD.innerText = linkStr;
@@ -8429,7 +8429,7 @@
             return;
         }
 
-        const prodDomain = "https://www.ditoapp.com.br";
+        const prodDomain = "https://www.diapp.com.br";
         const isLocalFile = window.location.protocol === 'file:';
 
         container.innerHTML = myProducts.map(p => {
