@@ -3071,54 +3071,7 @@
                 </div>
             `).join('');
 
-            // Adiciona Selo de Garantia / Saque Imediato
-            const mainProd = this.cart[0];
-            const hasWarranty = mainProd && (mainProd.guarantee === true || mainProd.guarantee === 'true');
-            
-            const warrantyBadge = document.createElement('div');
-            warrantyBadge.style.margin = '20px 0';
-            warrantyBadge.style.padding = '12px 16px';
-            warrantyBadge.style.borderRadius = '14px';
-            warrantyBadge.style.background = hasWarranty ? '#f0fdf4' : '#fffcfc';
-            warrantyBadge.style.border = `1px solid ${hasWarranty ? '#dcfce7' : '#fee2e2'}`;
-            warrantyBadge.innerHTML = `
-                <div style="display: flex; align-items: flex-start; gap: 12px;">
-                    <i data-lucide="${hasWarranty ? 'shield-check' : 'zap'}" style="width: 20px; color: ${hasWarranty ? '#16a34a' : '#ff005c'}; flex-shrink: 0;"></i>
-                    <div style="flex: 1;">
-                        <p style="font-size: 13px; font-weight: 950; color: #000; margin-bottom: 2px;">${hasWarranty ? 'Compra com Garantia (7 dias)' : 'Venda Final (Entrega Imediata)'}</p>
-                        <p style="font-size: 11px; font-weight: 700; color: #666; line-height: 1.3;">
-                            ${hasWarranty ? 'Seu dinheiro fica protegido pela plataforma por 7 dias.' : 'Sem garantias de devolução. Saque imediato para o produtor.'}
-                        </p>
-                    </div>
-                </div>
-            `;
-            list.appendChild(warrantyBadge);
-            if (window.lucide) lucide.createIcons();
-
-            const hasPurchased = localStorage.getItem('dito_purchased_products');
-            const isFirstPurchase = !(hasPurchased && JSON.parse(hasPurchased).length > 0);
-            const key = this.getUserKey();
-            const userCoins = parseInt(localStorage.getItem(`dito_coins_${key}`) || '0');
-            
-            const rewardsSection = document.createElement('div');
-            rewardsSection.style.borderTop = '1px solid #f0f0f0';
-            rewardsSection.style.marginTop = '16px';
-            rewardsSection.style.paddingTop = '16px';
-            rewardsSection.innerHTML = `
-                <!-- Oferta de primeira compra removida -->
-
-
-                <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 12px; font-weight: 900; color: #000;">Usar Cupons:</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #999;"><span id="coins-to-use-label">0</span>% desconto</span>
-                </div>
-                </div>
-                <input type="range" class="coin-slider" id="coin-discount-slider" min="0" max="${Math.min(userCoins, 75)}" value="0" oninput="app.applyCoinDiscount(this.value)" style="width: 100%; margin-bottom: 8px;">
-                <p style="font-size: 9px; color: #ccc; font-weight: 700;">Limite de desconto com cupons: 75%</p>
-            `;
-            list.appendChild(rewardsSection);
-
-            // 2. Renderiza Ação Final (Botão Pix e Cadastro) em Container Dedicado
+            // Renderiza Ação Final (Botão Pix e Cadastro) em Container Dedicado
             const dynamicActions = document.getElementById('checkout-dynamic-actions');
             if (dynamicActions) {
                 dynamicActions.innerHTML = `
@@ -3418,12 +3371,14 @@
         selectPayment(method, btn) {
             this.paymentMethod = method;
             document.querySelectorAll('.payment-opt').forEach(opt => {
-                opt.style.background = '#fff';
-                opt.style.border = '2px solid #eee';
+                opt.style.background = '#000';
+                opt.style.border = '2px solid transparent';
+                opt.style.opacity = '0.8';
             });
             
-            btn.style.background = 'linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, #ff005c 0%, #0487ff 100%) border-box';
-            btn.style.border = '2px solid transparent';
+            btn.style.border = '2px solid #fff';
+            btn.style.opacity = '1';
+            btn.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
             
             const pixActions = document.getElementById('pix-payment-actions');
             const ppContainer = document.getElementById('paypal-button-container');
