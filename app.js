@@ -194,10 +194,21 @@
 
                 // 2. Detecta se e um link de checkout (Query ou Path)
                 const urlParams = new URLSearchParams(window.location.search);
-                const isPathCheckout = window.location.pathname.startsWith('/p/');
-                const currentCheckoutId = urlParams.get('checkout') || (isPathCheckout ? window.location.pathname.split('/p/')[1] : null);
+                const pathParts = window.location.pathname.split('/').filter(p => p);
+                const isPathCheckout = window.location.pathname.startsWith('/p/') || window.location.pathname.startsWith('/checkout/');
                 
-                // Limpa histórico de chat local ao entrar (Novas Mensagens serão salvas apenas nesta sessão)
+                // Pega o ID/Slug: Pode estar em ?checkout= ou em /p/ID ou em /checkout/ID
+                let currentCheckoutId = urlParams.get('checkout');
+                if (!currentCheckoutId && isPathCheckout) {
+                    currentCheckoutId = pathParts[1]; // O ID ou Slug após /p/ ou /checkout/
+                }
+                
+                // Fallback para Slugs puro no path (ex: ditoapp.com.br/meu-produto)
+                if (!currentCheckoutId && pathParts.length === 1 && !pathParts[0].includes('.')) {
+                    currentCheckoutId = pathParts[0];
+                }
+                
+                // Limpa histórico de chat local ao entrar
                 Object.keys(localStorage).forEach(key => {
                     if (key.startsWith('chat_history_')) localStorage.removeItem(key);
                 });
@@ -207,7 +218,7 @@
                 const isNewLink = currentCheckoutId && (currentCheckoutId !== lastProcessedLink);
                 
                 if (currentCheckoutId && (isNewLink || window.location.protocol !== 'file:')) {
-                    console.log("Novo Checkout Identificado:", currentCheckoutId);
+                    console.log("🎯 Checkout Identificado:", currentCheckoutId);
                     this.isProcessingDeepLink = true;
                     this.marketView = 'checkout';
                     localStorage.setItem('dito_last_processed_checkout', currentCheckoutId);
@@ -237,16 +248,20 @@
 
                     
                     const tryLoadProduct = async (attempts = 0) => {
-                        if (attempts > 8) return; // Aumentado para 8 tentativas (cerca de 2s)
+                        if (attempts > 12) return; // Aumentado para ~3 segundos de tolerância
 
-                        // Tenta local primeiro
+                        // Tenta local primeiro (ID ou Slug)
                         let allProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                        let targetProd = allProducts.find(p => p.id === checkoutId);
+                        let targetProd = allProducts.find(p => String(p.id) === String(checkoutId) || p.slug === checkoutId);
                         
-                        // Se não achar local, busca no Supabase
-                        if (!targetProd && typeof supabase !== 'undefined') {
-                            const { data } = await supabase.from('dito_products').select('*').eq('id', checkoutId).maybeSingle();
-                            if (data) targetProd = data;
+                        // Busca na tabela unificada (dito_market_products)
+                        if (!targetProd && typeof supabase !== 'undefined' && supabase) {
+                            const { data } = await supabase.from('dito_market_products').select('*').or(`id.eq."${checkoutId}",slug.eq."${checkoutId}"`).maybeSingle();
+                            if (data) {
+                                // Converte conteúdo se necessário
+                                const contentData = data.content ? (typeof data.content === 'string' ? JSON.parse(data.content) : data.content) : null;
+                                targetProd = { ...data, price: Number(data.price), content: contentData };
+                            }
                         }
 
                         if (targetProd) {
@@ -2693,8 +2708,20 @@
                     });
 
                     // 3. Atualizamos a memória e o storage local
-                    this.products = synchronized;
-                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(synchronized));
+                    const localItems = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                    const merged = [...synchronized];
+                    
+                    // Mantém produtos locais recentemente criados que ainda não subiram para a rede
+                    localItems.forEach(lp => {
+                        if (!merged.find(mp => mp.id === lp.id)) {
+                            if (lp.seller === this.currentUser?.username) {
+                                merged.unshift(lp);
+                            }
+                        }
+                    });
+
+                    this.products = merged;
+                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(merged));
 
                     // FORÇA a renderização se for o caso
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
@@ -5933,9 +5960,11 @@
             // 2. Checkout Updates
             const checkoutName = document.getElementById('preview-checkout-name');
             const checkoutPrice = document.getElementById('preview-checkout-price');
+            const checkoutTotal = document.getElementById('preview-checkout-total');
             const checkoutThumb = document.getElementById('preview-checkout-thumb');
             if (checkoutName) checkoutName.innerText = name;
             if (checkoutPrice) checkoutPrice.innerText = formattedPrice;
+            if (checkoutTotal) checkoutTotal.innerText = formattedPrice;
             if (checkoutThumb) {
                 checkoutThumb.style.backgroundImage = img ? `url(${img})` : 'none';
                 checkoutThumb.style.backgroundSize = 'cover';
@@ -6349,7 +6378,7 @@
                 }
 
                 // Salva na Nuvem (Supabase) - Usa UPSERT para atualizar se existir
-                supabase.from('dito_products').upsert([networkProd]).then(({ error }) => {
+                supabase.from('dito_market_products').upsert([networkProd], { onConflict: 'id' }).then(({ error }) => {
                     if (error) console.error("Erro ao sincronizar produto na nuvem:", error);
                 });
 
@@ -6365,6 +6394,7 @@
                     }
                     localStorage.setItem('dito_products_vanilla', JSON.stringify(marketProducts));
                     localStorage.setItem('dito_products', JSON.stringify(marketProducts));
+                    this.products = marketProducts;
                 } catch (e) {
                     if (e.name === 'QuotaExceededError') {
                         console.warn("🚨 Limpeza de Emergência: Memória Cheia!");
@@ -7840,23 +7870,45 @@
     app.renderMyProducts = function() {
         const list = document.getElementById('my-products-list');
         if (!list) return;
-        const myP = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]').filter(p => p.author === this.currentUser?.username);
+        
+        // Usa a lista global sincronizada com o Supabase
+        // Garante que temos produtos carregados (fallback do storage)
+        if (!this.products || this.products.length === 0) {
+            this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+        }
+
+        const myUser = (this.currentUser?.username || "").toLowerCase();
+        const myP = this.products.filter(p => {
+            const seller = (p.seller || "").toLowerCase();
+            return seller === myUser || (p.author && p.author.toLowerCase() === myUser);
+        });
+        
         if (myP.length === 0) {
-            list.innerHTML = `<p style="text-align:center; padding:40px; color:#ccc;">Você não criou nenhum produto.</p>`;
+            list.innerHTML = `
+                <div style="text-align: center; padding: 40px; background: #fafafa; border-radius: 24px; border: 1px dashed #eee;">
+                    <i data-lucide="package-search" style="width: 32px; color: #ccc; margin-bottom: 12px;"></i>
+                    <p style="font-size: 13px; font-weight: 800; color: #999;">Voce ainda nao criou produtos.</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
             return;
         }
+        
         list.innerHTML = myP.map(p => `
-            <div style="background:#fff; border:1px solid #eee; border-radius:24px; padding:16px; display:flex; align-items:center; gap:16px;">
+            <div style="background:#fff; border:1px solid #eee; border-radius:24px; padding:16px; display:flex; align-items:center; gap:16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.02);">
                 <div style="width:60px; height:60px; background:#f9f9f9; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img src="${this.rGetPImage(p.image, p.name)}" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="${p.image || ''}" style="width:100%; height:100%; object-fit:cover;">
                 </div>
-                <div style="flex:1;"><h4 style="font-weight:900; font-size:14px;">${p.name}</h4><p style="font-size:10px; color:#999;">${p.type} • R$ ${parseFloat(p.price).toFixed(2)}</p></div>
+                <div style="flex:1;">
+                    <h4 style="font-weight:950; font-size:14px; color: #000; margin-bottom: 2px;">${p.name}</h4>
+                    <p style="font-size:10px; color:#999; font-weight: 700;">${p.category || 'Infoproduto'} • R$ ${parseFloat(p.price).toFixed(2)}</p>
+                </div>
                 <div style="display:flex; gap:8px;">
-                    <button onclick="app.openCourse('${String(p.id)}')" title="Ver Produto" style="width:40px; height:40px; background:#f0f9ff; color:#0369a1; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="external-link" style="width:18px;"></i></button>
-                    <button onclick="app.editProduct('${String(p.id)}')" title="Editar" style="width:40px; height:40px; background:#f5faff; color:#0e7490; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="edit-3" style="width:18px;"></i></button>
-                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" title="Excluir" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                    <button onclick="app.editProduct('${String(p.id)}')" title="Editar" style="width:40px; height:40px; background:#f5faff; color:#0e7490; border:none; border-radius:12px; cursor:pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="edit-3" style="width:18px;"></i></button>
+                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" title="Excluir" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="trash-2" style="width:18px;"></i></button>
                 </div>
             </div>`).join('');
+            
         if (window.lucide) lucide.createIcons();
     };
 
@@ -8397,7 +8449,16 @@
         const container = document.getElementById('links-list-container');
         if (!container) return;
 
-        const myProducts = this.products.filter(p => p.seller === this.currentUser?.username);
+        // Garante que temos produtos carregados (fallback do storage)
+        if (!this.products || this.products.length === 0) {
+            this.products = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+        }
+
+        const myUser = (this.currentUser?.username || "").toLowerCase();
+        const myProducts = this.products.filter(p => {
+            const seller = (p.seller || "").toLowerCase();
+            return seller === myUser || (p.author && p.author.toLowerCase() === myUser);
+        });
         
         if (myProducts.length === 0) {
             container.innerHTML = `
@@ -8410,12 +8471,12 @@
             return;
         }
 
-        const prodDomain = "https://dito-saas.vercel.app";
+        const prodDomain = "https://www.ditoapp.com.br";
         const isLocalFile = window.location.protocol === 'file:';
 
         container.innerHTML = myProducts.map(p => {
             // Link de Producao (O que voce vai mandar para clientes)
-            const shareUrl = `${prodDomain}/p/${p.id}`;
+            const shareUrl = `${prodDomain}/checkout/${p.id}`;
             // Link de Teste Local (So funciona no seu PC)
             const localTestUrl = `${window.location.pathname}?checkout=${p.id}`;
 
