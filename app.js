@@ -358,6 +358,7 @@
                 setInterval(() => {
                     this.fetchNetworkUsers();
                     this.fetchNetworkProducts();
+                    this.fetchUserCloudState(); // Garante que compras e saldo sincronizem entre PC e Celular
                 }, 30000);
 
                 // Inicia Canais Realtime (Supabase)
@@ -378,6 +379,12 @@
                         }, payload => {
                             console.log('👤 Mudança de perfil detectada na rede!');
                             this.fetchNetworkUsers(); 
+                            
+                            // Se a mudança for no MEU usuário (vinda de outro dispositivo), sincroniza na hora
+                            if (this.currentUser && payload.new && payload.new.username === this.currentUser.username) {
+                                console.log('🔄 Sincronizando estado global do usuário via Realtime...');
+                                this.fetchUserCloudState();
+                            }
                         })
                         .subscribe();
                     
@@ -6451,9 +6458,6 @@
                      console.warn("Imagem muito grande para nuvem, enviando compactada...");
                 }
 
-                // Salva na Nuvem (Supabase) via helper centralizado
-                this.syncProductToNetwork(newProd);
-
                 // Salva na lista global local com proteção de cota
                 try {
                     let marketProducts = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
@@ -6487,8 +6491,9 @@
                         }
                     }
                 }
-                // Compartilha via Supabase (USA A VERSÃO COM IMAGEM FULL)
-                app.syncProductToNetwork(networkProd);
+                
+                // Salva na Nuvem (Supabase) via helper centralizado
+                this.syncProductToNetwork(newProd);
 
                 if (notif) notif.remove();
                 app.showNotification(`Produto "${name}" criado com sucesso!`, "success");
