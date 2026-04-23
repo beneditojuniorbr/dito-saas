@@ -1321,24 +1321,24 @@
             <h3 style="font-size: 11px; font-weight: 950; margin-bottom: 16px; text-transform: uppercase; color: #999; letter-spacing: 0.5px;">Meio de Pagamento</h3>
             
             <div id="payment-options" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
-                <div onclick="app.selectPayment('pix', this)" class="payment-opt active" style="padding: 16px; border-radius: 16px; border: 2px solid #fff; background: #000; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;"><i data-lucide="diamond" style="width: 20px; color: #fff;"></i></div>
+                <div onclick="app.selectPayment('pix', this)" class="payment-opt active" style="padding: 16px; border-radius: 16px; border: 2px solid #000; background: #fff; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                    <div style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;"><i data-lucide="diamond" style="width: 20px; color: #000;"></i></div>
                     <div>
-                        <p style="font-weight: 950; font-size: 14px; color: #fff;">Pix Instantâneo</p>
-                        <p style="font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 800;">Liberação imediata</p>
+                        <p style="font-weight: 950; font-size: 14px; color: #000;">Pix Instantâneo</p>
+                        <p style="font-size: 10px; color: #999; font-weight: 800;">Liberação imediata</p>
                     </div>
                 </div>
 
-                <div onclick="app.selectPayment('card', this)" class="payment-opt" style="padding: 16px; border-radius: 16px; border: 2px solid transparent; background: #000; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.3s; opacity: 0.8;">
-                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <div onclick="app.selectPayment('card', this)" class="payment-opt" style="padding: 16px; border-radius: 16px; border: 2px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                    <div style="width: 40px; height: 40px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2" y="5" width="20" height="14" rx="2"></rect>
                             <line x1="2" y1="11" x2="22" y2="11"></line>
                         </svg>
                     </div>
                     <div>
-                        <p style="font-weight: 950; font-size: 14px; color: #fff;">Cartão de Crédito</p>
-                        <p style="font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 800;">Até 12x via PayPal</p>
+                        <p style="font-weight: 950; font-size: 14px; color: #000;">Cartão de Crédito</p>
+                        <p style="font-size: 10px; color: #999; font-weight: 800;">Até 12x via PayPal</p>
                     </div>
                 </div>
             </div>

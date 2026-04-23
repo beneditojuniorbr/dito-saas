@@ -3371,14 +3371,12 @@
         selectPayment(method, btn) {
             this.paymentMethod = method;
             document.querySelectorAll('.payment-opt').forEach(opt => {
-                opt.style.background = '#000';
-                opt.style.border = '2px solid transparent';
-                opt.style.opacity = '0.8';
+                opt.style.background = '#fff';
+                opt.style.border = '2px solid #eee';
             });
             
-            btn.style.border = '2px solid #fff';
-            btn.style.opacity = '1';
-            btn.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+            btn.style.background = '#fff';
+            btn.style.border = '2px solid #000';
             
             const pixActions = document.getElementById('pix-payment-actions');
             const ppContainer = document.getElementById('paypal-button-container');
