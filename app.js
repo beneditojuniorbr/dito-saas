@@ -4,8 +4,8 @@
     // ==========================================
     // 🚨 ATENÇÃO: A CHAVE ABAIXO ESTAVA INCORRETA (Era uma chave do Stripe).
     // Substitua pela chave 'anon/public' do seu projeto Supabase (começa com eyJ...).
-    const SUPABASE_URL = 'https://heofezexvhgyaejltcvc.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlb2ZlemV4dmhneWFlamx0Y3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTU0NjMsImV4cCI6MjA5MTU3MTQ2M30.v4G47ddzSdpTEWeozaQXWczNFy-ueUCwRbwMfp8SEUI';
+    const SUPABASE_URL = 'https://hlzmahaekybidmwielsr.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhsem1haGFla3liaWRtd2llbHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MDEzNjEsImV4cCI6MjA5MjQ3NzM2MX0.7LFLCe72ZyE245raNtJzi72meVhrhkO_45leQMUfHFM';
     
     // MERCADO PAGO CONFIG
     const MP_PUBLIC_KEY = 'APP_USR-8ce69cfb-2613-4a57-944d-2521c8f523f0'; // Chave Pública Real
@@ -565,7 +565,7 @@
             this.showLoading(true, 'Gerando seu código Pix real...');
 
             try {
-                const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/mercado-pago-bridge`;
+                const FUNCTION_URL = 'https://hlzmahaekybidmwielsr.supabase.co/functions/v1/mercado-pago-bridge';
                 
                 // Sanitiza o email (Mercado Pago exige um email válido e sem espaços)
                 let email = this.currentUser.email;
@@ -2027,7 +2027,7 @@
 
             const todayIndex = new Date().getDay(); // getDay() retorna 0 para Domingo, 1 para Segunda...
             
-            const dot = document.getElementById('dot-missions');
+            const dot = document.getElementById('mission-dot');
             if (dot) {
                 // A lógica de index na renderMissions é: 0=Dom, 1=Seg...
                 const hasPending = checklist[todayIndex] && !checklist[todayIndex].checked;
@@ -4024,6 +4024,26 @@
                 const progressContainer = document.getElementById('product-progress-container');
                 if (progressContainer) {
                     progressContainer.style.display = 'none';
+                }
+
+                // Controle dos Botões Flutuantes (Missões e Chat)
+                const fixedActions = document.getElementById('global-fixed-actions');
+                if (fixedActions) {
+                    if (view === 'login' || view === 'cadastro') {
+                        fixedActions.style.display = 'none';
+                    } else {
+                        fixedActions.style.display = 'flex';
+                    }
+                }
+
+                // Limpa bolinhas de notificação ao entrar nas telas
+                if (view === 'missoes') {
+                    const mDot = document.getElementById('mission-dot');
+                    if (mDot) mDot.style.display = 'none';
+                }
+                if (view === 'mensagens' || view === 'chat-global') {
+                    const cDot = document.getElementById('chat-dot');
+                    if (cDot) cDot.style.display = 'none';
                 }
 
                 const isLoggedIn = localStorage.getItem('is_logged_in_vanilla') === 'true';
@@ -6145,11 +6165,11 @@
             const gallery = document.getElementById('product-images-gallery-preview');
             
             const files = Array.from(input.files);
-            const maxSize = 800 * 1024; // 800kb
+            const maxSize = 200 * 1024; // 200kb
 
             files.forEach((file, index) => {
                 if (file.size > maxSize) {
-                    this.showNotification(`A foto é muito pesada (${(file.size/1024).toFixed(0)}kb). Máximo 800kb.`, "error");
+                    this.showNotification(`A foto é muito pesada (${(file.size/1024).toFixed(0)}kb). Limite Pro: Máximo 200kb.`, "error");
                     return;
                 }
 
@@ -8046,7 +8066,7 @@
                             this.appendWorldMessageToChat(msg);
                         } else if (msg.sender !== this.currentUser.username) {
                             // Se fechei a sala e recebi msg de GLOBAL ou da MINHA LIVE, avisa
-                            const dot = document.getElementById('dot-world-chat');
+                            const dot = document.getElementById('chat-dot');
                             if (dot) dot.style.display = 'block';
                         }
                     }
@@ -8261,6 +8281,8 @@
             }
         }
     };
+
+
 
     app.markNotificationsAsRead = async function() {
         if (!supabase || !this.currentUser || !this.notifications) return;

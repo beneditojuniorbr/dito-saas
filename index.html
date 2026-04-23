@@ -944,14 +944,14 @@
             </div>
         </div>
     </template>
-    
+
     <template id="template-sacar">
-        <div style="padding: 24px; padding-bottom: 120px;" class="animate-fade">
+        <div style="padding: 24px; max-width: 500px; margin: 0 auto; text-align: left;">
             <div onclick="app.navigate('dashboard', 'left')" style="display: flex; align-items: center; color: #000; cursor: pointer; margin-bottom: 32px;">
                 <i data-lucide="arrow-left" style="width: 24px;"></i>
             </div>
             
-            <header style="margin-bottom: 40px; text-align: center;">
+            <header style="margin-bottom: 40px; text-align: left;">
                 <h2 style="font-size: 36px; font-weight: 900; letter-spacing: -1.5px; color: #000; margin-bottom: 8px;">Saque</h2>
                 <p style="font-size: 11px; font-weight: 800; color: #999; margin-bottom: 4px; text-transform: none;">Saldo disponível</p>
                 <div id="withdraw-balance" style="font-size: 32px; font-weight: 950; letter-spacing: -1.5px; color: #000;">R$ 0,00</div>
@@ -970,21 +970,21 @@
                 <div style="display: flex; flex-direction: column;">
                     <div style="border-bottom: 1px solid #f9f9f9; padding: 16px 0;">
                         <label style="display: block; font-size: 9px; font-weight: 900; color: #ccc; margin-bottom: 8px; text-transform: uppercase;">Chave PIX</label>
-                        <input type="text" id="withdraw-pix-key" placeholder="CPF, E-mail ou Celular" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0;">
+                        <input type="text" id="withdraw-pix-key" placeholder="CPF, E-mail ou Celular" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0; text-align: left;">
                     </div>
 
                     <div style="border-bottom: 1px solid #f9f9f9; padding: 16px 0;">
                         <label style="display: block; font-size: 9px; font-weight: 900; color: #ccc; margin-bottom: 8px; text-transform: uppercase;">Número do Cartão (Opcional)</label>
-                        <input type="text" id="withdraw-card-number" placeholder="0000 0000 0000 0000" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0;">
+                        <input type="text" id="withdraw-card-number" placeholder="0000 0000 0000 0000" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0; text-align: left;">
                     </div>
 
                     <div style="border-bottom: 1px solid #f9f9f9; padding: 16px 0;">
                         <label style="display: block; font-size: 9px; font-weight: 900; color: #ccc; margin-bottom: 8px; text-transform: uppercase;">Nome no Cartão</label>
-                        <input type="text" id="withdraw-card-name" placeholder="NOME DO TITULAR" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0;">
+                        <input type="text" id="withdraw-card-name" placeholder="NOME DO TITULAR" style="width: 100%; border: none; background: transparent; font-weight: 700; font-size: 15px; outline: none; padding: 0; text-align: left;">
                     </div>
                 </div>
 
-                <button id="btn-save-withdraw" onclick="app.saveWithdrawInfo()" style="margin-top: 24px; width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 12px; font-size: 12px; font-weight: 900; cursor: pointer; transition: 0.3s;">SALVAR DADOS</button>
+                <button id="btn-save-withdraw" onclick="app.saveWithdrawInfo()" style="margin-top: 24px; width: 100%; height: 50px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 12px; font-weight: 950; cursor: pointer; transition: 0.3s; text-transform: uppercase;">SALVAR DADOS</button>
             </div>
 
             <div style="padding: 0;">
@@ -993,15 +993,15 @@
                     <h3 style="font-size: 12px; font-weight: 900; color: #000; text-transform: uppercase; letter-spacing: 1px;">Solicitar Retirada</h3>
                 </div>
 
-                <div style="padding: 24px 0; text-align: center;">
+                <div style="padding: 24px 0; text-align: left;">
                     <label style="display: block; font-size: 9px; font-weight: 900; color: #ccc; margin-bottom: 12px; text-transform: uppercase;">Valor do Saque</label>
-                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px;">
+                    <div style="display: flex; align-items: baseline; justify-content: flex-start; gap: 8px;">
                         <span style="font-size: 20px; font-weight: 900; color: #ccc;">R$</span>
-                        <input type="number" id="withdraw-amount" placeholder="0.00" style="width: 150px; border: none; background: transparent; font-size: 42px; font-weight: 900; outline: none; text-align: center; letter-spacing: -2px;">
+                        <input type="number" id="withdraw-amount" placeholder="0.00" style="width: 200px; border: none; background: transparent; font-size: 42px; font-weight: 900; outline: none; text-align: left; letter-spacing: -2px;">
                     </div>
                 </div>
                 
-                <button onclick="app.handleWithdraw()" style="width: 100%; height: 64px; background: #000; color: #fff; border: none; border-radius: 16px; font-weight: 900; font-size: 14px; letter-spacing: 1px; cursor: pointer; margin-top: 16px;">SACAR AGORA</button>
+                <button onclick="app.handleWithdraw()" style="width: 100%; height: 64px; background: #000; color: #fff; border: none; border-radius: 50px; font-weight: 950; font-size: 14px; letter-spacing: 1px; cursor: pointer; margin-top: 16px; text-transform: uppercase;">SACAR AGORA</button>
                 <p style="font-size: 10px; color: #bbb; text-align: center; margin-top: 24px; font-weight: 700; line-height: 1.6;">Transferências via Pix são processadas em até 24h.</p>
             </div>
         </div>
@@ -1055,7 +1055,7 @@
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <div style="text-align: center;">
                         <label style="display: block; font-size: 11px; font-weight: 950; color: #000; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Imagem do Produto</label>
-                        <p style="font-size: 10px; color: #bbb; margin-bottom: 16px; font-weight: 800;">Limite: 5MB por arquivo</p>
+                        <p style="font-size: 10px; color: #bbb; margin-bottom: 16px; font-weight: 800;">Limite: 200kb por arquivo</p>
                         
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%;">
                             <div onclick="document.getElementById('prod-image-file').click()" style="width: 140px; height: 140px; background: #fbfbfb; border: 2px dashed #eee; border-radius: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: 0.3s;" id="prod-image-preview">
@@ -2111,13 +2111,17 @@
     <script src="app.js?v=20240422"></script>
     <!-- Botões Fixos Universais (Missão e Chat) -->
     <div id="global-fixed-actions">
-        <!-- Missões (Ícone de Carta) -->
-        <button onclick="app.navigate('missoes')" title="Missões" style="width: 56px; height: 56px; background: #fff; color: #000; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; border: 1px solid #f0f0f0;" onmouseover="this.style.transform='scale(1.1) translateY(-5px)'" onmouseout="this.style.transform='scale(1) translateY(0)'">
-            <i data-lucide="mail" style="width: 22px;"></i>
+        <!-- Missões (Ícone de Pergaminho) -->
+        <button onclick="app.navigate('missoes')" title="Missões" style="width: 50px; height: 50px; background: #fff; color: #000; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; border: 1px solid #f0f0f0; position: relative;">
+            <i data-lucide="scroll" style="width: 20px;"></i>
+            <!-- Bolinha de Notificação Missões -->
+            <div id="mission-dot" style="display: none; position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; background: #ffd600; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
         </button>
         <!-- Chat Global (Ícone de Chat Redondo) -->
-        <button onclick="app.showGlobalChat ? app.showGlobalChat() : app.navigate('mensagens')" title="Chat Global" style="width: 56px; height: 56px; background: #fff; color: #000; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; border: 1px solid #f0f0f0;" onmouseover="this.style.transform='scale(1.1) translateY(-5px)'" onmouseout="this.style.transform='scale(1) translateY(0)'">
-            <i data-lucide="message-circle" style="width: 22px;"></i>
+        <button onclick="app.showGlobalChat ? app.showGlobalChat() : app.navigate('mensagens')" title="Chat Global" style="width: 50px; height: 50px; background: #fff; color: #000; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; border: 1px solid #f0f0f0; position: relative;">
+            <i data-lucide="message-circle" style="width: 20px;"></i>
+            <!-- Bolinha de Notificação Chat -->
+            <div id="chat-dot" style="display: none; position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; background: #ffd600; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
         </button>
     </div>
 
