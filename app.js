@@ -4134,6 +4134,7 @@
                 // Atualiza Barra de Navegação Global e Header
                 const nav = document.getElementById('global-nav');
                 const header = document.getElementById('global-header');
+                const downloadLink = document.getElementById('download-app-link');
                 const floatingActions = document.getElementById('global-fixed-actions');
                 const isAuthPage = view === 'login' || view === 'cadastro';
                 const isCheckoutPage = view === 'checkout-direto';
