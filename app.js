@@ -4134,10 +4134,14 @@
                 // Atualiza Barra de Navegação Global e Header
                 const nav = document.getElementById('global-nav');
                 const header = document.getElementById('global-header');
-                const downloadLink = document.getElementById('download-app-link');
+                const floatingActions = document.getElementById('global-fixed-actions');
                 const isAuthPage = view === 'login' || view === 'cadastro';
                 const isCheckoutPage = view === 'checkout-direto';
                 
+                if (floatingActions) {
+                    floatingActions.style.display = (isAuthPage || isCheckoutPage) ? 'none' : 'flex';
+                }
+
                 if (nav) {
                     nav.style.display = (isAuthPage || isCheckoutPage) ? 'none' : 'flex';
                     nav.querySelectorAll('.nav-item').forEach(item => {
@@ -8444,7 +8448,7 @@
                         <p style="font-size: 10px; font-weight: 700; color: #0487ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none;">/${p.slug || p.id}</p>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button onclick="app.copyToClipboard('${shareUrl}', 'Link de Venda copiado!')" title="Copiar link para clientes" style="width: 40px; height: 40px; border-radius: 12px; background: #000; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <button onclick="app.copyToClipboard('${shareUrl}', 'Link de Venda copiado!', this)" title="Copiar link para clientes" style="width: 40px; height: 40px; border-radius: 12px; background: #000; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
                             <i data-lucide="share-2" style="width: 18px;"></i>
                         </button>
                     </div>
@@ -8455,7 +8459,25 @@
         if (window.lucide) lucide.createIcons();
     };
 
-    app.copyToClipboard = function(text, successMsg) {
+    app.copyToClipboard = function(text, successMsg, btn) {
+        // Feedback visual tátil
+        if (btn) {
+            btn.style.transform = 'scale(0.85)';
+            setTimeout(() => {
+                btn.style.transform = 'scale(1)';
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    const originalIcon = icon.getAttribute('data-lucide');
+                    icon.setAttribute('data-lucide', 'check');
+                    if (window.lucide) lucide.createIcons();
+                    setTimeout(() => {
+                        icon.setAttribute('data-lucide', originalIcon);
+                        if (window.lucide) lucide.createIcons();
+                    }, 2000);
+                }
+            }, 150);
+        }
+
         // Tenta HTTPS Clipboard API primeiro
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).then(() => {
@@ -8467,7 +8489,7 @@
     };
 
     app.fallbackCopy = function(text, successMsg) {
-        const inp = document.createElement('textarea'); // Textarea é melhor para multiline se houver
+        const inp = document.createElement('textarea');
         inp.value = text;
         inp.style.position = 'fixed';
         inp.style.opacity = '0';
