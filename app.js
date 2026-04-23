@@ -2841,6 +2841,22 @@
                     <div style="margin-bottom: 32px;">
                         <h3 style="font-size: 32px; font-weight: 950; color: #000; letter-spacing: -1px;">R$ ${p.price.toFixed(2)}</h3>
                         <p style="font-size: 11px; font-weight: 800; color: #22c55e;">Parcelamento disponível em até 12x</p>
+                        
+                        ${p.hasLimit ? `
+                            <div style="margin-top: 16px; background: #fff5f5; padding: 16px; border-radius: 12px; border: 1px solid #fee2e2;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 11px; font-weight: 900; color: #ff005c;">DISPONIBILIDADE</span>
+                                    <span style="font-size: 11px; font-weight: 900; color: #000;">${(p.stockLimit - (p.sales || 0))} / ${p.stockLimit}</span>
+                                </div>
+                                <div style="width: 100%; height: 6px; background: #fee2e2; border-radius: 3px; overflow: hidden;">
+                                    <div style="width: ${((p.stockLimit - (p.sales || 0)) / p.stockLimit * 100)}%; height: 100%; background: #ff005c; border-radius: 3px;"></div>
+                                </div>
+                                <p style="font-size: 10px; font-weight: 800; color: #b91c1c; margin-top: 8px;">
+                                    <i data-lucide="alert-circle" style="width: 10px; display: inline-block; vertical-align: middle;"></i>
+                                    Atenção: Apenas ${(p.stockLimit - (p.sales || 0))} ${p.type === 'Curso' ? 'vagas disponíveis' : 'unidades restantes'}.
+                                </p>
+                            </div>
+                        ` : ''}
                     </div>
 
                     <div style="margin-bottom: 32px;">
@@ -2873,6 +2889,8 @@
             if (actionsContainer) {
                 const isOwner = this.currentUser && (p.seller === this.currentUser.username || p.author === this.currentUser.username);
                 const hasAccess = isOwner || (this.purchasedProducts && this.purchasedProducts.some(pp => String(pp.id) === String(p.id)));
+                const remaining = p.hasLimit ? (p.stockLimit - (p.sales || 0)) : 999;
+                const isSoldOut = p.hasLimit && remaining <= 0;
 
                 if (isMentoria) {
                     if (hasAccess) {
@@ -2880,6 +2898,13 @@
                             <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
                                 <i data-lucide="check-circle" style="width: 20px;"></i>
                                 ENTRAR NA MENTORIA
+                            </button>
+                        `;
+                    } else if (isSoldOut) {
+                        actionsContainer.innerHTML = `
+                            <button disabled style="flex: 1; height: 64px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i data-lucide="x-circle" style="width: 20px;"></i>
+                                VAGAS ESGOTADAS
                             </button>
                         `;
                     } else {
@@ -2891,22 +2916,49 @@
                         `;
                     }
                 } else {
-                    actionsContainer.innerHTML = `
-                        <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                            <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
-                        </button>
-                    `;
+                    if (isSoldOut) {
+                        actionsContainer.innerHTML = `
+                            <button disabled style="flex: 1; height: 64px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i data-lucide="package" style="width: 20px;"></i> ESGOTADO
+                            </button>
+                        `;
+                    } else {
+                        actionsContainer.innerHTML = `
+                            <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
+                            </button>
+                        `;
+                    }
                 }
             }
 
             document.getElementById('product-detail-content').innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-                    <h1 style="font-size: 28px; font-weight: 900; letter-spacing: -1px; width: 70%;">${p.name}</h1>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                    <div>
+                        <span style="font-size: 10px; font-weight: 900; color: #ff005c; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">${p.category || 'Geral'}</span>
+                        <h1 style="font-size: 28px; font-weight: 950; line-height: 1.1; letter-spacing: -1.5px; color: #000; margin-bottom: 4px;">${p.name}</h1>
+                    </div>
                     <div style="text-align: right;">
-                        <span style="display: block; font-size: 22px; font-weight: 900; color: #ee4d2d;">R$ ${p.price.toFixed(2)}</span>
+                        <span style="display: block; font-size: 24px; font-weight: 950; color: #000;">R$ ${p.price.toFixed(2)}</span>
                         ${p.oldPrice ? `<span style="font-size: 12px; font-weight: 700; color: #ccc; text-decoration: line-through;">R$ ${p.oldPrice.toFixed(2)}</span>` : ''}
                     </div>
                 </div>
+
+                ${p.hasLimit ? `
+                    <div style="margin-bottom: 32px; background: #fff5f5; padding: 16px; border-radius: 20px; border: 1px solid #fee2e2;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; font-weight: 900; color: #ff005c;">DISPONIBILIDADE</span>
+                            <span style="font-size: 11px; font-weight: 900; color: #000;">${Math.max(0, p.stockLimit - (p.sales || 0))} / ${p.stockLimit}</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: #fee2e2; border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${Math.min(100, Math.max(0, (p.stockLimit - (p.sales || 0)) / p.stockLimit * 100))}%; height: 100%; background: #ff005c; border-radius: 3px;"></div>
+                        </div>
+                        <p style="font-size: 10px; font-weight: 800; color: #b91c1c; margin-top: 8px; display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="alert-circle" style="width: 12px;"></i>
+                            ${(p.stockLimit - (p.sales || 0)) <= 0 ? 'Inscrições encerradas.' : `Atenção: Apenas ${p.stockLimit - (p.sales || 0)} ${p.type === 'Curso' ? 'vagas disponíveis' : (p.type === 'Mentoria' ? 'ingressos' : 'unidades')} restantes.`}
+                        </p>
+                    </div>
+                ` : ''}
 
                 <div id="product-rating-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px;">
                      <div style="display: flex; align-items: center; gap: 6px;">
@@ -6285,6 +6337,8 @@
             const visible = document.getElementById('prod-visible').checked;
             const hasGuarantee = document.getElementById('prod-guarantee').checked;
             const salesLink = document.getElementById('prod-sales-link')?.value.trim() || "";
+            const hasLimit = document.getElementById('prod-has-limit')?.checked || false;
+            const stockLimit = parseInt(document.getElementById('prod-stock-limit')?.value) || 0;
 
             if (!this.selectedProductType) {
                 this.showNotification("Selecione um tipo de produto.", "error");
@@ -6325,6 +6379,9 @@
                     guarantee: hasGuarantee,
                     category: category,
                     createdAt: Date.now(),
+                    hasLimit: hasLimit,
+                    stockLimit: hasLimit ? stockLimit : null,
+                    sales: isEdit ? (this.selectedProduct?.sales || 0) : 0,
                     slug: this.generateRandomSlug(),
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
@@ -7429,9 +7486,12 @@
                                 ${imgContainer}
                             </div>
                         ` : `
-                            <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden;">
-                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
-                            </div>
+                        <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden; position: relative;">
+                            ${p.hasLimit && (p.stockLimit - (p.sales || 0)) <= 10 ? `
+                                <div style="position: absolute; top: 8px; right: 8px; background: #ff005c; color: #fff; font-size: 8px; font-weight: 950; padding: 4px 8px; border-radius: 4px; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">ÚLTIMAS ${(p.stockLimit - (p.sales || 0))}</div>
+                            ` : ''}
+                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
                         `}
                         
                         <div style="padding: 10px; display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
@@ -7445,7 +7505,7 @@
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
                                 <span style="font-weight: 900; font-size: 14px; color: #ff005c;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                                <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                                <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.sales || 0} v.`}</span>
                             </div>
                         </div>
                     </div>
@@ -7477,7 +7537,10 @@
                             ${imgContainer}
                         </div>
                     ` : `
-                        <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden;">
+                        <div style="width: 100%; aspect-ratio: 1; background: #f9f9f9; overflow: hidden; position: relative;">
+                            ${p.hasLimit && (p.stockLimit - (p.sales || 0)) <= 15 ? `
+                                <div style="position: absolute; top: 12px; right: 12px; background: #ff005c; color: #fff; font-size: 8px; font-weight: 950; padding: 4px 10px; border-radius: 6px; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">RESTAM ${(p.stockLimit - (p.sales || 0))}</div>
+                            ` : ''}
                             <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     `}
@@ -7493,7 +7556,7 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
                             <span style="font-weight: 900; font-size: 14px; color: #000;">R$ ${parseFloat(p.price || 0).toFixed(2)}</span>
-                            <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.salesCount || 0} v.`}</span>
+                            <span style="font-size: 8px; font-weight: 800; color: #ccc;">${isMentoria ? 'Transmitindo' : `${p.sales || 0} v.`}</span>
                         </div>
                     </div>
                 </div>
@@ -7507,6 +7570,10 @@
             const p2 = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
             const product = p2.find(p => p.id === id);
             if (product) {
+                if (product.hasLimit && (product.stockLimit - (product.sales || 0)) <= 0) {
+                    this.showNotification("Este produto está esgotado!", "error");
+                    return;
+                }
                 this.cart.push(product);
                 this.safeLocalStorageSet(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
                 this.updateCartBadge();
