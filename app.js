@@ -13,18 +13,38 @@
     let supabase = null;
     
     async function initSupabase() {
-        if (!window.supabase) {
-            console.warn("⚠️ [Supabase] Biblioteca não encontrada. Tentando carregar...");
-            return;
+        const indicator = document.getElementById('network-status-indicator');
+        const updateIndicator = (msg, color) => {
+            if (indicator) {
+                indicator.innerText = msg;
+                indicator.style.color = color;
+            }
+        };
+
+        let attempts = 0;
+        while (!window.supabase && attempts < 10) {
+            console.warn(`⚠️ [Supabase] Aguardando biblioteca... (${attempts + 1}/10)`);
+            updateIndicator('Conectando...', '#ff9800');
+            await new Promise(r => setTimeout(r, 500));
+            attempts++;
         }
+
+        if (!window.supabase) {
+            console.error("❌ [Supabase] Erro: Biblioteca não carregou. Verifique sua internet.");
+            updateIndicator('Offline', '#f44336');
+            return false;
+        }
+
         try {
             if (SUPABASE_URL.startsWith('http')) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 console.log("✅ [Supabase] Conectado a:", SUPABASE_URL);
+                updateIndicator('Online', '#10b981');
                 return true;
             }
         } catch (e) {
             console.error("❌ [Supabase] Erro de config:", e);
+            updateIndicator('Erro Config', '#f44336');
         }
         return false;
     }
@@ -189,8 +209,8 @@
             };
 
             try {
-                // 1. Conecta ao banco imediatamente
-                initSupabase(); 
+                // 1. Conecta ao banco imediatamente e aguarda
+                await initSupabase(); 
 
                 // 2. Detecta se e um link de checkout (Query ou Path)
                 const urlParams = new URLSearchParams(window.location.search);
