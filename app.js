@@ -2772,7 +2772,11 @@
                     seller: product.seller,
                     visible: product.visible,
                     guarantee: product.guarantee,
-                    sales_link: product.sales_link, // Essencial para transmitir Native Live e Links
+                    sales_link: product.sales_link, 
+                    hasLimit: product.hasLimit,
+                    stockLimit: product.stockLimit,
+                    sales: product.sales,
+                    slug: product.slug,
                     content: JSON.stringify(product.content || [])
                 }, { onConflict: 'id' });
                 if (error) console.error("❌ Erro Sync Produto:", error.message);
@@ -5783,8 +5787,8 @@
             if (this.currentUser && !this.currentUser.isGuest && supabase) {
                 const val = parseInt(coins);
                 if (!isNaN(val)) {
-                    supabase.from('dito_users').update({ balance: val }).eq('username', this.currentUser.username)
-                        .then(() => console.log("☁️ Saldo sincronizado."));
+                    supabase.from('dito_users').update({ coins: val }).eq('username', this.currentUser.username)
+                        .then(() => console.log("☁️ Cupons sincronizados."));
                 }
             }
         },
@@ -6416,6 +6420,7 @@
                 const urlInput = document.getElementById('prod-image-url')?.value.trim();
                 const finalImage = urlInput || this.selectedProductImage || null;
 
+                const isEdit = !!this.editingProductId;
                 let newProd = {
                     id: this.editingProductId || ('p-' + Date.now()),
                     name: name,
@@ -6425,7 +6430,7 @@
                     type: this.selectedProductType,
                     visible: visible,
                     rating: 5.0,
-                    sales: 0,
+                    sales: isEdit ? (this.selectedProduct?.sales || 0) : 0,
                     image: finalImage,
                     images: this.selectedProductImages && this.selectedProductImages.length > 0 ? this.selectedProductImages : [finalImage], // Galeria completa
                     image_url: finalImage,
@@ -6437,21 +6442,17 @@
                     createdAt: Date.now(),
                     hasLimit: hasLimit,
                     stockLimit: hasLimit ? stockLimit : null,
-                    sales: isEdit ? (this.selectedProduct?.sales || 0) : 0,
                     slug: this.generateRandomSlug(),
                     content: this.selectedProductType === 'Curso' ? this.courseStructure : null
                 };
 
-                const isEdit = !!this.editingProductId;
                 const networkProd = { ...newProd };
                 if (networkProd.image && networkProd.image.length > 200000) {
                      console.warn("Imagem muito grande para nuvem, enviando compactada...");
                 }
 
-                // Salva na Nuvem (Supabase) - Usa UPSERT para atualizar se existir
-                supabase.from('dito_market_products').upsert([networkProd], { onConflict: 'id' }).then(({ error }) => {
-                    if (error) console.error("Erro ao sincronizar produto na nuvem:", error);
-                });
+                // Salva na Nuvem (Supabase) via helper centralizado
+                this.syncProductToNetwork(newProd);
 
                 // Salva na lista global local com proteção de cota
                 try {
@@ -8476,9 +8477,14 @@
                 .maybeSingle();
 
             if (data && !error) {
-                // 1. Sincroniza Saldo (Moedas/Cupons)
+                // 1. Sincroniza Saldo (Reais)
                 if (data.balance !== undefined && data.balance !== null) {
-                    localStorage.setItem(`dito_coins_${key}`, data.balance.toString());
+                    this.currentUser.balance = parseFloat(data.balance);
+                }
+
+                // 2. Sincroniza Cupons (Moedas Virtuais)
+                if (data.coins !== undefined && data.coins !== null) {
+                    localStorage.setItem(`dito_coins_${key}`, data.coins.toString());
                     this.updateCoinsUI();
                 }
 
