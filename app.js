@@ -203,7 +203,7 @@
                     currentCheckoutId = pathParts[1]; // O ID ou Slug após /p/ ou /checkout/
                 }
                 
-                // Fallback para Slugs puro no path (ex: www.diapp.com.br/meu-produto)
+                // Fallback para Slugs puro no path (ex: www.ditoapp.com.br/meu-produto)
                 if (!currentCheckoutId && pathParts.length === 1 && !pathParts[0].includes('.')) {
                     currentCheckoutId = pathParts[0];
                 }
@@ -304,7 +304,7 @@
                             let targetProd = allProducts.find(p => p.slug === slug || p.id === slug);
                             
                             if (!targetProd && typeof supabase !== 'undefined') {
-                                const { data } = await supabase.from('dito_products').select('*').eq('slug', slug).maybeSingle();
+                                const { data } = await supabase.from('dito_market_products').select('*').eq('slug', slug).maybeSingle();
                                 if (data) targetProd = data;
                             }
 
@@ -350,6 +350,7 @@
                 // Conexão Única Inicial (Não bloqueante)
                 this.fetchNetworkUsers();
                 this.fetchNetworkProducts(true);
+                this.fetchUserCloudState(); // Sincronia de conta global (Saldo/Compras)
 
                 this.checkLiveAdminStatus();
                 
@@ -582,6 +583,14 @@
             try {
                 const FUNCTION_URL = 'https://hlzmahaekybidmwielsr.supabase.co/functions/v1/mercado-pago-bridge';
                 
+                // DIAGNÓSTICO DE CORS PARA O USUÁRIO
+                if (window.location.protocol === 'file:') {
+                    this.showLoading(false);
+                    alert("🚨 ERRO DE SEGURANÇA (CORS):\nVocê está rodando o Dito via arquivo local (file://). O Mercado Pago e a Nuvem bloqueiam conexões sem um domínio real.\n\nPara resolver:\n1. Acesse via https://www.ditoapp.com.br\n2. Ou use um servidor local (Live Server/Localhost).");
+                    return;
+                }
+
+                
                 // Sanitiza o email (Mercado Pago exige um email válido e sem espaços)
                 let email = this.currentUser.email;
                 if (!email || !email.includes('@')) {
@@ -804,7 +813,7 @@
 
                     // 2. CHECK DE SEGURANÇA NA CONTA DO USUÁRIO
                     if (supabase && this.currentUser && !this.currentUser.isGuest) {
-                        await this.fetchPurchasedProducts();
+                        await this.fetchUserCloudState();
                         if (this.purchasedProducts.length > initialCount) {
                             console.log("✅ [Pagamento] Confirmado via Entrega!");
                             clearInterval(this.paymentPollingInterval);
@@ -2918,14 +2927,21 @@
                 } else {
                     if (isSoldOut) {
                         actionsContainer.innerHTML = `
-                            <button disabled style="flex: 1; height: 64px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <button disabled style="flex: 1; height: 60px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i data-lucide="package" style="width: 20px;"></i> ESGOTADO
                             </button>
                         `;
                     } else {
+                        // Stack vertical conforme solicitado pelo usuário
+                        actionsContainer.style.flexDirection = 'column';
+                        actionsContainer.style.gap = '10px';
+                        
                         actionsContainer.innerHTML = `
-                            <button onclick="app.addToCartFromDetail()" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <button onclick="app.addToCartFromDetail()" style="width: 100%; height: 60px; background: #fff; color: #000; border: 1.5px solid #eee; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
+                            </button>
+                            <button onclick="app.buyNowFromDetail()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+                                <i data-lucide="zap" style="width: 20px;"></i> COMPRAR AGORA
                             </button>
                         `;
                     }
@@ -3015,11 +3031,31 @@
 
         addToCartFromDetail() {
             if (this.selectedProduct) {
+                const remaining = this.selectedProduct.hasLimit ? (this.selectedProduct.stockLimit - (this.selectedProduct.sales || 0)) : 999;
+                if (remaining <= 0) {
+                    this.showNotification("Este produto está esgotado!", "error");
+                    return;
+                }
                 this.cart.push(this.selectedProduct);
                 localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
                 this.updateCartBadge();
                 this.showNotification("Adicionado à sacola!", "success");
                 this.setMarketView('home');
+            }
+        },
+
+        buyNowFromDetail() {
+            if (this.selectedProduct) {
+                const remaining = this.selectedProduct.hasLimit ? (this.selectedProduct.stockLimit - (this.selectedProduct.sales || 0)) : 999;
+                if (remaining <= 0) {
+                    this.showNotification("Este produto está esgotado!", "error");
+                    return;
+                }
+                // Compras diretas geralmente focam no item selecionado
+                this.cart = [this.selectedProduct];
+                localStorage.setItem(`dito_cart_${this.getUserKey()}`, JSON.stringify(this.cart));
+                this.updateCartBadge();
+                this.setMarketView('checkout');
             }
         },
 
@@ -4061,7 +4097,8 @@
                 // Controle dos Botões Flutuantes (Missões e Chat)
                 const fixedActions = document.getElementById('global-fixed-actions');
                 if (fixedActions) {
-                    if (view === 'login' || view === 'cadastro') {
+                    const hideViews = ['login', 'cadastro', 'checkout-direto'];
+                    if (hideViews.includes(view) || (view === 'mercado' && this.marketView === 'checkout')) {
                         fixedActions.style.display = 'none';
                     } else {
                         fixedActions.style.display = 'flex';
@@ -4303,6 +4340,16 @@
                 this.isProcessingDeepLink = false;
             }
             this.marketView = view;
+            
+            // Sincroniza visibilidade de botões flutuantes
+            const fixedActions = document.getElementById('global-fixed-actions');
+            if (fixedActions) {
+                if (view === 'checkout') fixedActions.style.display = 'none';
+                else if (this.currentView !== 'login' && this.currentView !== 'cadastro' && this.currentView !== 'checkout-direto') {
+                    fixedActions.style.display = 'flex';
+                }
+            }
+
             this.renderStore();
         },
 
@@ -5428,7 +5475,7 @@
                     if (usernameEl) usernameEl.innerText = this.currentUser.username;
                     if (nameEl) nameEl.innerText = this.currentUser.name || this.currentUser.username;
                     if (bioEl) bioEl.innerText = this.currentUser.bio || "Bio vazia...";
-                    if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "www.diapp.com.br/" + this.currentUser.username;
+                    if (linkTextEl) linkTextEl.innerText = this.currentUser.link || "www.ditoapp.com.br/" + this.currentUser.username;
                     if (linkEl) linkEl.href = this.currentUser.link && this.currentUser.link.startsWith('http') ? this.currentUser.link : 'https://' + this.currentUser.link;
                     
                     // Atualiza o Avatar na UI
@@ -5731,6 +5778,15 @@
             // Sincroniza loja também se estiver aberta
             const storeCoins = document.getElementById('store-coin-balance');
             if (storeCoins) storeCoins.innerText = coins;
+
+            // PUSH PARA A NUVEM (Sincronia entre aparelhos)
+            if (this.currentUser && !this.currentUser.isGuest && supabase) {
+                const val = parseInt(coins);
+                if (!isNaN(val)) {
+                    supabase.from('dito_users').update({ balance: val }).eq('username', this.currentUser.username)
+                        .then(() => console.log("☁️ Saldo sincronizado."));
+                }
+            }
         },
 
         renderLojaCupons(container) {
@@ -6848,6 +6904,9 @@
                     localStorage.setItem('is_guest_vanilla', 'false');
                     this.saveSession(loggedUser);
                     this.currentUser = loggedUser;
+                    
+                    // Força sincronia de dados da nuvem imediatamente após login
+                    this.fetchUserCloudState();
                     this.loadUserScopedData();
                     
                     localStorage.setItem('dito_user_id', loggedUser.id);
@@ -7715,7 +7774,7 @@
 
         const code = app.getUserReferralCode();
         // Domínio oficial e profissional solicitado
-        const domain = "www.diapp.com.br";
+        const domain = "www.ditoapp.com.br";
         const prettyLink = `https://${domain}/convite/${code}`;
         
         const modal = document.getElementById('referral-modal');
@@ -7836,7 +7895,7 @@
 
     app.initRewards = function() {
         const user = this.currentUser || { username: 'usuario' };
-        const linkStr = `www.diapp.com.br/ref/${user.username}`;
+        const linkStr = `www.ditoapp.com.br/ref/${user.username}`;
         const linkD = document.getElementById('profile-ref-link-display');
         const linkF = document.getElementById('referral-link-text');
         if (linkD) linkD.innerText = linkStr;
@@ -8213,7 +8272,7 @@
             const productNameMatch = notif.message.match(/"([^"]+)"/);
             const prodName = productNameMatch ? productNameMatch[1] : "seu produto";
             this.showSystemNotification('Acesso Liberado!', `O produto "${prodName}" já está na sua área de membros.`, 'success');
-            this.fetchPurchasedProducts(); 
+            this.fetchUserCloudState(); 
             if (this.currentView === 'meus-cursos') this.renderPurchasedProducts();
             this.playNotifSound();
         }
@@ -8406,31 +8465,49 @@
         if (navigator.vibrate) navigator.vibrate(100);
     };
 
-    app.fetchPurchasedProducts = async function() {
+    app.fetchUserCloudState = async function() {
         if (!supabase || !this.currentUser) return;
         const key = this.getUserKey();
         try {
-            const { data, error } = await supabase.from('dito_users').select('purchases').eq('username', this.currentUser.username).maybeSingle();
-            if (data && data.purchases) {
-                const cloudPurchases = typeof data.purchases === 'string' ? JSON.parse(data.purchases) : data.purchases;
-                // O campo purchases no dito_users armazena tanto saldo (para vendedores) quanto acesso (para compradores)
-                // Vamos filtrar apenas o que é item de acesso para o comprador
-                const myItems = cloudPurchases.filter(p => !p.type || p.type !== 'sale');
-                
-                if (myItems.length > 0) {
-                    this.purchasedProducts = myItems;
-                    localStorage.setItem(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
-                    
-                    // Atualiza a tela se o usuário estiver vendo os cursos
-                    if (this.currentView === 'meus-cursos') {
-                        this.renderPurchasedProducts();
-                    }
-                    // Atualiza o Dashboard se houver lista de compras lá também
-                    this.updateBalanceUI(); 
+            // Pegamos tudo com '*' para evitar erros de coluna inexistente (400 Bad Request)
+            const { data, error } = await supabase.from('dito_users')
+                .select('*')
+                .eq('username', this.currentUser.username)
+                .maybeSingle();
+
+            if (data && !error) {
+                // 1. Sincroniza Saldo (Moedas/Cupons)
+                if (data.balance !== undefined && data.balance !== null) {
+                    localStorage.setItem(`dito_coins_${key}`, data.balance.toString());
+                    this.updateCoinsUI();
                 }
+
+                // 2. Sincroniza Perfil para não desatualizar entre dispositivos
+                // Removemos a senha para não expor no objeto currentUser em memória se possível, 
+                // mas mantemos os dados vitais.
+                this.currentUser = { ...this.currentUser, ...data };
+                localStorage.setItem('current_user_vanilla', JSON.stringify(this.currentUser));
+
+                // 3. Sincroniza Compras/Acessos
+                if (data.purchases) {
+                    const cloudPurchases = typeof data.purchases === 'string' ? JSON.parse(data.purchases) : data.purchases;
+                    const myItems = cloudPurchases.filter(p => !p.type || p.type !== 'sale');
+                    
+                    if (myItems.length > 0) {
+                        this.purchasedProducts = myItems;
+                        localStorage.setItem(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
+                        
+                        if (this.currentView === 'meus-cursos') {
+                            this.renderPurchasedProducts();
+                        }
+                    }
+                }
+                
+                this.updateBalanceUI();
+                console.log("☁️ Conta sincronizada com a rede.");
             }
         } catch (e) {
-            console.error("Erro ao sincronizar compras:", e);
+            console.error("Erro ao sincronizar estado da conta:", e);
         }
     };
 
@@ -8496,7 +8573,7 @@
             return;
         }
 
-        const prodDomain = "https://www.diapp.com.br";
+        const prodDomain = "https://www.ditoapp.com.br";
         const isLocalFile = window.location.protocol === 'file:';
 
         container.innerHTML = myProducts.map(p => {
