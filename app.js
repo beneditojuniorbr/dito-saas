@@ -1885,7 +1885,7 @@
                 localStorage.setItem(coinsKey, newBalance.toString());
                 
                 if (this.userId) {
-                    supabase.from('profiles').update({ coins: newBalance }).eq('id', this.userId).then(() => {});
+                    supabase.from('dito_users').update({ coins: newBalance }).eq('username', this.currentUser.username).then(() => {});
                 }
                 
                 this.launchVictoryConfetti();
@@ -1910,7 +1910,7 @@
                 
                 // --- SINCRONIZA COM SUPABASE (NUVEM) ---
                 if (this.userId) {
-                    supabase.from('profiles').update({ coins: newBalance }).eq('id', this.userId).then(() => {
+                    supabase.from('dito_users').update({ coins: newBalance }).eq('username', this.currentUser.username).then(() => {
                         console.log('✅ Bônus diário salvo na nuvem.');
                     });
                 }
@@ -2025,7 +2025,7 @@
                 
                 // --- SINCRONIZA COM SUPABASE (NUVEM) ---
                 if (this.userId) {
-                    supabase.from('profiles').update({ coins: newBalance }).eq('id', this.userId).then(() => {
+                    supabase.from('dito_users').update({ coins: newBalance }).eq('username', this.currentUser.username).then(() => {
                         console.log('✅ Missão progressiva salva na nuvem.');
                     });
                 }
@@ -6722,10 +6722,10 @@
                             };
                             supabase.from('dito_notifications').insert([rewardMessage]);
                             
-                            supabase.from('profiles').select('coins').eq('username', referrerUsername).maybeSingle().then(({ data }) => {
+                            supabase.from('dito_users').select('coins').eq('username', referrerUsername).maybeSingle().then(({ data }) => {
                                if (data) {
                                    const newTotal = (data.coins || 0) + 225;
-                                   supabase.from('profiles').update({ coins: newTotal }).eq('username', referrerUsername);
+                                   supabase.from('dito_users').update({ coins: newTotal }).eq('username', referrerUsername);
                                }
                             });
                         }
