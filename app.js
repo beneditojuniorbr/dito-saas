@@ -2805,10 +2805,21 @@
         },
 
         viewProduct(id) {
-            const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-            const mocks = [{ id: 'm1', name: "Método Escala Rápida", price: 97.00, oldPrice: 197.00, rating: 4.8, sales: 1240, seller: "Benedito", description: "O guia definitivo para escalar seus anúncios de forma profissional." }, { id: 'm2', name: "Template Notion PRO", price: 47.00, oldPrice: 87.00, rating: 4.9, sales: 850, seller: "Ana", description: "Organize seus projetos e lucro com este dashboard completo." }];
-            this.selectedProduct = [...saved, ...mocks].find(p => p.id === id);
-            this.setMarketView('product');
+            // Prioridade: Produtos sincronizados da Nuvem
+            let p = (this.products || []).find(prod => String(prod.id) === String(id));
+            
+            // Fallback: LocalStorage
+            if (!p) {
+                const saved = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
+                p = saved.find(prod => String(prod.id) === String(id));
+            }
+
+            this.selectedProduct = p;
+            if (this.selectedProduct) {
+                this.setMarketView('product');
+            } else {
+                this.showNotification("Produto não encontrado ou indisponível.", "error");
+            }
         },
 
         renderMarketProduct(container) {
