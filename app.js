@@ -1917,6 +1917,17 @@
             }
             
             localStorage.setItem('dito_current_user', JSON.stringify(this.currentUser));
+            
+            // 4. Sincroniza com Nuvem (Coluna COINS)
+            if (this.currentUser && this.currentUser.username) {
+                supabase.from('dito_users').update({ 
+                    coins: total,
+                    referralCoupons: this.currentUser.referralCoupons 
+                }).eq('username', this.currentUser.username).then(() => {
+                    console.log('✅ Recompensa de indicação sincronizada.');
+                });
+            }
+
             if (app.view === 'missoes') this.renderMissions();
         },
 
@@ -7677,7 +7688,7 @@
                                 <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </div>
-                        <span style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; line-height: 1.2;">${p.name}</span>
+                        <span style="font-size: 9px; font-weight: 800; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; line-height: 1.2;">${p.name}</span>
                     </div>
                 `).join('');
             }
@@ -7718,7 +7729,7 @@
                         `}
                         
                         <div style="padding: 10px; display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
-                            <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                            <h4 style="font-weight: 900; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">${p.name}</h4>
                             <div style="display: flex; gap: 2px;">
                                 <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
                                 <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
@@ -7769,7 +7780,7 @@
                     `}
                     
                     <div style="padding: 10px; display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
-                        <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; color: #000;">${isMentoria ? 'Mentoria Privada' : p.name}</h4>
+                        <h4 style="font-weight: 900; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; color: #000;">${p.name}</h4>
                         <div style="display: flex; gap: 2px;">
                             <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
                             <i data-lucide="star" style="width: 7px; color: #facc15; fill: #facc15;"></i>
