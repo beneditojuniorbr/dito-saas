@@ -603,12 +603,6 @@
                 return;
             }
 
-            if (!this.currentUser.email && !this.currentUser.isGuest) {
-                this.showNotification('Cadastre seu e-mail no perfil antes de comprar!', 'error');
-                this.navigate('perfil');
-                return;
-            }
-
             this.showLoading(true, 'Gerando seu código Pix real...');
 
             try {
