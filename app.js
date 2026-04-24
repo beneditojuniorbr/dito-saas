@@ -2614,13 +2614,12 @@
                         localStorage.setItem(`dito_booster_expiry_${key}`, String(netUser.booster_expiry || 0));
                     }
                     
-                    // Restaura os produtos comprados da nuvem
+                    // Restaura os produtos comprados da nuvem (Sem cache local)
                     if (netUser.purchases) {
                         try {
                             const cloudPurchases = typeof netUser.purchases === 'string' ? JSON.parse(netUser.purchases) : netUser.purchases;
-                            if (Array.isArray(cloudPurchases) && cloudPurchases.length > 0) {
+                            if (Array.isArray(cloudPurchases)) {
                                 this.purchasedProducts = cloudPurchases;
-                                this.safeLocalStorageSet(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
                             }
                         } catch (e) { console.error("Erro ao restaurar compras:", e); }
                     }
@@ -2720,7 +2719,7 @@
                 mContainer.style.transition = 'none';
                 mContainer.style.opacity = '0';
                 setTimeout(() => {
-                    mContainer.style.transition = 'opacity 1.5s ease-out';
+                    mContainer.style.transition = 'opacity 0.3s ease-out';
                     mContainer.style.opacity = '1';
                 }, 50);
             }
@@ -2736,33 +2735,16 @@
                 if (data && !error) {
                     // Hash ultra-leve para comparação
                     const currentHash = data.map(p => `${p.id}-${p.created_at}`).join('|');
-                    
-                    // SEMPRE atualiza a memória interna (RAM) para garantir que
-                    // o usuário veja as mudanças mesmo sem refresh ou se o storage estiver bugado
-                    
-                    // Atualiza local anyway para garantir que tudo esteja fresco
-                    // 2. Mirroring: Transformamos o dado da rede na nossa base real
+                    // 3. FONTE DE VERDADE: CLOUD (Sem cache para fluidez total)
                     const synchronized = data.map(net => {
                         const contentData = net.content ? (typeof net.content === 'string' ? JSON.parse(net.content) : net.content) : null;
-                        // Força o ID a ser string para evitar problemas de tipos diferentes entre PC e Celular
                         return { ...net, id: String(net.id), price: Number(net.price), content: contentData };
                     });
 
-                    // 3. Atualizamos a memória e o storage local
-                    const localItems = JSON.parse(localStorage.getItem('dito_products_vanilla') || '[]');
-                    const merged = [...synchronized];
                     
-                    // Mantém produtos locais recentemente criados que ainda não subiram para a rede
-                    localItems.forEach(lp => {
-                        if (!merged.find(mp => mp.id === lp.id)) {
-                            if (lp.seller === this.currentUser?.username) {
-                                merged.unshift(lp);
-                            }
-                        }
-                    });
-
-                    this.products = merged;
-                    this.safeLocalStorageSet('dito_products_vanilla', JSON.stringify(merged));
+                    // 3. FONTE DE VERDADE: CLOUD (Sem cache para fluidez total)
+                    this.products = synchronized;
+                    this.renderMarket();
 
                     // FORÇA a renderização se for o caso
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
