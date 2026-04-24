@@ -623,7 +623,18 @@
                     email = `${cleanUsername}@dito.app`;
                 }
 
-                const resp = await fetch(FUNCTION_URL, {
+                const product = this.cart[0];
+                
+                // Metadata simplificado para nao estourar o limite do Mercado Pago
+                const metadata = {
+                    payment_id: paymentId,
+                    username: this.currentUser.username || 'Guest',
+                    product_id: product.id,
+                    product_name: product.name.substring(0, 50),
+                    is_mentoria: product.type === 'Mentoria'
+                };
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/mercado-pago-bridge`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -632,24 +643,19 @@
                     body: JSON.stringify({
                         action: 'create-pix',
                         amount: total,
-                        description: `Compra no Dito Pro - ${this.cart.length} itens`,
+                        description: `Compra: ${product.name}`,
                         email: email,
-                        metadata: {
-                            payment_id: paymentId,
-                            user_id: this.currentUser.id || this.currentUser.username,
-                            username: this.currentUser.username,
-                            product: this.cart[0] // Envia o primeiro produto (Mentoria/Curso) para liberação automática
-                        }
+                        metadata: metadata
                     })
                 });
 
-                if (!resp.ok) {
-                    const errorText = await resp.text();
+                if (!response.ok) {
+                    const errorText = await response.text();
                     console.error("❌ [Pagamento] Erro na Resposta:", errorText);
-                    throw new Error(`Servidor retornou erro ${resp.status}: ${errorText}`);
+                    throw new Error(`Servidor retornou erro ${response.status}: ${errorText}`);
                 }
 
-                const data = await resp.json();
+                const data = await response.json();
                 console.log("✅ [Pagamento] Resposta recebida:", data);
                 
                 if (data.qr_code) {
