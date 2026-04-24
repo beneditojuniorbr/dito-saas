@@ -1,6 +1,20 @@
 (function() {
+    /* 
+        ==========================================================================
+        🌐 DITO NETWORK - ESTRUTURA DO ARQUIVO (GPS)
+        ==========================================================================
+        1. 🧱 CORE & INIT (Linha ~15)      - Supabase, Roteamento, Configs
+        2. 💬 SOCIAL & CHAT (Linha ~1360)  - Mensagens, Amigos, Sociedades
+        3. 🎯 MISSIONS & GAMES (Linha ~1800)- Check-in, Desafios, Recompensas
+        4. 👤 PROFILE & DASH (Linha ~5630)  - Perfil, Estatísticas, Configs
+        5. 🔐 AUTH & SESSION (Linha ~7060) - Login, Cadastro, Controle de Acesso
+        6. 🛒 MARKET & PRODS (Linha ~7660) - Vitrine, Filtros, Detalhes
+        7. 🛠️ UTILS & HELPERS (Linha ~8820) - Notificações, Clipboard, Helpers
+        ==========================================================================
+    */
+
     // ==========================================
-    // 🌐 DITO NETWORK (SUPABASE)
+    // 🌐 CONEXÕES E CONFIGURAÇÕES GLOBAIS
     // ==========================================
     // 🚨 ATENÇÃO: A CHAVE ABAIXO ESTAVA INCORRETA (Era uma chave do Stripe).
     // Substitua pela chave 'anon/public' do seu projeto Supabase (começa com eyJ...).
@@ -11,6 +25,10 @@
     const MP_PUBLIC_KEY = 'APP_USR-8ce69cfb-2613-4a57-944d-2521c8f523f0'; // Chave Pública Real
     
     let supabase = null;
+
+    // ==========================================
+    // 🧱 CORE & INITIALIZATION
+    // ==========================================
     
     async function initSupabase() {
         const indicator = document.getElementById('network-status-indicator');
@@ -101,15 +119,15 @@
                 }
 
                 const svg = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <defs>
-                            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <linearGradient id="grad-${type}" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" style="stop-color:#ff005c;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#0094ff;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#0487ff;stop-opacity:1" />
                             </linearGradient>
                         </defs>
                         <rect x="0" y="0" width="24" height="24" fill="#ffffff" />
-                        <g stroke="url(#grad)" transform="translate(9.5, 9.5) scale(0.2)">
+                        <g stroke="url(#grad-${type})" transform="translate(6, 6) scale(0.5)">
                             ${iconPath}
                         </g>
                     </svg>
@@ -983,9 +1001,8 @@
                     </div>
                     
                     <h3 style="font-weight: 950; font-size: 20px; margin-bottom: 4px; letter-spacing: -1px;">Finalize seu Pix</h3>
-                    <div style="display: inline-flex; align-items: center; gap: 6px; background: #fffbeb; padding: 4px 12px; border-radius: 50px; margin-bottom: 24px; border: 1px solid #fef3c7;">
-                        <div style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%;" class="animate-pulse"></div>
-                        <span style="font-size: 10px; font-weight: 900; color: #b45309; text-transform: uppercase;">Aguardando Pagamento • 29:59</span>
+                    <div id="pix-timer-display" style="font-size: 11px; font-weight: 900; color: #000; text-transform: uppercase; margin-bottom: 24px; letter-spacing: 0.5px;">
+                        Aguardando Pagamento • 30:00
                     </div>
 
                     <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 24px;">Total: <span style="font-weight: 900; color: #22c55e;">R$ ${amount.toFixed(2)}</span></p>
@@ -1011,13 +1028,6 @@
                         VERIFICAR PAGAMENTO AGORA
                     </button>
 
-                    <!-- PAINEL DE TESTE (SIMULAÇÃO) -->
-                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed #eee;">
-                        <p style="font-size: 10px; color: #ff005c; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">🛠️ Modo Desenvolvedor</p>
-                        <button onclick="app.finalizeSuccessfulPurchase()" style="width: 100%; height: 48px; background: #ff005c; color: #fff; border: none; border-radius: 12px; font-size: 11px; font-weight: 950; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(255,0,92,0.2);">
-                            <i data-lucide="zap" style="width: 14px;"></i> SIMULAR APROVAÇÃO PIX
-                        </button>
-                    </div>
                 </div>
             `;
             
@@ -1033,6 +1043,30 @@
             if (paymentId) {
                 this.startPaymentPolling(paymentId);
             }
+
+            // --- INICIA CRONÔMETRO ATIVO (NOVO) ---
+            this.startPixCountdown(30 * 60); // 30 minutos
+        },
+
+        startPixCountdown(durationSeconds) {
+            if (this.pixCountdownTimer) clearInterval(this.pixCountdownTimer);
+            
+            let timeLeft = durationSeconds;
+            const display = document.getElementById('pix-timer-display');
+            
+            this.pixCountdownTimer = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                
+                if (display) {
+                    display.innerText = `Aguardando Pagamento • ${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+                }
+                
+                if (--timeLeft < 0) {
+                    clearInterval(this.pixCountdownTimer);
+                    if (display) display.innerText = "PAGAMENTO EXPIRADO";
+                }
+            }, 1000);
         },
 
         startPaymentPolling(paymentId) {
@@ -1344,7 +1378,10 @@
         activeChatUser: null,
         unreadMessages: JSON.parse(localStorage.getItem('dito_unread_messages') || '{}'),
 
-        openChat(username) {
+    // ==========================================
+    // 💬 SOCIAL, CHAT & SOCIETIES
+    // ==========================================
+    openChat(username) {
             if (!this.currentUser) return this.showNotification("Faça login para usar o chat.", "error");
             this.activeChatUser = username;
             
@@ -1779,7 +1816,10 @@
             this.navigate('missoes');
         },
 
-        renderMissions() {
+    // ==========================================
+    // 🎯 MISSIONS & GAMIFICATION
+    // ==========================================
+    renderMissions() {
             const container = document.getElementById('weekly-checklist-container');
             const balanceEl = document.getElementById('missions-coin-balance');
             if(!container) return;
@@ -5618,7 +5658,10 @@
             }, 1000);
         },
 
-        renderProfile() {
+    // ==========================================
+    // 👤 PROFILE & DASHBOARD
+    // ==========================================
+    renderProfile() {
             try {
                 const usernameEl = document.getElementById('profile-username-header');
                 const nameEl = document.getElementById('profile-name');
@@ -7029,7 +7072,10 @@
             if (window.lucide) lucide.createIcons();
         },
 
-        async login(isGuest = false) { 
+    // ==========================================
+    // 🔐 AUTHENTICATION & SESSIONS
+    // ==========================================
+    async login(isGuest = false) { 
             this.showLoading(true, 'Autenticando...');
             
             try {
@@ -7641,7 +7687,10 @@
             if (container) this.renderMarketHome(container);
         },
         
-        renderMarketHome(container) {
+    // ==========================================
+    // 🛒 MARKETPLACE & PRODUCTS
+    // ==========================================
+    renderMarketHome(container) {
             if (!container) container = document.getElementById('market-actual-content');
             if (!container) return; // Aborta se não houver onde renderizar
 
@@ -8783,6 +8832,10 @@
 
         if (window.lucide) lucide.createIcons();
     };
+
+    // ==========================================
+    // 🛠️ UTILS & HELPERS
+    // ==========================================
 
     app.copyToClipboard = function(text, successMsg, btn) {
         // Feedback visual tátil
