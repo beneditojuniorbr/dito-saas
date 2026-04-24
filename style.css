@@ -161,9 +161,9 @@ input::placeholder, textarea::placeholder {
 @media (max-width: 1023px) {
     #global-fixed-actions {
         bottom: 95px; /* Altura ideal para mobile, acima da nav */
-        left: 20px;   /* Canto Esquerdo */
-        transform: none;
-        flex-direction: column-reverse; /* Uma sobre a outra */
+        left: 50%;
+        transform: translateX(-50%);
+        flex-direction: row; 
         gap: 12px;
         align-items: center;
     }
