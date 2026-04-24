@@ -2942,8 +2942,8 @@
                         `;
                     } else {
                         actionsContainer.innerHTML = `
-                            <button onclick="app.ingressLive('${p.id}')" style="flex: 1; height: 64px; background: linear-gradient(90deg, #ff005c, #ff3366); color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,0,92,0.3);">
-                                <i data-lucide="shopping-cart" style="width: 20px;"></i>
+                            <button onclick="app.buyNowFromDetail('${p.id}')" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+                                <i data-lucide="zap" style="width: 20px;"></i>
                                 COMPRAR INGRESSO POR R$ ${p.price.toFixed(2)}
                             </button>
                         `;
