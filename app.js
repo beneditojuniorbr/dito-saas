@@ -108,7 +108,7 @@
                             </linearGradient>
                         </defs>
                         <rect x="0" y="0" width="24" height="24" fill="#ffffff" />
-                        <g stroke="url(#grad)" transform="translate(4, 4) scale(0.65)">
+                        <g stroke="url(#grad)" transform="translate(8, 8) scale(0.35)">
                             ${iconPath}
                         </g>
                     </svg>
