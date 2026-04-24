@@ -3378,6 +3378,15 @@
 
             this.safeLocalStorageSet(`dito_purchased_products_${buyerKey}`, JSON.stringify(this.purchasedProducts));
             
+            // 3. SINCRONIA CLOUD (Garante que apareça no Celular e PC)
+            if (supabase && this.currentUser && !this.currentUser.isGuest) {
+                console.log("☁️ [Sincronia] Salvando compras na nuvem...");
+                await supabase
+                    .from('dito_users')
+                    .update({ purchases: JSON.stringify(this.purchasedProducts) })
+                    .eq('username', this.currentUser.username);
+            }
+            
             // Limpa o carrinho
             this.cart = [];
             localStorage.setItem(`dito_cart_${buyerKey}`, '[]');
