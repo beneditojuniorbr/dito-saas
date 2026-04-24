@@ -2741,12 +2741,10 @@
                         return { ...net, id: String(net.id), price: Number(net.price), content: contentData };
                     });
 
-                    
                     // 3. FONTE DE VERDADE: CLOUD (Sem cache para fluidez total)
                     this.products = synchronized;
-                    this.renderMarket();
-
-                    // FORÇA a renderização se for o caso
+                    
+                    // Renderiza se estivermos no mercado
                     if (this.currentView === 'mercado' && this.marketView === 'home') {
                         this.renderMarketHome();
                     }
