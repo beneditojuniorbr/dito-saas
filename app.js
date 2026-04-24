@@ -2253,10 +2253,10 @@
                 this.renderMissions();
                 this.checkMissionsNotification(); 
                 
-                // Sincronização opcional com Supabase se o perfil existir
+                // Sincronização com Supabase (Coluna COINS)
                 if (this.currentUser && this.currentUser.username) {
-                    supabase.from('dito_users').update({ balance: currentCoins }).eq('username', this.currentUser.username).then(() => {
-                        console.log('✅ Saldo de check-in sincronizado.');
+                    supabase.from('dito_users').update({ coins: currentCoins }).eq('username', this.currentUser.username).then(() => {
+                        console.log('✅ Cupons sincronizados com a nuvem.');
                     });
                 }
             }
@@ -8144,16 +8144,16 @@
         
         list.innerHTML = myP.map(p => `
             <div style="background:#fff; border:1px solid #eee; border-radius:24px; padding:16px; display:flex; align-items:center; gap:16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.02);">
-                <div style="width:60px; height:60px; background:#f9f9f9; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img src="${p.image || ''}" style="width:100%; height:100%; object-fit:cover;">
+                <div style="width:60px; height:60px; background:#f9f9f9; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden; border: 1px solid #f2f2f2;">
+                    <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width:100%; height:100%; object-fit:cover;">
                 </div>
                 <div style="flex:1;">
                     <h4 style="font-weight:950; font-size:14px; color: #000; margin-bottom: 2px;">${p.name}</h4>
-                    <p style="font-size:10px; color:#999; font-weight: 700;">${p.category || 'Infoproduto'} • R$ ${parseFloat(p.price).toFixed(2)}</p>
+                    <p style="font-size:10px; color:#999; font-weight: 700;">${p.type || 'Infoproduto'} • R$ ${parseFloat(p.price || 0).toFixed(2)}</p>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button onclick="app.editProduct('${String(p.id)}')" title="Editar" style="width:40px; height:40px; background:#f5faff; color:#0e7490; border:none; border-radius:12px; cursor:pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="edit-3" style="width:18px;"></i></button>
-                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" title="Excluir" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:12px; cursor:pointer; display: flex; align-items: center; justify-content: center;"><i data-lucide="trash-2" style="width:18px;"></i></button>
+                    <button onclick="app.editProduct('${String(p.id)}')" title="Editar" style="width:40px; height:40px; background:#f5f5f5; color:#000; border:none; border-radius:50%; cursor:pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;" onmouseover="this.style.background='#eee'" onmouseout="this.style.background='#f5f5f5'"><i data-lucide="edit-3" style="width:18px;"></i></button>
+                    <button onclick="app.deleteProduct('${String(p.id)}', '${(p.name || '').replace(/'/g, "\\'")}')" title="Excluir" style="width:40px; height:40px; background:#fee2e2; color:#ef4444; border:none; border-radius:50%; cursor:pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'"><i data-lucide="trash-2" style="width:18px;"></i></button>
                 </div>
             </div>`).join('');
             
