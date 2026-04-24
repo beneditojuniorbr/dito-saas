@@ -2763,12 +2763,8 @@
                     this.safeLocalStorageSet('dito_last_p_hash', currentHash);
                 }
             } catch (err) {
-                console.warn("⚠️ [REDE] Mercado offline. Usando cache local.");
-                const cached = localStorage.getItem('dito_products_vanilla');
-                if (cached) {
-                    this.products = JSON.parse(cached);
-                    if (this.currentView === 'mercado' && this.marketView === 'home') this.renderStore();
-                }
+                console.warn("⚠️ [REDE] Falha ao sincronizar mercado com a nuvem:", err);
+                // Não usamos mais cache local para evitar dados desencontrados entre PC e Celular
             }
         },
 
