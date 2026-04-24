@@ -958,34 +958,46 @@
                         <i data-lucide="chevron-left" style="width: 20px; color: #000;"></i>
                     </button>
 
-                    <div style="width: 70px; height: 70px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
-                        <i data-lucide="qr-code" style="width: 34px; stroke: url(#dito-gradient);"></i>
+                    <div style="width: 60px; height: 60px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i data-lucide="qr-code" style="width: 30px; color: #22c55e;"></i>
                     </div>
-                    <h3 style="font-weight: 950; font-size: 22px; margin-bottom: 8px; letter-spacing: -1px;">Pix Gerado!</h3>
-                    <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 32px;">Total a pagar: <span style="font-weight: 900; color: #000;">R$ ${amount.toFixed(2)}</span></p>
                     
-                    <div style="background: #f8f8f8; padding: 24px; border-radius: 24px; margin-bottom: 24px; border: 1px dashed #ddd;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}" style="width: 180px; height: 180px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                        <input id="pix-copy-input" readonly value="${qrCode}" style="width: 100%; padding: 14px; border: 1px solid #eee; border-radius: 14px; font-family: monospace; font-size: 11px; color: #666; background: #fff; text-align: center; margin-bottom: 16px;">
-                        <button onclick="app.copyPixCode()" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 50px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                            <i data-lucide="copy" style="width: 18px;"></i> COPIAR PIX
+                    <h3 style="font-weight: 950; font-size: 20px; margin-bottom: 4px; letter-spacing: -1px;">Finalize seu Pix</h3>
+                    <div style="display: inline-flex; align-items: center; gap: 6px; background: #fffbeb; padding: 4px 12px; border-radius: 50px; margin-bottom: 24px; border: 1px solid #fef3c7;">
+                        <div style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%;" class="animate-pulse"></div>
+                        <span style="font-size: 10px; font-weight: 900; color: #b45309; text-transform: uppercase;">Aguardando Pagamento • 29:59</span>
+                    </div>
+
+                    <p style="font-size: 14px; font-weight: 800; color: #000; margin-bottom: 24px;">Total: <span style="font-weight: 900; color: #22c55e;">R$ ${amount.toFixed(2)}</span></p>
+                    
+                    <div style="background: #fff; padding: 24px; border-radius: 28px; margin-bottom: 24px; border: 2px solid #f8f9fa; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}" style="width: 180px; height: 180px; margin: 0 auto 20px; border-radius: 16px; display: block;">
+                        
+                        <div style="text-align: left; margin-bottom: 8px; padding-left: 4px;">
+                            <span style="font-size: 10px; font-weight: 950; color: #999; text-transform: uppercase; letter-spacing: 1px;">Pix Copia e Cola</span>
+                        </div>
+                        <div style="position: relative; margin-bottom: 16px;">
+                            <input id="pix-copy-input" readonly value="${qrCode}" style="width: 100%; height: 50px; border: 1px solid #eee; border-radius: 12px; font-family: monospace; font-size: 11px; color: #000; background: #fafafa; padding: 0 16px; overflow: hidden; text-overflow: ellipsis;">
+                        </div>
+
+                        <button onclick="app.copyPixCode()" style="width: 100%; height: 56px; background: #000; color: #fff; border: none; border-radius: 16px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            <i data-lucide="copy" style="width: 18px;"></i> COPIAR CÓDIGO PIX
                         </button>
                     </div>
 
-                    <p style="font-size: 11px; color: #999; font-weight: 700; line-height: 1.6;">O acesso aos seus produtos é liberado **automaticamente** após a confirmação do pagamento pelo Mercado Pago.</p>
+                    <p style="font-size: 11px; color: #666; font-weight: 600; line-height: 1.6; margin-bottom: 20px;">Abra o app do seu banco e escolha a opção <b>Pagar com Pix</b> para concluir.</p>
                     
-                    <button onclick="app.verifyPaymentDirectly('${paymentId}')" style="margin-top: 16px; background: #fff; color: #000; border: 2px solid #eee; padding: 12px 24px; border-radius: 50px; font-size: 12px; font-weight: 900; cursor: pointer; width: 100%; transition: 0.3s;" onmouseover="this.style.borderColor='#000'" onmouseout="this.style.borderColor='#eee'">
-                        JÁ PAGUEI, LIBERAR ACESSO
+                    <button onclick="app.verifyPaymentDirectly('${paymentId}')" style="background: #fff; color: #000; border: 1px solid #ddd; padding: 14px; border-radius: 16px; font-size: 12px; font-weight: 900; cursor: pointer; width: 100%; transition: 0.3s;" onmouseover="this.style.background='#f9f9f9'">
+                        VERIFICAR PAGAMENTO AGORA
                     </button>
 
-                    ${(this.currentUser && this.currentUser.username === 'Ditão') ? `
-                        <div style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 15px;">
-                            <p style="font-size: 10px; color: #ff005c; font-weight: 950; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">⚙️ Painel de Testes (DITÃO)</p>
-                            <button onclick="app.finalizeSuccessfulPurchase()" style="background: #ff005c; color: #fff; border: none; padding: 12px 20px; border-radius: 12px; font-size: 11px; font-weight: 950; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(255,0,92,0.2); transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                                <i data-lucide="zap" style="width: 14px;"></i> SIMULAR PAGAMENTO (COMPRA TESTE)
-                            </button>
-                        </div>
-                    ` : ''}
+                    <!-- PAINEL DE TESTE (SIMULAÇÃO) -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px dashed #eee;">
+                        <p style="font-size: 10px; color: #ff005c; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">🛠️ Modo Desenvolvedor</p>
+                        <button onclick="app.finalizeSuccessfulPurchase()" style="width: 100%; height: 48px; background: #ff005c; color: #fff; border: none; border-radius: 12px; font-size: 11px; font-weight: 950; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(255,0,92,0.2);">
+                            <i data-lucide="zap" style="width: 14px;"></i> SIMULAR APROVAÇÃO PIX
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -3499,9 +3511,15 @@
                 if (pixActions) pixActions.style.display = 'none';
                 if (ppContainer) {
                     ppContainer.style.display = 'block';
-                    ppContainer.innerHTML = ''; // Limpa anterior
-                    const total = this.recalculateCheckoutTotal();
-                    this.initPayPalOfficialButton(total.toFixed(2), 'cart');
+                    ppContainer.innerHTML = `
+                        <div style="padding: 20px; background: #fafafa; border-radius: 20px; border: 1px dashed #ddd; text-align: center;">
+                            <p style="font-size: 10px; color: #ff005c; font-weight: 950; text-transform: uppercase; margin-bottom: 12px;">🛠️ Modo Desenvolvedor</p>
+                            <button onclick="app.finalizeSuccessfulPurchase()" style="width: 100%; height: 56px; background: #ff005c; color: #fff; border: none; border-radius: 16px; font-weight: 950; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 20px rgba(255,0,92,0.1);">
+                                <i data-lucide="credit-card" style="width: 18px;"></i> SIMULAR APROVAÇÃO CARTÃO
+                            </button>
+                            <p style="font-size: 10px; color: #999; margin-top: 12px; font-weight: 700;">Simula uma aprovação instantânea via Cartão/PayPal.</p>
+                        </div>
+                    `;
                 }
                 if (statusMsg) statusMsg.innerHTML = `<i data-lucide="credit-card" style="width: 32px; color: #0487ff; margin-bottom: 12px;"></i><p style="font-size: 11px; font-weight: 800; color: #999; line-height: 1.4;">Finalize seu pagamento com segurança usando seu cartão via PayPal.</p>`;
             }
