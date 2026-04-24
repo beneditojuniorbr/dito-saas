@@ -85,16 +85,27 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        // Resolve imagens para renderização com Placeholders Premium
+        // Resolve imagens para renderização com Placeholders Premium (SVG Seguro)
         rGetPImage(img, name = "D", type = "Curso") {
             if (!img || img === 'stripped_for_cache' || img === 'null' || img === '' || img === 'default_product.png') {
-                let color1 = "#000", color2 = "#333";
+                const initial = (name || "D").charAt(0).toUpperCase();
                 
-                if (type === 'Ebook') { color1 = "#0ea5e9"; color2 = "#2563eb"; }
-                else if (type === 'Mentoria') { color1 = "#ff005c"; color2 = "#7000ff"; }
-                else if (type === 'Curso') { color1 = "#10b981"; color2 = "#059669"; }
-
-                return `https://ui-avatars.com/api/?name=${encodeURIComponent(name[0])}&background=${color1.replace('#','')}&color=fff&size=512&bold=true&format=svg`;
+                // Geramos um SVG dinâmico com o degradê do Dito (Vermelho para Azul)
+                // Isso evita erros de CORS e funciona offline.
+                const svg = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+                        <defs>
+                            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ff005c;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#0094ff;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <rect width="512" height="512" fill="url(#grad)" />
+                        <text x="50%" y="55%" font-family="Arial, sans-serif" font-weight="900" font-size="240" fill="white" text-anchor="middle" dominant-baseline="middle">${initial}</text>
+                    </svg>
+                `.trim();
+                
+                return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
             }
             return img;
         },

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dito-v6-sync';
+const CACHE_NAME = 'dito-v7-sync';
 const ASSETS_TO_CACHE = [
   '/',
   'index.html',
