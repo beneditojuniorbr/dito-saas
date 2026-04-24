@@ -85,23 +85,32 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        // Resolve imagens para renderização com Placeholders Premium (SVG Seguro)
+        // Resolve imagens para renderização com Placeholders Premium (Minimalista)
         rGetPImage(img, name = "D", type = "Curso") {
             if (!img || img === 'stripped_for_cache' || img === 'null' || img === '' || img === 'default_product.png') {
-                const initial = (name || "D").charAt(0).toUpperCase();
+                let iconPath = "";
                 
-                // Geramos um SVG dinâmico com o degradê do Dito (Vermelho para Azul)
-                // Isso evita erros de CORS e funciona offline.
+                // Escolhe o ícone baseado no tipo
+                if (type === 'Ebook') {
+                    iconPath = `<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />`;
+                } else if (type === 'Mentoria') {
+                    iconPath = `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`;
+                } else { // Curso
+                    iconPath = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+                }
+
                 const svg = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <defs>
                             <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" style="stop-color:#ff005c;stop-opacity:1" />
                                 <stop offset="100%" style="stop-color:#0094ff;stop-opacity:1" />
                             </linearGradient>
                         </defs>
-                        <rect width="512" height="512" fill="url(#grad)" />
-                        <text x="50%" y="55%" font-family="Arial, sans-serif" font-weight="900" font-size="240" fill="white" text-anchor="middle" dominant-baseline="middle">${initial}</text>
+                        <rect x="0" y="0" width="24" height="24" fill="#ffffff" />
+                        <g stroke="url(#grad)" transform="translate(4, 4) scale(0.65)">
+                            ${iconPath}
+                        </g>
                     </svg>
                 `.trim();
                 
