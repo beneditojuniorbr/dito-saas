@@ -2939,23 +2939,28 @@
                 if (isMentoria) {
                     if (hasAccess) {
                         actionsContainer.innerHTML = `
-                            <button onclick="app.accessLiveDirectly('${p.id}')" style="flex: 1; height: 64px; background: #10b981; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
+                            <button onclick="app.accessLiveDirectly('${p.id}')" style="width: 100%; height: 60px; background: #10b981; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(16,185,129,0.3);">
                                 <i data-lucide="check-circle" style="width: 20px;"></i>
                                 ENTRAR NA MENTORIA
                             </button>
                         `;
                     } else if (isSoldOut) {
                         actionsContainer.innerHTML = `
-                            <button disabled style="flex: 1; height: 64px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <button disabled style="width: 100%; height: 60px; background: #ccc; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 10px;">
                                 <i data-lucide="x-circle" style="width: 20px;"></i>
                                 VAGAS ESGOTADAS
                             </button>
                         `;
                     } else {
+                        actionsContainer.style.flexDirection = 'column';
+                        actionsContainer.style.gap = '10px';
+                        
                         actionsContainer.innerHTML = `
-                            <button onclick="app.buyNowFromDetail('${p.id}')" style="flex: 1; height: 64px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
-                                <i data-lucide="zap" style="width: 20px;"></i>
-                                COMPRAR INGRESSO POR R$ ${p.price.toFixed(2)}
+                            <button onclick="app.addToCartFromDetail()" style="width: 100%; height: 60px; background: #fff; color: #000; border: 1.5px solid #eee; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <i data-lucide="shopping-bag" style="width: 20px;"></i> ADICIONAR À SACOLA
+                            </button>
+                            <button onclick="app.buyNowFromDetail()" style="width: 100%; height: 60px; background: #000; color: #fff; border: none; border-radius: 100px; font-size: 13px; font-weight: 900; letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+                                <i data-lucide="zap" style="width: 20px;"></i> COMPRAR INGRESSO AGORA
                             </button>
                         `;
                     }
