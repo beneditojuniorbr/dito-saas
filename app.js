@@ -85,23 +85,22 @@
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        // Resolve imagens para renderização (Lida com stripping de memória)
-        rGetPImage(img, name = "D") {
+        // Resolve imagens para renderização com Placeholders Premium
+        rGetPImage(img, name = "D", type = "Curso") {
             if (!img || img === 'stripped_for_cache' || img === 'null' || img === '' || img === 'default_product.png') {
-                const officialDitoImg = "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop";
-                if (name && name.length < 15) {
-                    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=128&bold=true`;
-                }
-                return officialDitoImg;
+                let color1 = "#000", color2 = "#333";
+                
+                if (type === 'Ebook') { color1 = "#0ea5e9"; color2 = "#2563eb"; }
+                else if (type === 'Mentoria') { color1 = "#ff005c"; color2 = "#7000ff"; }
+                else if (type === 'Curso') { color1 = "#10b981"; color2 = "#059669"; }
+
+                return `https://ui-avatars.com/api/?name=${encodeURIComponent(name[0])}&background=${color1.replace('#','')}&color=fff&size=512&bold=true&format=svg`;
             }
             return img;
         },
 
         rGetMentoriaBg(img) {
-            if (!img || img === "" || img === "null") {
-                return 'linear-gradient(135deg, #ff0045 0%, #0094ff 100%)';
-            }
-            return `url(${img})`;
+            return `linear-gradient(white, white) padding-box, linear-gradient(45deg, #ff005c, #7000ff) border-box`;
         },
 
         // Helper para salvar no localStorage com segurança (evita QuotaExceeded e otimiza imagens)
@@ -7652,9 +7651,9 @@
                 liveWrapper.style.display = activeLives.length > 0 ? 'block' : 'none';
                 liveContainer.innerHTML = activeLives.map(p => `
                     <div onclick="app.viewProduct('${p.id}')" style="display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; width: 72px;">
-                        <div style="width: 72px; height: 72px; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3);">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #7000ff); display: flex; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3);">
                             <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                                <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                                <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </div>
                         <span style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; line-height: 1.2;">${p.name}</span>
@@ -7669,17 +7668,16 @@
                 hWrapper.style.display = arrival.length > 0 ? 'block' : 'none';
                 hContainer.innerHTML = arrival.map(p => {
                     const isMentoria = p.type === 'Mentoria';
-                    const hasImage = p.image && p.image !== "" && p.image !== "null";
                     const imgContainer = isMentoria ? `
-                        <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible; flex-shrink: 0;">
+                        <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #7000ff); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible; flex-shrink: 0;">
                             <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
-                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: ${hasImage ? '#fff' : this.rGetMentoriaBg(null)}; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; background-size: cover; background-position: center;">
-                                ${hasImage ? `<img src="${p.image}" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
+                            <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; background-size: cover; background-position: center;">
+                                <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </div>
                     ` : `
                         <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden; flex-shrink: 0;">
-                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     `;
                     
@@ -7694,7 +7692,7 @@
                             ${p.hasLimit && (p.stockLimit - (p.sales || 0)) <= 10 ? `
                                 <div style="position: absolute; top: 8px; right: 8px; background: #ff005c; color: #fff; font-size: 8px; font-weight: 950; padding: 4px 8px; border-radius: 4px; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">ÚLTIMAS ${(p.stockLimit - (p.sales || 0))}</div>
                             ` : ''}
-                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         `}
                         
@@ -7722,15 +7720,15 @@
             feed.innerHTML = all.map(p => {
                 const isMentoria = p.type === 'Mentoria';
                 const imgContainer = isMentoria ? `
-                    <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #ff3366); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible;">
+                    <div style="aspect-ratio: 1; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #ff005c, #7000ff); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; position: relative; box-shadow: 0 4px 15px rgba(255,0,92,0.3); overflow: visible;">
                         <span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #ff005c; color: white; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 6px; border: 2px solid #fff; letter-spacing: 1px; z-index: 2;">AO VIVO</span>
                         <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center;">
-                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     </div>
                 ` : `
                     <div style="aspect-ratio: 1; background: #f9f9f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; overflow: hidden;">
-                        <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                 `;
 
@@ -7745,7 +7743,7 @@
                             ${p.hasLimit && (p.stockLimit - (p.sales || 0)) <= 15 ? `
                                 <div style="position: absolute; top: 12px; right: 12px; background: #ff005c; color: #fff; font-size: 8px; font-weight: 950; padding: 4px 10px; border-radius: 6px; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">RESTAM ${(p.stockLimit - (p.sales || 0))}</div>
                             ` : ''}
-                            <img src="${this.rGetPImage(p.image, p.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img src="${this.rGetPImage(p.image, p.name, p.type)}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                     `}
                     
