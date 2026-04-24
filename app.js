@@ -1060,26 +1060,49 @@
             if (this.paymentPollingTimer) clearInterval(this.paymentPollingTimer);
             this.showLoading(false);
             
-            // Fecha modal
-            const modalContainer = document.getElementById('modal-container');
-            if (modalContainer) {
-                modalContainer.style.display = 'none';
-                modalContainer.classList.remove('active');
-            }
-
-            // Notificação de sucesso premium
-            this.showNotification('🎉 PAGAMENTO APROVADO! Seu acesso foi liberado.', 'success');
-            
-            // Som de sucesso se possível
+            // 1. Som de Vitória (Opcional mas Premium)
             try { new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3').play(); } catch(e){}
 
-            // Recarrega os dados do usuário para mostrar o novo produto
-            this.fetchUserData(); 
+            // 2. Limpa e mostra a Tela de Sucesso no Modal
+            const modalBody = document.getElementById('modal-body');
+            if (modalBody) {
+                modalBody.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                        <div style="width: 80px; height: 80px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; box-shadow: 0 10px 20px rgba(34,197,94,0.3);">
+                            <i data-lucide="check" style="width: 40px; color: #fff; stroke-width: 3;"></i>
+                        </div>
+                        <h2 style="font-size: 24px; font-weight: 950; color: #000; margin-bottom: 8px; letter-spacing: -1px;">Pagamento Efetuado!</h2>
+                        <p style="font-size: 14px; color: #666; font-weight: 700; line-height: 1.5; margin-bottom: 32px;">Seu acesso foi liberado com sucesso. <br> Estamos preparando seu conteúdo...</p>
+                        
+                        <div style="width: 100%; height: 6px; background: #f0f0f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px;">
+                            <div style="width: 0%; height: 100%; background: #22c55e; transition: width 2s linear;" id="success-progress"></div>
+                        </div>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+                
+                // Animação da barrinha de progresso
+                setTimeout(() => {
+                    const bar = document.getElementById('success-progress');
+                    if (bar) bar.style.width = '100%';
+                }, 50);
+            }
+
+            // 3. Notificação global
+            this.showNotification('🎉 Sucesso! Produto liberado.', 'success');
             
-            // Redireciona para os cursos
+            // 4. Força atualização dos dados do usuário (Sincronia Global)
+            this.fetchUserCloudState(); 
+            
+            // 5. Redireciona após 2.5 segundos de "comemoração"
             setTimeout(() => {
-                this.navigate('cursos');
-            }, 2000);
+                const modalContainer = document.getElementById('modal-container');
+                if (modalContainer) {
+                    modalContainer.style.display = 'none';
+                    modalContainer.classList.remove('active');
+                }
+                this.navigate('meus-cursos');
+            }, 2500);
         },
 
         closeModal(e) {
@@ -8620,15 +8643,13 @@
                 // 3. Sincroniza Compras/Acessos
                 if (data.purchases) {
                     const cloudPurchases = typeof data.purchases === 'string' ? JSON.parse(data.purchases) : data.purchases;
-                    const myItems = cloudPurchases.filter(p => !p.type || p.type !== 'sale');
                     
-                    if (myItems.length > 0) {
-                        this.purchasedProducts = myItems;
+                    if (Array.isArray(cloudPurchases) && cloudPurchases.length > 0) {
+                        this.purchasedProducts = cloudPurchases;
                         localStorage.setItem(`dito_purchased_products_${key}`, JSON.stringify(this.purchasedProducts));
                         
-                        if (this.currentView === 'meus-cursos') {
-                            this.renderPurchasedProducts();
-                        }
+                        // Atualiza a tela se o usuário estiver nos cursos
+                        this.renderPurchasedProducts();
                     }
                 }
                 
