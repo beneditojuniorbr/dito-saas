@@ -1008,6 +1008,78 @@
             modalContainer.classList.add('active'); // CSS hook
             
             if (window.lucide) lucide.createIcons();
+
+            // Inicia o vigilante de pagamento automático
+            if (paymentId) {
+                this.startPaymentPolling(paymentId);
+            }
+        },
+
+        startPaymentPolling(paymentId) {
+            console.log(`📡 [Vigilante] Monitorando pagamento: ${paymentId}`);
+            
+            // Limpa qualquer timer anterior para evitar duplicidade
+            if (this.paymentPollingTimer) clearInterval(this.paymentPollingTimer);
+            
+            this.paymentPollingTimer = setInterval(async () => {
+                await this.verifyPaymentDirectly(paymentId, true);
+            }, 5000); // Verifica a cada 5 segundos
+        },
+
+        async verifyPaymentDirectly(paymentId, isSilent = false) {
+            try {
+                if (!isSilent) this.showLoading(true, 'Verificando com o banco...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/mercado-pago-bridge?action=check-status&id=${paymentId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'approved') {
+                    console.log("✅ [Pagamento] APROVADO via Polling!");
+                    clearInterval(this.paymentPollingTimer);
+                    this.finalizeSuccessfulPurchase();
+                } else if (!isSilent) {
+                    this.showLoading(false);
+                    this.showNotification('Pagamento ainda não detectado. Tente em instantes.', 'info');
+                }
+            } catch (e) {
+                console.error("❌ [Vigilante] Erro na verificação:", e);
+                if (!isSilent) {
+                    this.showLoading(false);
+                    this.showNotification('Erro ao conectar ao servidor de pagamentos.', 'error');
+                }
+            }
+        },
+
+        finalizeSuccessfulPurchase() {
+            if (this.paymentPollingTimer) clearInterval(this.paymentPollingTimer);
+            this.showLoading(false);
+            
+            // Fecha modal
+            const modalContainer = document.getElementById('modal-container');
+            if (modalContainer) {
+                modalContainer.style.display = 'none';
+                modalContainer.classList.remove('active');
+            }
+
+            // Notificação de sucesso premium
+            this.showNotification('🎉 PAGAMENTO APROVADO! Seu acesso foi liberado.', 'success');
+            
+            // Som de sucesso se possível
+            try { new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3').play(); } catch(e){}
+
+            // Recarrega os dados do usuário para mostrar o novo produto
+            this.fetchUserData(); 
+            
+            // Redireciona para os cursos
+            setTimeout(() => {
+                this.navigate('cursos');
+            }, 2000);
         },
 
         closeModal(e) {
