@@ -7266,30 +7266,6 @@
                         </button>
                     `}
                     `;
-                // 2. SINCRONIZAÇÃO MANDATÓRIA COM A NUVEM
-                if (supabase) {
-                    const { error } = await supabase.from('dito_market_products').upsert({
-                        id: product.id,
-                        name: product.name,
-                        description: product.description,
-                        price: Number(product.price),
-                        type: product.type,
-                        seller: this.currentUser?.username || "Ditão",
-                        author: this.currentUser?.username || "Ditão",
-                        created_at: new Date().toISOString()
-                    });
-                    
-                    if (error) {
-                        console.error("❌ Erro ao subir produto para a nuvem:", error);
-                        this.showNotification("Erro ao sincronizar com a rede!", "error");
-                        return; // Aborta se não sincronizar
-                    }
-                }
-
-                this.products.unshift(product);
-                this.showNotification("Produto criado e sincronizado!", "success");
-                this.navigate('dashboard', 'up');
-                this.fetchNetworkProducts(true); // Força atualização imediata
                 container.appendChild(controls);
             } else {
                 // Versão Participante
