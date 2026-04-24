@@ -390,17 +390,21 @@
                         .subscribe();
 
                     // 2. Radar de Usuários (Sincronia de Perfis e Online)
+                    this.lastProfileSync = 0;
                     supabase
                         .channel('public:dito_users')
                         .on('postgres_changes', { 
-                            event: '*', // Escuta INSERT e UPDATE (Entradas e mudanças de perfil)
+                            event: '*', 
                             schema: 'public', 
                             table: 'dito_users' 
                         }, payload => {
+                            const now = Date.now();
+                            if (now - this.lastProfileSync < 5000) return; // Trava de segurança (5 segundos)
+                            this.lastProfileSync = now;
+
                             console.log('👤 Mudança de perfil detectada na rede!');
                             this.fetchNetworkUsers(); 
                             
-                            // Se a mudança for no MEU usuário (vinda de outro dispositivo), sincroniza na hora
                             if (this.currentUser && payload.new && payload.new.username === this.currentUser.username) {
                                 console.log('🔄 Sincronizando estado global do usuário via Realtime...');
                                 this.fetchUserCloudState();
@@ -2740,7 +2744,8 @@
                     // 2. Mirroring: Transformamos o dado da rede na nossa base real
                     const synchronized = data.map(net => {
                         const contentData = net.content ? (typeof net.content === 'string' ? JSON.parse(net.content) : net.content) : null;
-                        return { ...net, price: Number(net.price), content: contentData };
+                        // Força o ID a ser string para evitar problemas de tipos diferentes entre PC e Celular
+                        return { ...net, id: String(net.id), price: Number(net.price), content: contentData };
                     });
 
                     // 3. Atualizamos a memória e o storage local
@@ -8200,13 +8205,15 @@
             })
             .subscribe();
 
-        // 3. MONITORAMENTO DE PRODUTOS REAL-TIME (Para Mentor/Live Link)
-        supabase.channel('products-sync')
+        // 3. MONITORAMENTO DE PRODUTOS REAL-TIME (Sincronia Universal)
+        supabase.channel('universal-market-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'dito_market_products' }, payload => {
-                console.log("♻️ [RealTime] Produto atualizado na rede:", payload);
+                console.log("🚀 [RealTime] Novo produto detectado na rede! Atualizando mercado...");
                 this.fetchNetworkProducts(true);
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log("📡 [RealTime] Status da Sincronia de Mercado:", status);
+            });
 
 
         // Escuta novas MENSAGENS DE CHAT (Sistema mais resiliente sem filtros pesados)
